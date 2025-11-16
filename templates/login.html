@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Login | Employee Portal</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    /* small extra polish */
+    .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(6px); }
+  </style>
+</head>
+<body class="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex items-center justify-center">
+  <div class="glass shadow-2xl rounded-2xl p-10 w-full max-w-md transform transition duration-500 hover:scale-[1.01]">
+    <div class="text-center mb-6">
+      <div class="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-sky-400 flex items-center justify-center text-white text-2xl font-extrabold animate-pulse">
+        EP
+      </div>
+      <h1 class="mt-4 text-2xl font-bold text-blue-800">Employee Portal</h1>
+      <p class="text-gray-500 mt-1">Sign in to continue</p>
+    </div>
+
+    <form method="post" action="/login" class="space-y-5">
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Employee ID</label>
+        <input name="username" required
+               class="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
+               placeholder="e.g. EMP001"/>
+      </div>
+
+      <div>
+        <label class="block text-gray-700 text-sm mb-1">Password</label>
+        <input name="password" type="password" required
+               class="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
+               placeholder="••••••"/>
+      </div>
+
+      {% if error %}
+      <p class="text-red-500 text-sm text-center">{{ error }}</p>
+      {% endif %}
+
+      <button type="submit" class="w-full py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
+        Sign in
+      </button>
+    </form>
+
+    <p class="text-center text-gray-500 text-sm mt-6">© {{ current_year }} Employee Portal</p>
+  </div>
+</body>
+</html>
