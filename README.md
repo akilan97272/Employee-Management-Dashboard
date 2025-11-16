@@ -114,16 +114,6 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## Default Credentials
-
-> **Change these in production!**
-
-* **Super Admin**
-
-  * Username: `sudoadmin`
-  * Password: `passcode@1234`
-
----
 
 ## Usage
 
