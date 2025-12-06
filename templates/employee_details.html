@@ -1,55 +1,40 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Employee Details</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>.glass { background: rgba(255,255,255,0.9); backdrop-filter: blur(6px); }</style>
-</head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex flex-col">
-  <nav class="glass sticky top-0 backdrop-blur-lg shadow py-4 px-6 flex justify-between items-center">
-    <h1 class="text-lg font-semibold text-blue-900">Employee Details</h1>
-    <a href="/admin" class="text-blue-600 font-medium">Back to Admin</a>
-  </nav>
+{% extends "layout_base.html" %}
+{% block title %}Employee Details — TeamSync{% endblock %}
+{% block sidebar %}{% include 'sidebar_admin.html' %}{% endblock %}
+{% block page_title %}Employee Details{% endblock %}
 
-  <main class="flex-1 p-8 container mx-auto">
-    <div class="max-w-md mx-auto glass rounded-2xl shadow-lg p-6">
-      {% if error %}
-      <p class="text-red-500 text-center">{{ error }}</p>
-      {% else %}
-      <div class="text-center">
-        <div class="w-24 h-24 mx-auto rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-4xl font-bold">{{ employee.name[0]|upper }}</div>
-        <h2 class="text-2xl font-semibold mt-4">{{ employee.name }}</h2>
-        <p class="text-sm text-gray-500">Employee ID: {{ employee.employee_id }}</p>
-      </div>
-
-      <div class="mt-6 space-y-3 text-gray-700">
-        <p><span class="font-medium text-gray-600">Email:</span> {{ employee.email }}</p>
-        <p><span class="font-medium text-gray-600">RFID:</span> {{ employee.rfid_tag }}</p>
-        <p><span class="font-medium text-gray-600">Role:</span> {{ employee.role }}</p>
-        <p><span class="font-medium text-gray-600">Department:</span> {{ employee.department }}</p>
-        <p><span class="font-medium text-gray-600">Total Time:</span> <strong id="totalHours">—</strong></p>
-      </div>
-      {% endif %}
+{% block content %}
+<div class="max-w-md mx-auto glass p-6">
+  {% if error %}
+    <p class="text-red-500">{{ error }}</p>
+  {% else %}
+    <div class="text-center mb-4">
+      <div class="w-20 h-20 mx-auto rounded-full bg-white/8 flex items-center justify-center text-3xl font-bold">{{ employee.name[0]|upper }}</div>
+      <h2 class="mt-3 text-xl font-semibold">{{ employee.name }}</h2>
+      <div class="muted text-sm">Employee ID: {{ employee.employee_id }}</div>
     </div>
-  </main>
 
-  <footer class="text-center py-4 text-gray-500 text-sm">© {{ current_year }} Admin Portal</footer>
+    <div class="space-y-2">
+      <p><strong>Email:</strong> {{ employee.email }}</p>
+      <p><strong>RFID:</strong> {{ employee.rfid_tag }}</p>
+      <p><strong>Role:</strong> {{ employee.role }}</p>
+      <p><strong>Department:</strong> {{ employee.department }}</p>
+      <p><strong>Total Time:</strong> <span id="totalHours">—</span></p>
+    </div>
+  {% endif %}
+</div>
 
-  <script>
-    // animate total hours
-    const total = {{ total_hours|default(0) }};
-    const el = document.getElementById('totalHours');
-    if (el) {
-      let cur = 0;
-      const step = Math.max(1, Math.floor(total/60));
-      const t = setInterval(()=> {
-        cur += step;
-        if (cur >= total) { el.textContent = total + ' hours'; clearInterval(t); }
-        else el.textContent = cur + ' hours';
-      }, 10);
-    }
-  </script>
-</body>
-</html>
+<script>
+  const total = {{ total_hours|default(0) }};
+  const el = document.getElementById('totalHours');
+  if (el) {
+    let cur = 0;
+    const step = Math.max(1, Math.floor(total/40));
+    const t = setInterval(()=> {
+      cur += step;
+      if (cur >= total) { el.textContent = total + ' hours'; clearInterval(t); }
+      else el.textContent = cur + ' hours';
+    }, 12);
+  }
+</script>
+{% endblock %}

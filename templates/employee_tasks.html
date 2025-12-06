@@ -1,0 +1,31 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
+{% block page_title %}Tasks{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <div class="glass p-6">
+    <h3 class="font-semibold mb-3">Add Task</h3>
+    <form method="post" action="/employee/tasks/add" class="space-y-2">
+      <input name="title" placeholder="Title" class="w-full glass p-2">
+      <textarea name="description" placeholder="Description" class="w-full glass p-2"></textarea>
+      <button class="glass px-4 py-2">Add Task</button>
+    </form>
+  </div>
+
+  <div class="glass p-6 space-y-2">
+    {% for t in tasks %}
+    <div class="glass p-3">
+      <div class="font-semibold">{{ t.title }}</div>
+      <div class="muted">{{ t.description }}</div>
+      <form method="post" action="/employee/tasks/delete">
+        <input type="hidden" name="id" value="{{ t.id }}">
+        <button class="text-red-400 mt-2">Delete</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

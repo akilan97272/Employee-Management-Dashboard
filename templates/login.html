@@ -3,48 +3,166 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Login | Employee Portal</title>
+  <title>Login | TeamSync</title>
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    /* small extra polish */
-    .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(6px); }
+    :root{
+      /* Light theme (glassy) */
+      --bg: linear-gradient(180deg,#eef2ff,#f8fafc);
+      --panel: rgba(255,255,255,0.10);
+      --glass-border: rgba(255,255,255,0.18);
+      --text: #021023;
+      --muted: rgba(2,16,35,0.55);
+      --accent: #06b6d4;
+      --glass-blur: 22px;
+      --shadow: 0 30px 70px rgba(2,6,23,0.12);
+      --placeholder: rgba(2,16,35,0.35);
+    }
+
+    /* GitHub-style dark theme */
+    [data-theme="dark"]{
+      --bg: linear-gradient(180deg,#0b1220,#071018); /* deep GitHub-like */
+      --panel: rgba(255,255,255,0.02);
+      --glass-border: rgba(255,255,255,0.04);
+      --text: #c9d1d9;
+      --muted: #8b949e;
+      --accent: #58a6ff;
+      --glass-blur: 12px;
+      --shadow: 0 30px 70px rgba(2,6,23,0.6);
+      --placeholder: rgba(201,209,217,0.25);
+    }
+
+    html,body{
+      height:100%; margin:0; font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto;
+      background: var(--bg); -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      display:flex; align-items:center; justify-content:center; padding:20px; color:var(--text);
+    }
+
+    .glass {
+      width:100%; max-width:460px; padding:32px; border-radius:14px;
+      background: var(--panel); border:1px solid var(--glass-border);
+      backdrop-filter: blur(var(--glass-blur)); box-shadow: var(--shadow);
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+    .glass:hover{ transform: translateY(-6px); }
+
+    h1{ margin:0; font-size:20px; font-weight:700; color:var(--text); }
+    .lead{ color:var(--muted); font-size:13px; margin-top:6px; }
+
+    label{ display:block; margin-bottom:6px; font-size:13px; color:var(--muted); }
+    input[type="text"], input[type="password"]{
+      width:100%; padding:12px 14px; border-radius:10px; outline:none;
+      border:1px solid var(--glass-border); background:transparent; color:var(--text);
+      font-size:14px; transition: box-shadow .12s ease, border-color .12s ease;
+    }
+    input::placeholder{ color: var(--placeholder); }
+
+    input:focus{ box-shadow: 0 6px 20px rgba(0,0,0,0.08); border-color: rgba(88,166,255,0.14); }
+
+    .accent-btn{
+      display:inline-block; width:100%; padding:12px; border-radius:10px; border:none;
+      font-weight:600; cursor:pointer; background: linear-gradient(90deg,var(--accent), #0ea5a4);
+      color: #022; text-align:center;
+    }
+
+    .muted { color: var(--muted); }
+
+    .brand {
+      width:56px; height:56px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+      color:white; font-weight:800; font-size:20px;
+      background: linear-gradient(90deg,#06b6d4,#0ea5a4);
+      margin:0 auto;
+    }
+
+    .themeBtn{
+      position:fixed; right:16px; top:16px; z-index:60; border-radius:10px; padding:8px 10px;
+      background:var(--panel); border:1px solid var(--glass-border); backdrop-filter: blur(8px);
+      display:flex; gap:8px; align-items:center; color:var(--muted); cursor:pointer;
+    }
+
+    .footer { text-align:center; margin-top:14px; color:var(--muted); font-size:12px; }
+
+    @media (max-width:520px){
+      .glass{ padding:20px; border-radius:12px; }
+      h1{ font-size:18px; }
+    }
   </style>
 </head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex items-center justify-center">
-  <div class="glass shadow-2xl rounded-2xl p-10 w-full max-w-md transform transition duration-500 hover:scale-[1.01]">
-    <div class="text-center mb-6">
-      <div class="mx-auto w-16 h-16 rounded-full bg-gradient-to-tr from-blue-500 to-sky-400 flex items-center justify-center text-white text-2xl font-extrabold animate-pulse">
-        EP
-      </div>
-      <h1 class="mt-4 text-2xl font-bold text-blue-800">Employee Portal</h1>
-      <p class="text-gray-500 mt-1">Sign in to continue</p>
+<body>
+
+  <button id="themeToggle" class="themeBtn" aria-label="Toggle theme">
+    <svg id="iconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" style="display:none">
+      <path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.4"></circle>
+    </svg>
+
+    <svg id="iconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" style="display:none">
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path>
+    </svg>
+
+    <span id="themeLabel" style="font-size:13px;color:var(--muted)">Theme</span>
+  </button>
+
+  <div class="glass" role="main" aria-labelledby="ts-title">
+    <div style="text-align:center; margin-bottom:16px;">
+      <div class="brand">TS</div>
+      <h1 id="ts-title" style="margin-top:12px">TeamSync</h1>
+      <div class="lead">Sign in to your workspace</div>
     </div>
 
-    <form method="post" action="/login" class="space-y-5">
+    <form method="post" action="/login" class="space-y-4" autocomplete="on">
       <div>
-        <label class="block text-gray-700 text-sm mb-1">Employee ID</label>
-        <input name="username" required
-               class="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
-               placeholder="e.g. EMP001"/>
+        <label for="username">Employee ID</label>
+        <input id="username" name="username" type="text" placeholder="EMP001" required autocomplete="username" />
       </div>
 
       <div>
-        <label class="block text-gray-700 text-sm mb-1">Password</label>
-        <input name="password" type="password" required
-               class="w-full border border-gray-200 rounded-lg p-3 focus:ring-2 focus:ring-blue-400 outline-none"
-               placeholder="••••••"/>
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" placeholder="••••••••" required autocomplete="current-password" />
       </div>
 
       {% if error %}
-      <p class="text-red-500 text-sm text-center">{{ error }}</p>
+        <p role="alert" style="color:#ff6b6b; text-align:center;">{{ error }}</p>
       {% endif %}
 
-      <button type="submit" class="w-full py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 transition">
-        Sign in
-      </button>
+      <button type="submit" class="accent-btn">Sign in</button>
     </form>
 
-    <p class="text-center text-gray-500 text-sm mt-6">© {{ current_year }} Employee Portal</p>
+    <p class="footer">© {{ current_year if current_year else '' }} TeamSync</p>
   </div>
+
+  <script>
+    // theme toggle + persistence using documentElement
+    (function(){
+      const root = document.documentElement;
+      const toggle = document.getElementById('themeToggle');
+      const iconSun = document.getElementById('iconSun');
+      const iconMoon = document.getElementById('iconMoon');
+      const label = document.getElementById('themeLabel');
+
+      function applyTheme(t){
+        root.setAttribute('data-theme', t);
+        if(t === 'dark'){
+          iconMoon.style.display = 'block';
+          iconSun.style.display = 'none';
+          label.textContent = 'Dark';
+        } else {
+          iconMoon.style.display = 'none';
+          iconSun.style.display = 'block';
+          label.textContent = 'Light';
+        }
+      }
+
+      let saved = localStorage.getItem('ts_theme') || 'light';
+      applyTheme(saved);
+
+      toggle.addEventListener('click', () => {
+        saved = saved === 'dark' ? 'light' : 'dark';
+        localStorage.setItem('ts_theme', saved);
+        applyTheme(saved);
+      });
+    })();
+  </script>
 </body>
 </html>
