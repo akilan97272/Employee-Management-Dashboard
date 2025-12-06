@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -296,3 +297,63 @@
 
 </body>
 </html>
+=======
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
+{% block page_title %}Command Center{% endblock %}
+
+{% block content %}
+
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+
+  {% for b in blocks %}
+  <div class="glass p-6 rounded-xl block-card cursor-pointer"
+       onclick="openModal('{{b.location}}','{{b.room_no}}','{{b.count}}')">
+
+    <h3 class="font-semibold">{{ b.location }}</h3>
+    <p class="muted">Room {{ b.room_no }}</p>
+
+    <div class="text-4xl mt-4 font-bold">{{ b.count }}</div>
+
+  </div>
+  {% endfor %}
+
+</div>
+
+<!-- Modal -->
+<div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center">
+  <div class="glass p-6 rounded-xl w-80">
+    <h3 id="modalTitle" class="font-semibold mb-3"></h3>
+    <div id="modalBody" class="space-y-1"></div>
+    <button onclick="closeModal()" class="mt-4 glass px-4 py-2">Close</button>
+  </div>
+</div>
+
+<script>
+function openModal(loc, room, count){
+  document.getElementById("modalTitle").innerHTML =
+    `${loc} — Room ${room} (${count})`;
+
+  fetch(`/api/block_persons?location=${loc}&room=${room}`)
+    .then(r=>r.json())
+    .then(data=>{
+      let body="";
+      if(data.persons.length === 0){
+        body = "<p class='muted'>No one currently inside.</p>";
+      } else {
+        data.persons.forEach(p=>{
+          body += `<div class='glass p-2'>${p.name}</div>`;
+        });
+      }
+      document.getElementById("modalBody").innerHTML = body;
+      document.getElementById("modal").classList.remove("hidden");
+    });
+}
+
+function closeModal(){
+  document.getElementById("modal").classList.add("hidden");
+}
+</script>
+
+{% endblock %}
+>>>>>>> workout

@@ -1,0 +1,47 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
+{% block page_title %}Manage Employees{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+  <div class="glass p-6">
+    <h3 class="font-semibold mb-3">Employees</h3>
+
+    {% for e in employees %}
+    <div class="glass p-3 flex justify-between items-center mb-2">
+      <div>
+        <p class="font-semibold">{{ e.name }}</p>
+        <p class="muted text-sm">{{ e.employee_id }} — {{ e.department }}</p>
+      </div>
+      <form method="post" action="/admin/remove_employee">
+        <input name="employee_id" type="hidden" value="{{ e.employee_id }}">
+        <button class="text-red-400">Remove</button>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="glass p-6">
+    <h3 class="font-semibold mb-3">Add Employee</h3>
+
+    <form method="post" action="/admin/add_employee" class="space-y-2">
+      <input name="name" placeholder="Name" class="glass p-2 w-full">
+      <input name="email" placeholder="Email" class="glass p-2 w-full">
+      <input name="rfid_tag" placeholder="RFID Tag" class="glass p-2 w-full">
+
+      <select name="role" class="glass p-2 w-full">
+        <option>employee</option>
+        <option>admin</option>
+      </select>
+
+      <select name="department" class="glass p-2 w-full">
+        <option>IT</option><option>HR</option><option>Finance</option>
+      </select>
+
+      <button class="glass px-4 py-2 mt-2 w-full">Add Employee</button>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

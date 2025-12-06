@@ -1,0 +1,14 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
+{% block page_title %}Attendance Records{% endblock %}
+
+{% block content %}
+<div class="glass p-6 space-y-3">
+  {% for a in recent %}
+  <div class="glass p-3">
+    <strong>{{ a.employee_id }}</strong> — {{ a.location_name }} / Room {{ a.room_no }}
+    <div class="muted text-sm">{{ a.entry_time }}{% if a.exit_time %} → {{ a.exit_time }}{% endif %}</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

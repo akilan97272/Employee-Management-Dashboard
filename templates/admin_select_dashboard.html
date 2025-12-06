@@ -1,0 +1,32 @@
+{% extends "layout_base.html" %}
+
+{% block title %}Choose Dashboard — TeamSync{% endblock %}
+
+{% block page_title %}
+Choose Your Dashboard
+{% endblock %}
+
+{% block page_subtitle %}
+Select where you want to go as an Admin
+{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+
+    <!-- Command Center -->
+    <a href="/admin" class="glass p-6 rounded-xl block-card cursor-pointer hover:scale-[1.02] transition">
+        <h2 class="text-xl font-semibold mb-2">TeamSync Command Center</h2>
+        <p class="muted text-sm">
+            Manage attendance, rooms, departments, payroll, and employee actions.
+        </p>
+    </a>
+
+    <!-- Workspace -->
+    <a href="/employee" class="glass p-6 rounded-xl block-card cursor-pointer hover:scale-[1.02] transition">
+        <h2 class="text-xl font-semibold mb-2">TeamSync Workspace</h2>
+        <p class="muted text-sm">
+            Access your personal dashboard — attendance, tasks, and payslips.
+        </p>
+    </a>
+</div>
+{% endblock %}

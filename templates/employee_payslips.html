@@ -1,0 +1,10 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
+{% block page_title %}Payslips{% endblock %}
+
+{% block content %}
+<div class="glass p-6 max-w-md">
+  <p>Total Hours: <strong>{{ total_hours }}</strong></p>
+  <p>Salary: <strong>₹ {{ salary }}</strong></p>
+</div>
+{% endblock %}

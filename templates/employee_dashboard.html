@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -73,3 +74,43 @@
   </script>
 </body>
 </html>
+=======
+{% extends "layout_base.html" %}
+{% block title %}Workspace{% endblock %}
+{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
+{% block page_title %}Welcome, {{ user.name }}{% endblock %}
+
+{% block content %}
+
+<div class="glass p-6 rounded-xl space-y-6">
+
+  <div class="flex items-center gap-4">
+    <div class="w-16 h-16 rounded-full glass flex items-center justify-center text-2xl">
+      {{ user.name[0] }}
+    </div>
+    <div>
+      <p class="text-xl font-semibold">{{ user.name }}</p>
+      <p class="muted text-sm">{{ user.employee_id }}</p>
+      <p class="muted text-sm">{{ user.department }}</p>
+    </div>
+  </div>
+
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div class="glass p-4">
+      <p class="muted text-sm">Total Hours</p>
+      <p class="text-2xl font-bold">{{ total_hours }}</p>
+    </div>
+    <div class="glass p-4">
+      <p class="muted text-sm">Tasks</p>
+      <p class="text-2xl font-bold">{{ tasks|length if tasks else 0 }}</p>
+    </div>
+    <div class="glass p-4">
+      <p class="muted text-sm">RFID</p>
+      <p class="text-xl">{{ user.rfid_tag }}</p>
+    </div>
+  </div>
+
+</div>
+
+{% endblock %}
+>>>>>>> workout

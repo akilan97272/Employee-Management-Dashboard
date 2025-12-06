@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -53,3 +54,45 @@
   </script>
 </body>
 </html>
+=======
+{% extends "layout_base.html" %}
+{% block title %}Employee Details — TeamSync{% endblock %}
+{% block sidebar %}{% include 'sidebar_admin.html' %}{% endblock %}
+{% block page_title %}Employee Details{% endblock %}
+
+{% block content %}
+<div class="max-w-md mx-auto glass p-6">
+  {% if error %}
+    <p class="text-red-500">{{ error }}</p>
+  {% else %}
+    <div class="text-center mb-4">
+      <div class="w-20 h-20 mx-auto rounded-full bg-white/8 flex items-center justify-center text-3xl font-bold">{{ employee.name[0]|upper }}</div>
+      <h2 class="mt-3 text-xl font-semibold">{{ employee.name }}</h2>
+      <div class="muted text-sm">Employee ID: {{ employee.employee_id }}</div>
+    </div>
+
+    <div class="space-y-2">
+      <p><strong>Email:</strong> {{ employee.email }}</p>
+      <p><strong>RFID:</strong> {{ employee.rfid_tag }}</p>
+      <p><strong>Role:</strong> {{ employee.role }}</p>
+      <p><strong>Department:</strong> {{ employee.department }}</p>
+      <p><strong>Total Time:</strong> <span id="totalHours">—</span></p>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  const total = {{ total_hours|default(0) }};
+  const el = document.getElementById('totalHours');
+  if (el) {
+    let cur = 0;
+    const step = Math.max(1, Math.floor(total/40));
+    const t = setInterval(()=> {
+      cur += step;
+      if (cur >= total) { el.textContent = total + ' hours'; clearInterval(t); }
+      else el.textContent = cur + ' hours';
+    }, 12);
+  }
+</script>
+{% endblock %}
+>>>>>>> workout

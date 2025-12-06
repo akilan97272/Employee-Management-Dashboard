@@ -1,0 +1,15 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
+{% block page_title %}Profile{% endblock %}
+
+{% block content %}
+<div class="glass p-6 max-w-md space-y-3">
+
+  <form method="post" action="/employee/profile/update">
+    <input name="name" class="w-full glass p-2" value="{{ user.name }}">
+    <input name="email" class="w-full glass p-2" value="{{ user.email }}">
+    <button class="glass px-4 py-2 mt-2">Update</button>
+  </form>
+
+</div>
+{% endblock %}
