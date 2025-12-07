@@ -1,14 +1,129 @@
 {% extends "layout_base.html" %}
 {% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
-{% block page_title %}Attendance Records{% endblock %}
+{% block page_title %}Attendance Overview{% endblock %}
 
 {% block content %}
-<div class="glass p-6 space-y-3">
-  {% for a in recent %}
-  <div class="glass p-3">
-    <strong>{{ a.employee_id }}</strong> — {{ a.location_name }} / Room {{ a.room_no }}
-    <div class="muted text-sm">{{ a.entry_time }}{% if a.exit_time %} → {{ a.exit_time }}{% endif %}</div>
+
+<div class="space-y-6">
+
+  <!-- TOP SUMMARY -->
+  <div class="grid grid-cols-3 gap-4">
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Present</p>
+      <p class="text-2xl font-bold text-cyan-400">{{ present_count }}</p>
+    </div>
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Absent</p>
+      <p class="text-xl font-bold text-red-400">{{ absent_count }}</p>
+    </div>
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Unknown RFID</p>
+      <p class="text-xl font-bold text-yellow-400">{{ unknown_rfids|length }}</p>
+    </div>
   </div>
-  {% endfor %}
+
+  <!-- ABSENTEE REPORT -->
+  <div class="glass p-6 rounded-xl">
+    <div class="flex justify-between items-center mb-4">
+      <h3 class="font-semibold">Absentee Report</h3>
+      <select id="departmentSelect" class="glass px-3 py-2 rounded-md">
+        <option value="IT">IT</option>
+        <option value="HR">HR</option>
+        <option value="Finance">Finance</option>
+      </select>
+    </div>
+
+    <ul id="absenteeList" class="space-y-2 text-sm"></ul>
+  </div>
+
+  <!-- LIVE ATTENDANCE TABLE -->
+  <div class="glass p-6 rounded-xl overflow-x-auto">
+    <h3 class="font-semibold mb-4">Present Employees</h3>
+    <table class="w-full text-sm">
+      <thead class="border-b">
+        <tr>
+          <th class="p-3 text-left">Name</th>
+          <th class="p-3 text-center">Department</th>
+          <th class="p-3 text-center">Room</th>
+          <th class="p-3 text-center">In Time</th>
+          <th class="p-3 text-right">Details</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in present %}
+        <tr class="border-b hover:bg-slate-700/20">
+          <td class="p-2">{{ e.name }}</td>
+          <td class="p-2 text-center">{{ e.department }}</td>
+          <td class="p-2 text-center">{{ e.room_no }}</td>
+          <td class="p-2 text-center">{{ e.entry_time.strftime("%H:%M") }}</td>
+          <td class="p-2 text-right">
+            <button class="text-cyan-400 hover:underline"
+                    onclick="showLogs('{{e.employee_id}}','{{e.name}}')">
+              View
+            </button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </div>
+
+<!-- MODAL -->
+<div id="logsModal"
+     class="fixed inset-0 bg-black/50 hidden items-center justify-center p-4">
+  <div class="glass p-6 rounded-xl w-full max-w-md">
+    <h3 id="modalTitle" class="font-semibold mb-3"></h3>
+    <ul id="modalBody" class="space-y-1 text-sm"></ul>
+    <button onclick="closeModal()" class="mt-4 glass px-4 py-2 rounded-md">
+      Close
+    </button>
+  </div>
+</div>
+
+<script>
+// Absentee fetch
+function loadAbsentees(){
+  let dept = document.getElementById("departmentSelect").value;
+  fetch(`/api/absentees?department=${dept}`)
+  .then(r=>r.json())
+  .then(data=>{
+    let ul = document.getElementById("absenteeList");
+    ul.innerHTML = "";
+    if(data.absentees.length === 0){
+      ul.innerHTML = "<li class='muted'>Everyone Present</li>";
+    } else {
+      data.absentees.forEach(a=>{
+        ul.innerHTML += `<li>🚫 ${a.name} (${a.employee_id})</li>`;
+      });
+    }
+  });
+}
+document.getElementById("departmentSelect").addEventListener("change", loadAbsentees);
+loadAbsentees();
+
+// Logs modal
+function showLogs(id, name){
+  document.getElementById("modalTitle").innerText = `${name} — Recent Logs`;
+
+  fetch(`/api/employee_logs?employee_id=${id}`)
+  .then(r=>r.json())
+  .then(data=>{
+    let body = document.getElementById("modalBody");
+    body.innerHTML = "";
+    if(data.logs.length === 0){
+      body.innerHTML = "<li class='muted'>No history available.</li>";
+    } else {
+      data.logs.forEach(l=>{
+        body.innerHTML += `<li>${l.in} to ${l.out} — Room ${l.room}</li>`;
+      });
+    }
+    document.getElementById("logsModal").classList.replace("hidden","flex");
+  });
+}
+function closeModal(){
+  document.getElementById("logsModal").classList.replace("flex","hidden");
+}
+</script>
+
 {% endblock %}

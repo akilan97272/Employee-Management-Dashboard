@@ -4,26 +4,15 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import SessionLocal, get_db, engine, Base
-from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department
+from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest
 from auth import authenticate_user, hash_password
 from sqlalchemy import func
 import random
 import string
 import datetime
 from typing import Optional
+from calendar import monthrange
 
-Base.metadata.create_all(bind=engine)
-
-from sqlalchemy import func
-import datetime
-import random
-import string
-
-from database import SessionLocal, get_db, engine, Base
-from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task
-from auth import authenticate_user, hash_password
-
-# Create all tables (including Task)
 Base.metadata.create_all(bind=engine)
 
 # FastAPI app
@@ -33,11 +22,6 @@ templates = Jinja2Templates(directory="templates")
 
 
 # Session middleware (simple in-memory for demo; use proper sessions in prod)
-from starlette.middleware.sessions import SessionMiddleware
-app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
-
-
-# SESSION MIDDLEWARE
 from starlette.middleware.sessions import SessionMiddleware
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
@@ -91,12 +75,6 @@ async def logout(request: Request):
     return RedirectResponse("/", status_code=303)
 
   
-@app.get("/employee", response_class=HTMLResponse)
-async def employee_dashboard(request: Request, user: User = Depends(get_current_user)):
-    if user.role not in ["employee", "admin"]:
-        raise HTTPException(status_code=403, detail="Access denied")
-    return templates.TemplateResponse("employee_dashboard.html", {"request": request, "user": user})
-
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if user.role != "admin":
@@ -199,6 +177,55 @@ async def remove_employee(request: Request, employee_id: str = Form(...), user: 
     db.delete(emp)
     db.commit()
     return {"status": "removed", "message": "Employee removed"}
+
+@app.post("/admin/update_employee")
+async def update_employee(
+    request: Request,
+    employee_id: str = Form(...),
+    name: str = Form(...),
+    email: str = Form(...),
+    department: str = Form(...),
+    role: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    emp = db.query(User).filter(User.employee_id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    emp.name = name
+    emp.email = email
+    emp.department = department
+    emp.role = role
+
+    db.commit()
+    return RedirectResponse("/admin/manage_employees", status_code=303)
+
+@app.post("/admin/update_salary")
+async def update_salary(
+    employee_id: str = Form(...),
+    basic_salary: float = Form(...),
+    allowances: float = Form(...),
+    deductions: float = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    emp = db.query(User).filter(User.employee_id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    
+    emp.basic_salary = basic_salary
+    emp.allowances = allowances
+    emp.deductions = deductions
+    db.commit()
+    
+    return RedirectResponse("/admin/payroll", status_code=303)
 
 @app.get("/admin/employee_details", response_class=HTMLResponse)
 async def employee_details(request: Request, employee_id: Optional[str] = None, name: Optional[str] = None,
@@ -303,6 +330,44 @@ async def get_absentees(department: str, db: Session = Depends(get_db)):
     absentees = [emp for emp in all_employees if emp.employee_id not in present_ids]
     return {"absentees": [{"name": emp.name, "employee_id": emp.employee_id} for emp in absentees]}
 
+@app.get("/api/employee_logs")
+async def employee_logs(employee_id: str, db: Session = Depends(get_db)):
+    logs = db.query(Attendance).filter(
+        Attendance.employee_id == employee_id
+    ).order_by(Attendance.entry_time.desc()).limit(10).all()
+
+    return {
+        "logs": [
+            {
+                "in": a.entry_time.strftime("%H:%M"),
+                "out": a.exit_time.strftime("%H:%M") if a.exit_time else "-",
+                "room": a.room_no,
+                "location": a.location_name
+            }
+            for a in logs
+        ]
+    }
+
+@app.get("/api/leave_count")
+async def leave_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    pending = db.query(LeaveRequest).filter(LeaveRequest.status == "Pending").count()
+    return {"count": pending}
+
+@app.get("/api/month-hours")
+async def month_hours(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    now = datetime.datetime.utcnow()
+    first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+
+    total = db.query(func.sum(Attendance.duration)).filter(
+        Attendance.employee_id == user.employee_id,
+        Attendance.entry_time >= first_day
+    ).scalar() or 0
+
+    return {"total_hours": round(total, 2)}
+
 @app.post("/admin/remove_room")
 async def remove_room(request: Request, room_id: str = Form(...), user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if user.role != "admin":
@@ -340,12 +405,16 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
         Attendance.employee_id == user.employee_id
     ).scalar() or 0
 
+    tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
+
     return templates.TemplateResponse(
         "employee_dashboard.html",
         {
             "request": request,
             "user": user,
             "total_hours": round(total_hours, 2),
+            "tasks": tasks,
+            "leave_balance": 0,
             "current_year": datetime.datetime.utcnow().year
         }
     )
@@ -363,16 +432,34 @@ async def employee_attendance_page(request: Request, user: User = Depends(get_cu
 
 
 @app.get("/employee/tasks", response_class=HTMLResponse)
-async def employee_tasks_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
+async def employee_tasks_page(request: Request,
+                              user: User = Depends(get_current_user),
+                              db: Session = Depends(get_db),
+                              filter: str = None):
+
+    task_query = db.query(Task).filter(Task.user_id == user.employee_id)
+
+    if filter in ["pending", "in-progress", "done"]:
+        task_query = task_query.filter(Task.status == filter)
+
+    tasks = task_query.order_by(Task.id.desc()).all()
+
+    pending = db.query(Task).filter(Task.user_id == user.employee_id, Task.status == "pending").count()
+    in_progress = db.query(Task).filter(Task.user_id == user.employee_id, Task.status == "in-progress").count()
+    done = db.query(Task).filter(Task.user_id == user.employee_id, Task.status == "done").count()
+
     return templates.TemplateResponse("employee_tasks.html",
-                                      {"request": request, "user": user, "tasks": tasks,
-                                       "current_year": datetime.datetime.utcnow().year})
+                                      {"request": request, "user": user,
+                                       "tasks": tasks,
+                                       "pending": pending,
+                                       "in_progress": in_progress,
+                                       "done": done})
 
 
 @app.post("/employee/tasks/add")
-async def employee_add_task(request: Request, title: str = Form(...), description: str = Form(""),
-                            user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def employee_add_task(title: str = Form(...), description: str = Form(""),
+                            user: User = Depends(get_current_user),
+                            db: Session = Depends(get_db)):
     new_task = Task(user_id=user.employee_id, title=title, description=description)
     db.add(new_task)
     db.commit()
@@ -381,16 +468,52 @@ async def employee_add_task(request: Request, title: str = Form(...), descriptio
 
 @app.post("/employee/tasks/update")
 async def update_task(task_id: int = Form(...), status: str = Form(...),
-                      user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-
+                      user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.employee_id).first()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
 
     task.status = status
     db.commit()
-
     return RedirectResponse("/employee/tasks", status_code=303)
+
+
+@app.post("/employee/tasks/delete")
+async def delete_task(task_id: int = Form(...),
+                      user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.employee_id).first()
+    if task:
+        db.delete(task)
+        db.commit()
+    return RedirectResponse("/employee/tasks", status_code=303)
+
+
+@app.get("/employee/leave", response_class=HTMLResponse)
+async def employee_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    leaves = db.query(LeaveRequest).filter(LeaveRequest.employee_id == user.employee_id).order_by(LeaveRequest.id.desc()).all()
+    return templates.TemplateResponse("employee_leave.html",
+                                      {"request": request, "user": user,
+                                       "leaves": leaves,
+                                       "current_year": datetime.datetime.utcnow().year})
+
+
+@app.post("/employee/leave/apply")
+async def apply_leave(request: Request,
+                      start_date: str = Form(...),
+                      end_date: str = Form(...),
+                      reason: str = Form(...),
+                      user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    
+    leave = LeaveRequest(employee_id=user.employee_id,
+                         start_date=start_date,
+                         end_date=end_date,
+                         reason=reason)
+    db.add(leave)
+    db.commit()
+    return RedirectResponse("/employee/leave", status_code=303)
 
 
 @app.get("/employee/profile", response_class=HTMLResponse)
@@ -400,18 +523,74 @@ async def employee_profile(request: Request, user: User = Depends(get_current_us
                                        "current_year": datetime.datetime.utcnow().year})
 
 
+@app.post("/employee/profile/update")
+async def update_profile(
+    request: Request,
+    phone: str = Form(...),
+    email: str = Form(...),
+    address: str = Form(""),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    user.phone = phone
+    user.email = email
+    user.address = address
+    db.commit()
+    return RedirectResponse(url="/employee/profile", status_code=303)
+
+
 @app.get("/employee/payslips", response_class=HTMLResponse)
-async def employee_payslips_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def employee_payslips_page(request: Request,
+                                 month: int = None, year: int = None,
+                                 user: User = Depends(get_current_user),
+                                 db: Session = Depends(get_db)):
+
+    current_year = datetime.datetime.utcnow().year
+
+    if not month or not year:
+        return templates.TemplateResponse("employee_payslips.html",
+                                          {"request": request, "user": user,
+                                           "computed": False,
+                                           "current_year": current_year,
+                                           "month": current_year,
+                                           "year": current_year})
+
+    start_date = datetime.datetime(year, month, 1)
+    end_date = datetime.datetime(year, month, monthrange(year, month)[1], 23, 59, 59)
+
     total_hours = db.query(func.sum(Attendance.duration)).filter(
-        Attendance.employee_id == user.employee_id
+        Attendance.employee_id == user.employee_id,
+        Attendance.entry_time >= start_date,
+        Attendance.entry_time <= end_date
     ).scalar() or 0
 
-    salary = total_hours * 200  # ₹200/hr
+    gross_salary = round(total_hours * 200, 2)
+
+    # Leave count
+    leave_count = db.query(func.count(LeaveRequest.id)).filter(
+        LeaveRequest.employee_id == user.employee_id,
+        LeaveRequest.status == "approved",
+        LeaveRequest.start_date >= start_date,
+        LeaveRequest.end_date <= end_date
+    ).scalar() or 0
+
+    leave_deduction = round(leave_count * 500, 2)   # ₹500 fine per leave
+
+    tax_deduction = round(gross_salary * 0.10, 2)
+
+    net_salary = round(gross_salary - leave_deduction - tax_deduction, 2)
 
     return templates.TemplateResponse("employee_payslips.html",
                                       {"request": request, "user": user,
-                                       "salary": salary, "total_hours": round(total_hours, 2),
-                                       "current_year": datetime.datetime.utcnow().year})
+                                       "computed": True,
+                                       "total_hours": total_hours,
+                                       "gross_salary": gross_salary,
+                                       "tax_deduction": tax_deduction,
+                                       "leave_deduction": leave_deduction,
+                                       "net_salary": net_salary,
+                                       "current_year": current_year,
+                                       "month": month,
+                                       "year": year})
 
 
 # ----------------------------------------
@@ -440,49 +619,186 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
 
 @app.get("/admin/payroll", response_class=HTMLResponse)
 async def admin_payroll(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    payroll_data = []
 
     employees = db.query(User).filter(User.is_active == True).all()
+    payroll_data = []
+
     for emp in employees:
         total_hours = db.query(func.sum(Attendance.duration)).filter(
             Attendance.employee_id == emp.employee_id
         ).scalar() or 0
 
-        salary = total_hours * 200  # ₹200/hr
-        payroll_data.append({"name": emp.name, "total_hours": round(total_hours, 2), "salary": salary})
+        salary = total_hours * 200  # ₹200/hour
+        payroll_data.append({
+            "name": emp.name,
+            "total_hours": round(total_hours, 2),
+            "salary": round(salary, 2)
+        })
+
+    total_salary = sum(p["salary"] for p in payroll_data)
+    avg_salary = round(total_salary / len(payroll_data), 2) if payroll_data else 0
+    max_salary = max((p["salary"] for p in payroll_data), default=0)
 
     return templates.TemplateResponse("admin_payroll.html",
-                                      {"request": request, "user": user,
-                                       "payroll": payroll_data,
-                                       "current_year": datetime.datetime.utcnow().year})
-
+                                     {
+                                         "request": request,
+                                         "user": user,
+                                         "payroll": payroll_data,
+                                         "total_salary": total_salary,
+                                         "avg_salary": avg_salary,
+                                         "max_salary": max_salary,
+                                         "current_year": datetime.datetime.utcnow().year
+                                     })
 
 # ----------------------------------------
 # CREATE INITIAL ADMIN
 # ----------------------------------------
 
- 
-@app.on_event("startup")
-def create_initial_admin():
-    db = SessionLocal()
-    if not db.query(User).filter(User.role == "admin").first():
-  
-        initial_admin = User(employee_id="admin001", name="Initial Admin", email="admin@example.com", rfid_tag="admin-rfid",
-                             role="admin", department="IT", password_hash=hash_password("admin123"))
-        db.add(initial_admin)
-        db.commit()
-    db.close()
-   
-        admin = User(
-            employee_id="ADMIN001",
-            name="System Admin",
-            email="admin@example.com",
-            rfid_tag="admin-tag",
-            role="admin",
-            password_hash=hash_password("admin123"),
-            department="IT"
+# @app.on_event("startup")
+# def create_initial_admin():
+#     pass
+#     # Admin users already exist in database - no need to recreate on startup
+
+@app.get("/admin/attendance", response_class=HTMLResponse)
+async def admin_attendance(
+    request: Request,
+    search: Optional[str] = None,
+    date: Optional[str] = None,
+    department: Optional[str] = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    # Join User table to display name & department
+    query = db.query(Attendance).join(User, Attendance.employee_id == User.employee_id)
+
+    if search:
+        query = query.filter(
+            (User.employee_id.like(f"%{search}%")) |
+            (User.name.ilike(f"%{search}%"))
         )
-        db.add(admin)
-        db.commit()
-    db.close()
- 
+
+    if department:
+        query = query.filter(User.department == department)
+
+    if date:
+        try:
+            filter_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
+            query = query.filter(func.date(Attendance.entry_time) == filter_date)
+        except:
+            pass
+
+    records = query.order_by(Attendance.entry_time.desc()).limit(100).all()
+
+    return templates.TemplateResponse(
+        "admin_attendance.html",
+        {
+            "request": request,
+            "user": user,
+            "records": records,
+            "search": search,
+            "date": date,
+            "department": department,
+            "current_year": datetime.datetime.utcnow().year
+        }
+    )
+
+@app.get("/admin/manage_employees", response_class=HTMLResponse)
+async def admin_manage_employees(request: Request,
+                                 search: Optional[str] = None,
+                                 department: Optional[str] = None,
+                                 user: User = Depends(get_current_user),
+                                 db: Session = Depends(get_db)):
+
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    query = db.query(User).filter(User.is_active == True)
+
+    if search:
+        query = query.filter(
+            (User.employee_id.like(f"%{search}%")) |
+            (User.name.ilike(f"%{search}%"))
+        )
+
+    if department:
+        query = query.filter(User.department == department)
+
+    employees = query.all()
+
+    return templates.TemplateResponse("admin_manage.html",
+                                      {"request": request,
+                                       "user": user,
+                                       "employees": employees,
+                                       "search": search,
+                                       "current_year": datetime.datetime.utcnow().year})
+
+
+@app.get("/admin/unknown_rfid", response_class=HTMLResponse)
+async def admin_unknown_rfid(
+    request: Request,
+    search: Optional[str] = None,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    query = db.query(UnknownRFID)
+
+    if search:
+        query = query.filter(
+            (UnknownRFID.rfid_tag.like(f"%{search}%")) |
+            (UnknownRFID.location.ilike(f"%{search}%"))
+        )
+
+    unknown_rfids = query.order_by(UnknownRFID.timestamp.desc()).all()
+
+    return templates.TemplateResponse(
+        "admin_unknown.html",
+        {
+            "request": request,
+            "user": user,
+            "search": search,
+            "unknown_rfids": unknown_rfids,
+            "current_year": datetime.datetime.utcnow().year
+        }
+    )
+
+@app.post("/admin/resolve_rfid")
+async def resolve_rfid(request: Request, rfid_tag: str = Form(...), db: Session = Depends(get_db)):
+    db.query(UnknownRFID).filter(UnknownRFID.rfid_tag == rfid_tag).delete()
+    db.commit()
+    return RedirectResponse("/admin/unknown_rfid", status_code=303)
+
+
+@app.get("/admin/leave_requests", response_class=HTMLResponse)
+async def admin_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    pending = db.query(LeaveRequest).order_by(LeaveRequest.id.desc()).all()
+    return templates.TemplateResponse("admin_leave_requests.html",
+                                      {"request": request, "user": user, "pending": pending,
+                                       "current_year": datetime.datetime.utcnow().year})
+
+
+@app.post("/admin/leave/update")
+async def update_leave_status(request: Request,
+                              leave_id: int = Form(...),
+                              action: str = Form(...),
+                              user: User = Depends(get_current_user),
+                              db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    leave = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
+    if not leave:
+        raise HTTPException(status_code=404, detail="Leave not found")
+
+    leave.status = "Approved" if action == "approve" else "Rejected"
+    db.commit()
+    return RedirectResponse("/admin/leave_requests", status_code=303)

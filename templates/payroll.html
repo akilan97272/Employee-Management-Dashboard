@@ -1,98 +1,125 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Payroll</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>.glass { background: rgba(255,255,255,0.92); backdrop-filter: blur(6px); }</style>
-</head>
-<body class="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 flex flex-col">
-  <nav class="glass sticky top-0 backdrop-blur-lg shadow py-4 px-6 flex justify-between items-center">
-    <h1 class="text-lg font-semibold text-blue-900">Payroll</h1>
-    <a href="/admin" class="text-blue-600 font-medium">Back</a>
-  </nav>
-
-  <main class="p-8 container mx-auto">
-    <div class="glass rounded-2xl shadow p-6">
-      <h2 class="text-lg font-semibold mb-4">Payroll Summary</h2>
-      <div class="overflow-x-auto">
-        <table class="min-w-full divide-y">
-          <thead>
-            <tr class="text-left text-sm text-gray-600">
-              <th class="py-3 px-4">Name</th>
-              <th class="py-3 px-4">Total Hours</th>
-              <th class="py-3 px-4">Salary</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for p in payroll %}
-            <tr class="bg-white hover:bg-blue-50 transition">
-              <td class="py-3 px-4">{{ p.name }}</td>
-              <td class="py-3 px-4">{{ p.total_hours }}</td>
-              <td class="py-3 px-4">${{ p.salary }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-
-      <div class="mt-6 text-right text-gray-700">
-        <div class="text-sm">Total Payroll:</div>
-        <div class="text-2xl font-bold text-blue-700" id="payrollTotal">$0</div>
-      </div>
-    </div>
-  </main>
-
-  <footer class="text-center py-4 text-gray-500 text-sm">© {{ current_year }} Admin Portal</footer>
-
-  <script>
-    // animate payroll total
-    const total = {{ payroll|map(attribute='salary')|sum }};
-    const el = document.getElementById('payrollTotal');
-    let cur = 0;
-    const step = Math.max(1, Math.floor(total/80));
-    const t = setInterval(()=> {
-      cur += step;
-      if (cur >= total) { el.textContent = '$' + total; clearInterval(t); }
-      else el.textContent = '$' + cur;
-    }, 12);
-  </script>
-</body>
-</html>
 {% extends "layout_base.html" %}
-{% block title %}Payroll — TeamSync{% endblock %}
-{% block sidebar %}{% include 'sidebar_admin.html' %}{% endblock %}
-{% block page_title %}Payroll{% endblock %}
+{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
+{% block page_title %}Payroll Overview{% endblock %}
+
 {% block content %}
-<div class="glass p-6">
-  <h3 class="font-semibold mb-4">Payroll Summary</h3>
-  <div class="overflow-x-auto">
-    <table class="min-w-full">
-      <thead class="text-left muted text-sm">
+<div class="glass p-6 rounded-xl space-y-8">
+
+  <!-- Summary -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Employees</p>
+      <p class="text-2xl font-bold">{{ payroll|length }}</p>
+    </div>
+
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Avg Salary</p>
+      <p class="text-xl font-semibold">
+        ₹{{ avg_salary }}
+      </p>
+    </div>
+
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Highest Salary</p>
+      <p class="text-xl font-semibold">
+        ₹{{ max_salary }}
+      </p>
+    </div>
+
+    <div class="glass p-4 text-center rounded-lg">
+      <p class="muted text-sm">Total Payout</p>
+      <p class="text-xl font-bold text-cyan-500">
+        ₹{{ total_salary }}
+      </p>
+    </div>
+  </div>
+
+  <!-- Payroll Chart -->
+  <div class="glass p-6 rounded-xl">
+    <h3 class="font-semibold mb-4">Salary Distribution</h3>
+    <canvas id="payrollChart" height="120"></canvas>
+  </div>
+
+  <!-- Payroll Table -->
+  <div class="glass p-6 rounded-xl overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="border-b">
         <tr>
-          <th class="py-2 px-3">Name</th>
-          <th class="py-2 px-3">Total Hours</th>
-          <th class="py-2 px-3">Salary</th>
+          <th class="p-3 text-left">Name</th>
+          <th class="p-3 text-center">Basic Salary</th>
+          <th class="p-3 text-center">Allowances</th>
+          <th class="p-3 text-center">Deductions</th>
+          <th class="p-3 text-right">Net Salary</th>
+          <th class="p-3 text-center">Action</th>
         </tr>
       </thead>
+
       <tbody>
         {% for p in payroll %}
-        <tr class="border-t border-white/6">
-          <td class="py-2 px-3">{{ p.name }}</td>
-          <td class="py-2 px-3">{{ p.total_hours }}</td>
-          <td class="py-2 px-3">${{ p.salary }}</td>
+        <tr class="border-b hover:bg-gray-200/20">
+          <td class="p-2">{{ p.name }}</td>
+          
+          <form method="post" action="/admin/update_salary" class="contents">
+            <input type="hidden" name="employee_id" value="{{ p.employee_id }}">
+            
+            <td class="p-2 text-center">
+              <input type="number" step="0.01" name="basic_salary" value="{{ p.basic_salary | default(0) }}" 
+                     class="w-24 p-1 border rounded text-sm">
+            </td>
+            
+            <td class="p-2 text-center">
+              <input type="number" step="0.01" name="allowances" value="{{ p.allowances | default(0) }}" 
+                     class="w-24 p-1 border rounded text-sm">
+            </td>
+            
+            <td class="p-2 text-center">
+              <input type="number" step="0.01" name="deductions" value="{{ p.deductions | default(0) }}" 
+                     class="w-24 p-1 border rounded text-sm">
+            </td>
+            
+            <td class="p-2 text-right font-medium text-cyan-400">
+              ₹{{ (p.basic_salary | default(0) + p.allowances | default(0) - p.deductions | default(0)) | round(2) }}
+            </td>
+            
+            <td class="p-2 text-center">
+              <button type="submit" class="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                Save
+              </button>
+            </td>
+          </form>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-  // animate payroll total (small)
-  const total = {{ payroll|map(attribute='salary')|sum }};
-  console.log('Payroll total', total);
+const labels = {{ payroll | map(attribute='name') | list | safe }};
+const values = {{ payroll | map(attribute='salary') | list | safe }};
+
+new Chart(document.getElementById('payrollChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: "Salary (₹)",
+      data: values,
+      borderWidth: 2,
+      borderRadius: 6
+    }]
+  },
+  options: {
+    scales: {
+      y: { beginAtZero: true }
+    },
+    plugins: {
+      legend: { display: false }
+    }
+  }
+});
 </script>
+
 {% endblock %}
-   

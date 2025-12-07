@@ -1,351 +1,199 @@
-<<<<<<< HEAD
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Admin Dashboard – Tech Slate Theme</title>
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <style>
-    /* Core palette */
-    :root {
-      --slate-dark: #1E293B;     /* Slate 800 */
-      --slate-mid:  #334155;     /* Slate 700 */
-      --slate-light:#475569;     /* Slate 600 */
-      --cyan:       #06B6D4;     /* Cyan 500 */
-      --cyan-lite:  #7dd3fc;     /* Sky 300 */
-      --glass:      rgba(255,255,255,0.06);
-    }
-
-    body {
-      background: linear-gradient(to bottom right, #0f172a, #1e293b, #334155);
-      color: white;
-      font-family: "Inter", sans-serif;
-    }
-
-    .glass {
-      background: var(--glass);
-      backdrop-filter: blur(10px);
-      border: 1px solid rgba(255,255,255,0.1);
-    }
-
-    .glow:hover {
-      box-shadow: 0 0 12px var(--cyan);
-      transition: 0.3s;
-    }
-
-    .appear { opacity: 0; transform: translateY(10px); animation: rise 0.6s forwards; }
-    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
-  </style>
-</head>
-
-<body class="min-h-screen">
-
-  <!-- NAVBAR -->
-  <nav class="glass sticky top-0 z-50 px-6 py-4 flex justify-between items-center shadow-lg border-b border-cyan/30">
-    <div class="flex items-center gap-4">
-      <div class="w-11 h-11 rounded-lg bg-gradient-to-br from-cyan-600 to-blue-700 flex items-center justify-center text-white font-bold shadow">
-        AD
-      </div>
-      <h1 class="text-xl font-semibold text-cyan-300">Admin Dashboard</h1>
-    </div>
-
-    <a href="/logout" class="text-red-400 hover:text-red-300 font-medium transition">
-      Logout
-    </a>
-  </nav>
-
-
-  <main class="p-8 container mx-auto">
-
-    <!-- TOP STATS -->
-    <section class="grid grid-cols-1 md:grid-cols-3 gap-6">
-      <div class="glass rounded-xl p-6 shadow glow appear border-l-4 border-cyan">
-        <p class="text-sm text-cyan-300">Active Employees</p>
-        <h3 class="text-3xl font-bold text-white" id="stat-employees">0</h3>
-      </div>
-
-      <div class="glass rounded-xl p-6 shadow glow appear border-l-4 border-cyan" style="animation-delay:150ms;">
-        <p class="text-sm text-cyan-300">Blocks Occupied</p>
-        <h3 class="text-3xl font-bold text-white" id="stat-blocks">0</h3>
-      </div>
-
-      <div class="glass rounded-xl p-6 shadow glow appear border-l-4 border-cyan" style="animation-delay:300ms;">
-        <p class="text-sm text-red-400">Unknown RFID</p>
-        <h3 class="text-3xl font-bold text-white" id="stat-unknown">0</h3>
-      </div>
-    </section>
-
-
-    <!-- BLOCKS & PAYROLL -->
-    <section class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-      <!-- BLOCK VISUALIZATION -->
-      <div class="glass rounded-xl p-6 col-span-2 shadow glow border border-slate-light/50">
-        <h2 class="text-lg font-semibold text-cyan-200 mb-4">Block Visualization</h2>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {% for block in blocks %}
-          <div class="p-4 rounded-lg glass glow cursor-pointer border border-slate-light"
-               onclick="openBlockModal({{ loop.index0 }})"
-               data-name="{{ block.location_name }}"
-               data-room="{{ block.room_no }}"
-               data-count="{{ block.count }}">
-            <div class="flex justify-between items-start">
-              <div>
-                <h3 class="font-medium text-cyan-200">{{ block.location_name }}</h3>
-                <p class="text-sm text-slate-300">Room {{ block.room_no }}</p>
-              </div>
-              <div class="text-cyan-400 font-bold text-xl">{{ block.count }}</div>
-            </div>
-
-            <div class="mt-3 h-2 bg-slate-700 rounded-full overflow-hidden">
-              <div class="h-full bg-cyan-400" style="width: calc({{ block.count }} * 6%);"></div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- PAYROLL -->
-      <div class="glass rounded-xl p-6 shadow glow border border-slate-light/50">
-        <h2 class="text-lg font-semibold text-cyan-300 mb-4">Payroll Overview</h2>
-        <canvas id="payrollChart" height="200"></canvas>
-      </div>
-
-    </section>
-
-
-    <!-- ATTENDANCE + MANAGEMENT -->
-    <section class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-
-      <!-- ATTENDANCE SUMMARY -->
-      <div class="glass rounded-xl p-6 shadow glow border border-slate-light/50">
-        <h3 class="font-semibold text-cyan-200 mb-3">Attendance Summary</h3>
-
-        <ul class="divide-y divide-slate-600">
-          {% for emp in employees %}
-          <li class="py-3 flex justify-between items-center hover:bg-slate-700/40 transition">
-            <div>
-              <div class="font-medium text-white">{{ emp.name }}</div>
-              <div class="text-xs text-slate-300">{{ emp.role }} • {{ emp.department }}</div>
-            </div>
-            <div class="text-sm text-cyan-300">{{ emp.total_hours|default('—') }} hrs</div>
-          </li>
-          {% endfor %}
-        </ul>
-      </div>
-
-
-      <!-- MANAGEMENT -->
-      <div class=" grid gap-6">
-
-        <!-- ADD EMPLOYEE -->
-        <div class="glass rounded-xl p-6 shadow glow border-l-8 border-cyan">
-          <h3 class="font-semibold text-cyan-300 mb-3">Add Employee</h3>
-
-          <form method="post" action="/admin/add_employee" class="grid gap-3">
-            <input name="name" placeholder="Full Name" required class="bg-slate-mid border border-slate-light rounded px-3 py-2 text-white"/>
-            <input name="email" placeholder="Email" required class="bg-slate-mid border border-slate-light rounded px-3 py-2 text-white"/>
-            <input name="rfid_tag" placeholder="RFID Tag" required class="bg-slate-mid border border-slate-light rounded px-3 py-2 text-white"/>
-
-            <select name="role" class="bg-slate-mid border border-slate-light rounded px-3 py-2 text-white">
-              <option>employee</option><option>admin</option>
-            </select>
-
-            <select name="department" class="bg-slate-mid border border-slate-light rounded px-3 py-2 text-white">
-              <option>IT</option><option>HR</option><option>Finance</option>
-            </select>
-
-            <button type="submit" class="bg-cyan text-slate-dark px-4 py-2 rounded font-semibold hover:bg-cyan-lite transition">
-              ➕ Add Employee
-            </button>
-          </form>
-        </div>
-
-        <!-- REMOVE EMPLOYEE -->
-        <div class="glass rounded-xl p-6 shadow glow border-l-8 border-red-600">
-          <h3 class="font-semibold text-red-400 mb-3">Remove Employee</h3>
-
-          <form method="post" action="/admin/remove_employee" class="grid gap-3">
-            <input name="employee_id" placeholder="Employee ID" required
-                   class="bg-slate-mid border border-slate-light rounded px-3 py-2 text-white"/>
-
-            <button type="submit" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-500 transition">
-              🗑 Remove
-            </button>
-          </form>
-        </div>
-
-      </div>
-
-    </section>
-
-
-    <!-- UNKNOWN RFID -->
-    <section class="mt-8 glass rounded-xl p-6 shadow glow border border-slate-light/50">
-      <h3 class="font-semibold text-cyan-300 mb-3">Unknown RFID Tags</h3>
-
-      {% if unknown_rfids %}
-      <ul class="divide-y divide-slate-700">
-        {% for rfid in unknown_rfids %}
-        <li class="py-3 flex justify-between items-center">
-          <div>
-            <div class="font-medium text-white">Tag: {{ rfid.rfid_tag }}</div>
-            <div class="text-xs text-slate-400">Location: {{ rfid.location }}</div>
-          </div>
-
-          <form method="post" action="/admin/resolve_rfid">
-            <input type="hidden" name="rfid_tag" value="{{ rfid.rfid_tag }}">
-            <button class="bg-cyan text-slate-dark px-3 py-2 rounded font-semibold hover:bg-cyan-lite transition">
-              Resolve
-            </button>
-          </form>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-        <p class="text-slate-300 italic">No unknown RFID tags found.</p>
-      {% endif %}
-    </section>
-
-  </main>
-
-  <footer class="text-center py-4 text-slate-400 text-sm">
-    © {{ current_year }} Admin Panel — Slate + Cyan Theme
-  </footer>
-
-
-  <!-- MODAL -->
-  <div id="blockModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 p-4">
-    <div class="glass rounded-xl shadow-2xl border border-slate-light/50 w-full max-w-lg p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h4 id="modalTitle" class="text-lg font-semibold text-cyan-300">Block People</h4>
-        <button onclick="closeBlockModal()" class="text-cyan-400 hover:text-cyan-200 text-2xl">&times;</button>
-      </div>
-      <div id="modalBody" class="space-y-3 text-white"></div>
-    </div>
-  </div>
-
-
-  <script>
-    // Dynamic stats
-    document.getElementById('stat-employees').textContent = {{ employees|length }};
-    document.getElementById('stat-blocks').textContent = {{ blocks|length }};
-    document.getElementById('stat-unknown').textContent = {{ unknown_rfids|length }};
-
-    // Modal controls
-    function openBlockModal(index) {
-      const cards = document.querySelectorAll('[onclick^="openBlockModal"]');
-      const card = cards[index];
-      const name = card.dataset.name;
-      const room = card.dataset.room;
-      const count = card.dataset.count;
-
-      fetch(`/api/block_persons?location=${name}&room=${room}`)
-        .then(r => r.json())
-        .then(data => {
-          const body = document.getElementById('modalBody');
-          body.innerHTML = '';
-
-          if (!data.persons.length) {
-            body.innerHTML = '<p class="text-slate-300">No one in this block.</p>';
-          } else {
-            data.persons.forEach(p => {
-              body.innerHTML += `<div class="p-2 rounded bg-slate-light/40 text-white">${p.name}</div>`;
-            });
-          }
-
-          document.getElementById('modalTitle').textContent = `${name} - Room ${room} (${count})`;
-          document.getElementById('blockModal').classList.replace('hidden','flex');
-        });
-    }
-
-    function closeBlockModal() {
-      document.getElementById('blockModal').classList.replace('flex','hidden');
-    }
-
-    // Payroll Chart
-    const payrollLabels = {{ payroll|map(attribute='name')|list|safe }};
-    const payrollValues = {{ payroll|map(attribute='salary')|list|safe }};
-
-    new Chart(document.getElementById('payrollChart'), {
-      type: 'bar',
-      data: {
-        labels: payrollLabels,
-        datasets: [{
-          label: 'Salary ($)',
-          data: payrollValues,
-          backgroundColor: 'rgba(6,182,212,0.7)',
-          borderColor: 'rgba(6,182,212,1)',
-          borderWidth: 2,
-          borderRadius: 8
-        }]
-      },
-      options: {
-        scales: {
-          y: { beginAtZero: true, grid: { color: "#47556980" } },
-          x: { grid: { color: "#47556980" } }
-        },
-        plugins: { legend: { display: false } }
-      }
-    });
-  </script>
-
-</body>
-</html>
-=======
 {% extends "layout_base.html" %}
 {% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
 {% block page_title %}Command Center{% endblock %}
+{% block page_subtitle %}Live Status • Team Overview{% endblock %}
 
 {% block content %}
 
-<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-6">
+<!-- ====== TOP STAT CARDS ====== -->
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
 
-  {% for b in blocks %}
-  <div class="glass p-6 rounded-xl block-card cursor-pointer"
-       onclick="openModal('{{b.location}}','{{b.room_no}}','{{b.count}}')">
-
-    <h3 class="font-semibold">{{ b.location }}</h3>
-    <p class="muted">Room {{ b.room_no }}</p>
-
-    <div class="text-4xl mt-4 font-bold">{{ b.count }}</div>
-
+  <div class="glass p-6 rounded-2xl flex items-center gap-4 hover:scale-[1.02] transition cursor-pointer">
+    <div class="text-4xl">👥</div>
+    <div>
+      <p class="text-sm muted">Active Employees</p>
+      <p class="text-3xl font-bold">{{ employees|length }}</p>
+    </div>
   </div>
-  {% endfor %}
+
+  <div class="glass p-6 rounded-2xl flex items-center gap-4 hover:scale-[1.02] transition cursor-pointer">
+    <div class="text-4xl">🏢</div>
+    <div>
+      <p class="text-sm muted">Blocks Occupied</p>
+      <p class="text-3xl font-bold">{{ blocks|length }}</p>
+    </div>
+  </div>
+
+  <div class="glass p-6 rounded-2xl flex items-center gap-4 hover:scale-[1.02] transition cursor-pointer">
+    <div class="text-4xl">❓</div>
+    <div>
+      <p class="text-sm muted">Unknown RFID</p>
+      <p class="text-3xl font-bold text-red-300">{{ unknown_rfids|length }}</p>
+    </div>
+  </div>
 
 </div>
 
-<!-- Modal -->
-<div id="modal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center">
-  <div class="glass p-6 rounded-xl w-80">
-    <h3 id="modalTitle" class="font-semibold mb-3"></h3>
-    <div id="modalBody" class="space-y-1"></div>
-    <button onclick="closeModal()" class="mt-4 glass px-4 py-2">Close</button>
+
+
+<!-- ====== BLOCKS + PAYROLL ====== -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+
+  <!-- Block Visualization -->
+  <div class="glass rounded-2xl p-6 lg:col-span-2">
+    <h2 class="font-semibold mb-4 text-lg">Block Visualization</h2>
+
+    {% if blocks %}
+    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      {% for block in blocks %}
+      <div onclick="openModal('{{block.location_name}}','{{block.room_no}}',{{block.count}})"
+           class="p-5 rounded-xl border border-[var(--glass-border)] hover:bg-white/5 transition cursor-pointer">
+        <div class="flex justify-between items-center">
+          <div>
+            <h4 class="font-medium">{{ block.location_name }}</h4>
+            <p class="text-xs muted">Room {{ block.room_no }}</p>
+          </div>
+          <span class="text-xl font-bold text-[var(--accent)]">{{ block.count }}</span>
+        </div>
+
+        <div class="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
+          <div class="h-full"
+               style="width: calc({{ block.count }} * 10%); background: var(--accent);"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="muted italic">No active rooms currently.</p>
+    {% endif %}
+  </div>
+
+  <!-- Payroll -->
+  <div class="glass rounded-2xl p-6">
+    <h2 class="font-semibold mb-4 text-lg">Payroll Overview</h2>
+    <canvas id="payrollChart" height="180"></canvas>
+  </div>
+
+</div>
+
+
+
+<!-- ====== ATTENDANCE + HR Actions ====== -->
+<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
+
+  <!-- Attendance Summary -->
+  <div class="glass p-6 rounded-2xl">
+    <h3 class="font-semibold mb-4 text-lg">Attendance Summary</h3>
+
+    <ul class="divide-y divide-white/10">
+      {% for emp in employees %}
+      <li class="py-3 flex justify-between items-center">
+        <div>
+          <span class="font-medium">{{ emp.name }}</span>
+          <p class="text-xs muted">{{ emp.role }} • {{ emp.department }}</p>
+        </div>
+        <span class="text-sm text-[var(--accent)]">{{ emp.total_hours|default('—') }} hrs</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+
+
+  <!-- Add & Remove Employees -->
+  <div class="grid gap-6">
+
+    <!-- Add Employee Form -->
+    <div class="glass p-6 rounded-2xl border-l-4 border-[var(--accent)]">
+      <h3 class="font-semibold mb-3">Add Employee</h3>
+
+      <form method="post" action="/admin/add_employee" class="grid gap-3">
+        <input class="form-input" name="name" placeholder="Full Name" required />
+        <input class="form-input" name="email" placeholder="Email" required />
+        <input class="form-input" name="rfid_tag" placeholder="RFID Tag" required />
+
+        <select name="role" class="form-input">
+          <option>employee</option><option>admin</option>
+        </select>
+
+        <select name="department" class="form-input">
+          <option>IT</option><option>HR</option><option>Finance</option>
+        </select>
+
+        <button class="primary-btn w-fit px-4 py-2 mt-2" type="submit">
+          ➕ Add Employee
+        </button>
+      </form>
+    </div>
+
+    <!-- Remove Employee -->
+    <div class="glass p-6 rounded-2xl border-l-4 border-red-500">
+      <h3 class="font-semibold mb-3 text-red-300">Remove Employee</h3>
+
+      <form method="post" action="/admin/remove_employee" class="grid gap-3">
+        <input class="form-input" name="employee_id" placeholder="Employee ID" required />
+
+        <button class="w-fit px-4 py-2 mt-2 rounded-xl bg-red-500 hover:bg-red-400 transition">
+          🗑 Remove
+        </button>
+      </form>
+    </div>
+
   </div>
 </div>
+
+
+
+<!-- ====== Unknown RFID ====== -->
+<div class="glass rounded-2xl p-6">
+  <h3 class="font-semibold mb-4 text-lg">Unknown RFID Tags</h3>
+
+  {% if unknown_rfids %}
+  <ul class="divide-y divide-white/10">
+    {% for rfid in unknown_rfids %}
+    <li class="py-3 flex justify-between items-center">
+      <div>
+        <p class="font-medium">Tag: {{ rfid.rfid_tag }}</p>
+        <p class="text-xs muted">Location: {{ rfid.location }}</p>
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="muted italic">No unknown RFID tags found.</p>
+  {% endif %}
+</div>
+
+
+
+<!-- ====== Modal ====== -->
+<div id="modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4">
+  <div class="glass p-6 rounded-2xl max-w-sm w-full">
+    <h3 id="modalTitle" class="font-semibold mb-4"></h3>
+    <div id="modalBody" class="space-y-2"></div>
+    <button onclick="closeModal()" class="primary-btn mt-4 px-4 py-2">Close</button>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
 <script>
 function openModal(loc, room, count){
   document.getElementById("modalTitle").innerHTML =
-    `${loc} — Room ${room} (${count})`;
+  `${loc} — Room ${room} (${count})`;
 
   fetch(`/api/block_persons?location=${loc}&room=${room}`)
     .then(r=>r.json())
     .then(data=>{
-      let body="";
-      if(data.persons.length === 0){
-        body = "<p class='muted'>No one currently inside.</p>";
+      let html="";
+      if(data.persons.length===0){
+        html = "<p class='muted'>No one currently inside.</p>";
       } else {
         data.persons.forEach(p=>{
-          body += `<div class='glass p-2'>${p.name}</div>`;
+          html += `<div class='glass p-2 rounded-xl'>${p.name}</div>`;
         });
       }
-      document.getElementById("modalBody").innerHTML = body;
+      document.getElementById("modalBody").innerHTML = html;
       document.getElementById("modal").classList.remove("hidden");
     });
 }
@@ -353,7 +201,33 @@ function openModal(loc, room, count){
 function closeModal(){
   document.getElementById("modal").classList.add("hidden");
 }
+
+
+// Payroll chart
+const labels = {{ payroll|map(attribute='name')|list|safe }};
+const values = {{ payroll|map(attribute='salary')|list|safe }};
+
+new Chart(document.getElementById('payrollChart'), {
+  type: 'bar',
+  data: {
+    labels,
+    datasets: [{
+      data: values,
+      backgroundColor: 'rgba(59,130,246,0.6)',
+      borderColor: '#3b82f6',
+      borderWidth: 2,
+      borderRadius: 8
+    }]
+  },
+  options: {
+    plugins: { legend: { display: false }},
+    scales: {
+      y: { beginAtZero:true, grid:{color:"#ffffff20"}},
+      x: { grid:{display:false}}
+    }
+  }
+});
 </script>
 
+
 {% endblock %}
-   

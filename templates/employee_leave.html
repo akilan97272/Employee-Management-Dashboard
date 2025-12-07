@@ -1,0 +1,41 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
+{% block page_title %}Leave Request{% endblock %}
+
+{% block content %}
+<div class="glass p-6 rounded-xl space-y-6">
+
+  <form method="post" action="/employee/leave/apply" class="grid gap-3">
+    <label class="text-sm muted">Start Date</label>
+    <input type="date" name="start_date" required class="glass p-2 rounded">
+
+    <label class="text-sm muted">End Date</label>
+    <input type="date" name="end_date" required class="glass p-2 rounded">
+
+    <textarea name="reason" placeholder="Reason" required class="glass p-2 rounded"></textarea>
+    
+    <button class="glass bg-cyan-600 text-white px-4 py-2 rounded hover:bg-cyan-500">
+      Apply Leave
+    </button>
+  </form>
+
+  <hr class="opacity-20"/>
+
+  <h3 class="font-semibold">Leave History</h3>
+  <table class="w-full text-left text-sm">
+    <tr class="border-b border-cyan-500/30">
+      <th>Dates</th><th>Reason</th><th>Status</th>
+    </tr>
+    {% for l in leaves %}
+    <tr class="border-b border-white/10">
+      <td>{{ l.start_date }} → {{ l.end_date }}</td>
+      <td>{{ l.reason }}</td>
+      <td class="{% if l.status=='Pending' %}text-yellow-400{% elif l.status=='Approved' %}text-green-400{% else %}text-red-400{% endif %}">
+        {{ l.status }}
+      </td>
+    </tr>
+    {% endfor %}
+  </table>
+
+</div>
+{% endblock %}

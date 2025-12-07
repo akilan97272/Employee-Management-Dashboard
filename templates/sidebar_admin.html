@@ -8,9 +8,27 @@
     <a href="/admin/manage_employees">🧑‍💼 Manage Employees</a>
     <a href="/admin/payroll">💸 Payroll</a>
     <a href="/admin/unknown_rfid">❓ Unknown RFID</a>
+    <a href="/admin/leave_requests" class="relative flex items-center gap-2">
+      🚦 Leave Approvals
+      <span id="leaveCountBadge"
+            class="bg-cyan-500 text-white text-xs rounded-full px-2 py-0.5 hidden">
+      </span>
+    </a>
     <a href="/admin/select_dashboard">🔄 Switch Mode</a>
 
     <a href="/logout" class="mt-6 text-red-400">🚪 Logout</a>
+
+    <script>
+      fetch("/api/leave_count")
+        .then(res => res.json())
+        .then(data => {
+          const badge = document.getElementById("leaveCountBadge");
+          if (data.count > 0) {
+            badge.textContent = data.count;
+            badge.classList.remove("hidden");
+          }
+        });
+    </script>
   </nav>
 
 </div>

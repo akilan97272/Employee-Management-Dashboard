@@ -1,31 +1,106 @@
 {% extends "layout_base.html" %}
 {% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}Tasks{% endblock %}
+{% block page_title %}My Tasks{% endblock %}
 
 {% block content %}
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<div class="glass rounded-xl p-6 space-y-6">
 
-  <div class="glass p-6">
-    <h3 class="font-semibold mb-3">Add Task</h3>
-    <form method="post" action="/employee/tasks/add" class="space-y-2">
-      <input name="title" placeholder="Title" class="w-full glass p-2">
-      <textarea name="description" placeholder="Description" class="w-full glass p-2"></textarea>
-      <button class="glass px-4 py-2">Add Task</button>
-    </form>
-  </div>
-
-  <div class="glass p-6 space-y-2">
-    {% for t in tasks %}
-    <div class="glass p-3">
-      <div class="font-semibold">{{ t.title }}</div>
-      <div class="muted">{{ t.description }}</div>
-      <form method="post" action="/employee/tasks/delete">
-        <input type="hidden" name="id" value="{{ t.id }}">
-        <button class="text-red-400 mt-2">Delete</button>
-      </form>
+    <!-- FILTER TABS -->
+    <div class="flex gap-3 text-sm font-semibold">
+        <a href="?filter=all" class="tab-btn">All</a>
+        <a href="?filter=pending" class="tab-btn text-yellow-400">Pending</a>
+        <a href="?filter=in-progress" class="tab-btn text-blue-400">In-Progress</a>
+        <a href="?filter=done" class="tab-btn text-green-400">Done</a>
     </div>
-    {% endfor %}
-  </div>
+
+    <!-- PROGRESS CHART -->
+    <div class="glass p-4 rounded-xl text-center space-y-2">
+        <canvas id="taskChart" width="200" height="200"></canvas>
+    </div>
+
+    <!-- Add Task Form -->
+    <form method="post" action="/employee/tasks/add" class="glass p-4 rounded-xl space-y-3">
+        <input name="title" placeholder="Task title" required class="glass w-full px-3 py-2 rounded"/>
+
+        <textarea name="description" placeholder="Task description"
+                  class="glass w-full px-3 py-2 rounded h-20"></textarea>
+
+        <div class="flex gap-3">
+            <select name="priority" class="glass px-2 py-2 rounded">
+                <option value="low">Low 🔹</option>
+                <option value="medium" selected>Medium 🔷</option>
+                <option value="high">High 🔥</option>
+            </select>
+
+            <input type="date" name="due_date" class="glass px-2 py-2 rounded"/>
+        </div>
+
+        <button class="btn-primary w-full">➕ Add Task</button>
+    </form>
+
+    <!-- Task Cards -->
+    <div class="space-y-3">
+        {% for t in tasks %}
+        <div class="glass p-4 rounded-xl shadow flex justify-between items-center">
+
+            <div class="space-y-1">
+                <p class="font-semibold text-lg">{{ t.title }}</p>
+                <p class="muted text-sm">{{ t.description }}</p>
+
+                <div class="flex gap-2 text-xs">
+                    {% if t.priority == 'high' %}
+                    <span class="badge badge-red">High</span>
+                    {% elif t.priority == 'medium' %}
+                    <span class="badge badge-blue">Medium</span>
+                    {% else %}
+                    <span class="badge badge-gray">Low</span>
+                    {% endif %}
+
+                    {% if t.due_date %}
+                    <span class="badge badge-purple">Due: {{ t.due_date.strftime("%d %b") }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <form method="post" action="/employee/tasks/update" class="flex items-center gap-2">
+                <input type="hidden" name="task_id" value="{{ t.id }}"/>
+
+                <select name="status" class="glass px-2 py-1 rounded text-sm"
+                        onchange="this.form.submit()">
+                    <option value="pending" {% if t.status=='pending' %}selected{% endif %}>Pending</option>
+                    <option value="in-progress" {% if t.status=='in-progress' %}selected{% endif %}>In-Progress</option>
+                    <option value="done" {% if t.status=='done' %}selected{% endif %}>Completed</option>
+                </select>
+
+                <!-- Delete button -->
+                <button formaction="/employee/tasks/delete" class="text-red-500"
+                        onclick="return confirm('Delete this task?');">🗑</button>
+            </form>
+
+        </div>
+        {% else %}
+        <p class="muted text-center">No tasks available</p>
+        {% endfor %}
+    </div>
 
 </div>
+
+<!-- Pie Chart Script -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    const pending = {{ pending }};
+    const inProgress = {{ in_progress }};
+    const done = {{ done }};
+
+    new Chart(document.getElementById('taskChart'), {
+        type: 'pie',
+        data: {
+            labels: ['Pending', 'In-Progress', 'Completed'],
+            datasets: [{
+                data: [pending, inProgress, done]
+            }]
+        }
+    });
+</script>
+
 {% endblock %}
