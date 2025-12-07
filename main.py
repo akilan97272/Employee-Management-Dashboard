@@ -3,7 +3,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-<<<<<<< HEAD
 from database import SessionLocal, get_db, engine, Base
 from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department
 from auth import authenticate_user, hash_password
@@ -15,7 +14,6 @@ from typing import Optional
 
 Base.metadata.create_all(bind=engine)
 
-=======
 from sqlalchemy import func
 import datetime
 import random
@@ -29,17 +27,16 @@ from auth import authenticate_user, hash_password
 Base.metadata.create_all(bind=engine)
 
 # FastAPI app
->>>>>>> workout
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-<<<<<<< HEAD
+
 # Session middleware (simple in-memory for demo; use proper sessions in prod)
 from starlette.middleware.sessions import SessionMiddleware
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
-=======
+
 # SESSION MIDDLEWARE
 from starlette.middleware.sessions import SessionMiddleware
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
@@ -49,7 +46,7 @@ app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 # SESSION HANDLERS
 # ----------------------------------------
 
->>>>>>> workout
+
 def get_current_user(request: Request, db: Session = Depends(get_db)):
     user_id = request.session.get("user_id")
     if not user_id:
@@ -59,35 +56,25 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
-<<<<<<< HEAD
-=======
-
 # ----------------------------------------
 # LOGIN ROUTES
 # ----------------------------------------
 
->>>>>>> workout
+
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("login.html", {"request": request})
 
-<<<<<<< HEAD
-=======
-
->>>>>>> workout
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     user = authenticate_user(db, username, password)
     if not user:
         return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
-<<<<<<< HEAD
     request.session["user_id"] = user.id
     if user.role == "admin":
         return RedirectResponse("/admin", status_code=303)
     else:
         return RedirectResponse("/employee", status_code=303)
-
-=======
 
     request.session["user_id"] = user.id
 
@@ -97,13 +84,13 @@ async def login(request: Request, username: str = Form(...), password: str = For
         return RedirectResponse("/employee", status_code=303)
 
 
->>>>>>> workout
+ 
 @app.get("/logout")
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/", status_code=303)
 
-<<<<<<< HEAD
+  
 @app.get("/employee", response_class=HTMLResponse)
 async def employee_dashboard(request: Request, user: User = Depends(get_current_user)):
     if user.role not in ["employee", "admin"]:
@@ -332,7 +319,7 @@ async def remove_room(request: Request, room_id: str = Form(...), user: User = D
     return {"message": "Room removed successfully"}
 
 # Create initial admin on startup
-=======
+   
 
 # ----------------------------------------
 # ADMIN SELECT DASHBOARD
@@ -474,18 +461,18 @@ async def admin_payroll(request: Request, user: User = Depends(get_current_user)
 # CREATE INITIAL ADMIN
 # ----------------------------------------
 
->>>>>>> workout
+ 
 @app.on_event("startup")
 def create_initial_admin():
     db = SessionLocal()
     if not db.query(User).filter(User.role == "admin").first():
-<<<<<<< HEAD
+  
         initial_admin = User(employee_id="admin001", name="Initial Admin", email="admin@example.com", rfid_tag="admin-rfid",
                              role="admin", department="IT", password_hash=hash_password("admin123"))
         db.add(initial_admin)
         db.commit()
     db.close()
-=======
+   
         admin = User(
             employee_id="ADMIN001",
             name="System Admin",
@@ -498,4 +485,4 @@ def create_initial_admin():
         db.add(admin)
         db.commit()
     db.close()
->>>>>>> workout
+ 
