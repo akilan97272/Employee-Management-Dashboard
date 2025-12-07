@@ -3,7 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
 # MariaDB connection (update with your credentials)
-DATABASE_URL = "mysql+pymysql://fastapi_user:12345@localhost/attendance_db"
+DATABASE_URL = "mysql+pymysql://fastapi_user:smiley_face@localhost/attendance_db"
 
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
