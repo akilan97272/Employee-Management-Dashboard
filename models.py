@@ -1,28 +1,53 @@
+<<<<<<< HEAD
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float
+=======
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text
+>>>>>>> workout
 from database import Base
 import datetime
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
+<<<<<<< HEAD
+    employee_id = Column(String, unique=True, index=True)
+    name = Column(String)
+    email = Column(String, unique=True)
+    rfid_tag = Column(String, unique=True)
+    role = Column(String)  # employee, admin, super_admin
+=======
     employee_id = Column(String(60), unique=True, index=True)
     name = Column(String)
     email = Column(String, unique=True)
     rfid_tag = Column(String, unique=True)
     role = Column(String)  # employee, admin
+>>>>>>> workout
     department = Column(String)
     password_hash = Column(String)
     is_active = Column(Boolean, default=True)
 
+<<<<<<< HEAD
+class Attendance(Base):
+    __tablename__ = "attendance"
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(String)
+=======
 
 class Attendance(Base):
     __tablename__ = "attendance"
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(String(60))
+>>>>>>> workout
     rfid_tag = Column(String)
     entry_time = Column(DateTime)
     exit_time = Column(DateTime, nullable=True)
     duration = Column(Float, nullable=True)  # in hours
+<<<<<<< HEAD
+    block = Column(String)  # Keep for backward compatibility (old data)
+    room_no = Column(String)  # New: Room number
+    location_name = Column(String)  # New: Location/block name
+    room_id = Column(String)  # New: Reference to Room.room_id
+=======
 
     # Updated fields
     block = Column(String)
@@ -30,11 +55,16 @@ class Attendance(Base):
     location_name = Column(String)
     room_id = Column(String)
 
+>>>>>>> workout
 
 class RemovedEmployee(Base):
     __tablename__ = "removed_employees"
     id = Column(Integer, primary_key=True, index=True)
+<<<<<<< HEAD
+    employee_id = Column(String)
+=======
     employee_id = Column(String(60))
+>>>>>>> workout
     name = Column(String)
     email = Column(String)
     rfid_tag = Column(String)
@@ -42,7 +72,10 @@ class RemovedEmployee(Base):
     department = Column(String)
     removed_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> workout
 class UnknownRFID(Base):
     __tablename__ = "unknown_rfids"
     id = Column(Integer, primary_key=True, index=True)
@@ -50,7 +83,10 @@ class UnknownRFID(Base):
     location = Column(String)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
+<<<<<<< HEAD
+=======
 
+>>>>>>> workout
 class Room(Base):
     __tablename__ = "rooms"
     id = Column(Integer, primary_key=True, index=True)
@@ -59,6 +95,14 @@ class Room(Base):
     location_name = Column(String)
     description = Column(String)
 
+<<<<<<< HEAD
+class Department(Base):
+    __tablename__ = "departments"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True)  # e.g., "IT", "HR"
+    description = Column(String, nullable=True)  # Optional description`
+
+=======
 
 class Department(Base):
     __tablename__ = "departments"
@@ -76,3 +120,4 @@ class Task(Base):
     description = Column(Text)
     status = Column(String(20), default="pending")
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+>>>>>>> workout
