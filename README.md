@@ -304,4 +304,4 @@ If you run into issues:
 
 ---
 
-**Made with ❤️ — Attendance Management System**
+**Made with ❤️ — TeamSync**
