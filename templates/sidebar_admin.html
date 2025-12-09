@@ -1,16 +1,52 @@
-<div class="sidebar h-full glass p-4">
+<div class="glass p-4 h-full">
 
-  <h2 class="text-xl font-semibold mb-6">TeamSync Command Center</h2>
+  <div class="mb-6">
+    <div class="font-semibold text-lg">TeamSync</div>
+    <div class="muted text-sm">Command Center</div>
+  </div>
 
   <nav class="space-y-2">
-    <a href="/admin">📊 Dashboard</a>
-    <a href="/admin/attendance">⏱ Attendance</a>
-    <a href="/admin/manage_employees">🧑‍💼 Manage Employees</a>
-    <a href="/admin/payroll">💸 Payroll</a>
-    <a href="/admin/unknown_rfid">❓ Unknown RFID</a>
-    <a href="/admin/select_dashboard">🔄 Switch Mode</a>
 
-    <a href="/logout" class="mt-6 text-red-400">🚪 Logout</a>
+    <a href="/admin"
+       class="block px-3 py-2 rounded hover:bg-white/6
+       {% if request.url.path == '/admin' %}bg-white/10{% endif %}">
+      📊 Dashboard
+    </a>
+
+    <a href="/admin/attendance"
+       class="block px-3 py-2 rounded hover:bg-white/6
+       {% if '/admin/attendance' in request.url.path %}bg-white/10{% endif %}">
+      ⏱ Attendance
+    </a>
+
+    <a href="/admin/manage_employees"
+       class="block px-3 py-2 rounded hover:bg-white/6
+       {% if '/admin/manage_employees' in request.url.path %}bg-white/10{% endif %}">
+      🧑‍💼 Manage
+    </a>
+
+    <a href="/admin/projects"
+       class="block px-3 py-2 rounded hover:bg-white/6
+       {% if '/admin/projects' in request.url.path %}bg-white/10{% endif %}">
+      🕐 Projects
+    </a>
+
+    <a href="/admin/payroll"
+       class="block px-3 py-2 rounded hover:bg-white/6
+       {% if '/admin/payroll' in request.url.path %}bg-white/10{% endif %}">
+      💸 Payroll
+    </a>
+
+    <a href="/admin/unknown_rfid"
+       class="block px-3 py-2 rounded hover:bg-white/6
+       {% if '/admin/unknown_rfid' in request.url.path %}bg-white/10{% endif %}">
+      ❓ Unknown RFID
+    </a>
+
+    <a href="/admin/select_dashboard"
+       class="block mt-4 px-3 py-2 rounded text-sm muted hover:bg-white/5">
+      🔄 Switch Mode
+    </a>
+
   </nav>
-
 </div>

@@ -13,7 +13,7 @@ import string
 from typing import Optional
 
 from database import SessionLocal, get_db, engine, Base
-from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task
+from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, Project, ProjectAssignment, ProjectTask
 from auth import authenticate_user, hash_password
 
 
@@ -107,37 +107,67 @@ async def admin_select_dashboard(request: Request,
         "current_year": datetime.datetime.utcnow().year
     })
 
+# ------------------------------------------------------------
+# PROJECT PROGRESS CALCULATION (helper)
+# ------------------------------------------------------------
+def project_progress(db, project_id):
+    tasks = db.query(ProjectTask).filter(ProjectTask.project_id == project_id).all()
+    if len(tasks) == 0:
+        return 0
+    completed = len([t for t in tasks if t.status == "completed"])
+    return int((completed / len(tasks)) * 100)
 
 # ------------------------------------------------------------
 # ADMIN — Command Center (main dashboard)
 # ------------------------------------------------------------
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_command_center(request: Request,
-                               user: User = Depends(get_current_user),
-                               db: Session = Depends(get_db)):
+async def admin_command_center(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
     if user.role != "admin":
         raise HTTPException(403)
 
+    # Live block visualization (same as before)
     blocks = db.query(
         Attendance.location_name,
         Attendance.room_no,
         func.count(Attendance.id).label("count")
-    ).filter(Attendance.exit_time.is_(None)).group_by(
-        Attendance.location_name, Attendance.room_no
-    ).all()
+    ).filter(Attendance.exit_time.is_(None)) \
+     .group_by(Attendance.location_name, Attendance.room_no).all()
 
+    # All employees
     employees = db.query(User).filter(User.is_active == True).all()
 
+    # Unknown RFID attempts
     unknown = db.query(UnknownRFID).all()
 
-    return templates.TemplateResponse("admin_dashboard.html", {
-        "request": request,
-        "user": user,
-        "blocks": blocks,
-        "employees": employees,
-        "unknown_rfids": unknown,
-        "current_year": datetime.datetime.utcnow().year
-    })
+    # Last 10 activities
+    recent = db.query(Attendance) \
+               .order_by(Attendance.entry_time.desc()) \
+               .limit(10).all()
+
+    # Departments (safe fallback if table empty)
+    try:
+        departments = db.query(Department).all()
+    except:
+        departments = []
+
+    return templates.TemplateResponse(
+        "admin_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "blocks": blocks,
+            "employees": employees,
+            "unknown_rfids": unknown,
+            "recent": recent,
+            "departments": departments,
+            "current_year": datetime.datetime.utcnow().year
+        }
+    )
+
 
 
 # ------------------------------------------------------------
@@ -161,25 +191,152 @@ async def admin_attendance(request: Request,
         "current_year": datetime.datetime.utcnow().year
     })
 
-
 # ------------------------------------------------------------
-# ADMIN — Manage Employees Page
+# ADMIN — Manage Employees Page (SHOW ALL ROOMS EVEN IF EMPTY)
 # ------------------------------------------------------------
 @app.get("/admin/manage_employees", response_class=HTMLResponse)
 async def admin_manage(request: Request,
                        user: User = Depends(get_current_user),
                        db: Session = Depends(get_db)):
+
     if user.role != "admin":
         raise HTTPException(403)
 
-    emps = db.query(User).filter(User.is_active == True).all()
+    # All active employees
+    employees = db.query(User).filter(User.is_active == True).all()
 
-    return templates.TemplateResponse("admin_manage.html", {
+    # Load ALL rooms from DB
+    rooms = db.query(Room).order_by(Room.location_name, Room.room_no).all()
+
+    final_blocks = []
+
+    for r in rooms:
+        # Count number of people currently inside THIS room
+        count = db.query(Attendance).filter(
+            Attendance.room_no == r.room_no,
+            Attendance.location_name == r.location_name,
+            Attendance.exit_time.is_(None)
+        ).count()
+
+        final_blocks.append({
+            "location": r.location_name,
+            "room": r.room_no,
+            "room_id": r.room_id,
+            "count": count  # This will be 0 if empty
+        })
+
+    return templates.TemplateResponse(
+        "admin_dashboard.html",
+        {
+            "request": request,
+            "user": user,
+            "employees": employees,
+            "blocks": final_blocks,
+            "current_year": datetime.datetime.utcnow().year
+        }
+    )
+
+
+@app.get("/admin/projects", response_class=HTMLResponse)
+async def admin_projects(request: Request,
+                         user: User = Depends(get_current_user),
+                         db: Session = Depends(get_db)):
+
+    if user.role != "admin":
+        raise HTTPException(403)
+
+    projects = db.query(Project).order_by(Project.created_at.desc()).all()
+
+    project_list = []
+    for p in projects:
+        progress = project_progress(db, p.id)
+        project_list.append({
+            "id": p.id,
+            "name": p.name,
+            "deadline": p.deadline,
+            "progress": progress,
+            "task_count": len(p.tasks)
+        })
+
+    return templates.TemplateResponse("admin_projects.html", {
         "request": request,
         "user": user,
-        "employees": emps,
-        "current_year": datetime.datetime.utcnow().year
+        "projects": project_list
     })
+
+
+@app.post("/admin/projects/create")
+async def create_project(
+    name: str = Form(...),
+    description: str = Form(""),
+    deadline: str = Form(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin":
+        raise HTTPException(403)
+
+    deadline_dt = None
+    if deadline:
+        deadline_dt = datetime.datetime.strptime(deadline, "%Y-%m-%d")
+
+    project = Project(
+        name=name,
+        description=description,
+        deadline=deadline_dt
+    )
+    db.add(project)
+    db.commit()
+
+    return RedirectResponse("/admin/projects", 303)
+
+
+@app.post("/admin/projects/add_task")
+async def add_project_task(
+    project_id: int = Form(...),
+    employee_id: str = Form(...),
+    title: str = Form(...),
+    description: str = Form(""),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin":
+        raise HTTPException(403)
+
+    task = ProjectTask(
+        project_id=project_id,
+        employee_id=employee_id,
+        title=title,
+        description=description
+    )
+    db.add(task)
+    db.commit()
+
+    return RedirectResponse(f"/admin/projects", 303)
+
+@app.post("/employee/project/task/update")
+async def emp_update_task(
+    task_id: int = Form(...),
+    status: str = Form(...),  # completed / pending
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+
+    task = db.query(ProjectTask).filter(
+        ProjectTask.id == task_id,
+        ProjectTask.employee_id == user.employee_id
+    ).first()
+
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    task.status = status
+    db.commit()
+
+    return RedirectResponse("/employee/projects", 303)
+
+
+
 
 
 # ------------------------------------------------------------
@@ -225,7 +382,7 @@ async def admin_payroll(request: Request,
             "salary": round(total_hours * 200)
         })
 
-    return templates.TemplateResponse("payroll.html", {
+    return templates.TemplateResponse("admin_payroll.html", {
         "request": request,
         "payroll": data,
         "user": user,
@@ -362,7 +519,7 @@ async def tasks_page(request: Request,
                      db: Session = Depends(get_db)):
 
     tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
-    return templates.TemplateResponse("employee_task.html", {
+    return templates.TemplateResponse("employee_tasks.html", {
         "request": request,
         "user": user,
         "tasks": tasks,
@@ -393,6 +550,24 @@ async def delete_task(id: int = Form(...),
         db.commit()
 
     return RedirectResponse("/employee/tasks", 303)
+
+
+# Task delete route
+@app.post("/employee/tasks/update")
+async def update_task(task_id: int = Form(...),
+                      status: str = Form(...),
+                      user: User = Depends(get_current_user),
+                      db: Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.id == task_id,
+                                 Task.user_id == user.employee_id).first()
+    if not task:
+        raise HTTPException(404, "Task not found")
+
+    task.status = status
+    db.commit()
+
+    return RedirectResponse("/employee/tasks", 303)
+
 
 
 # ------------------------------------------------------------
@@ -506,6 +681,36 @@ async def rfid_event(payload: AttendancePayload,
     db.add(new)
     db.commit()
     return {"status": "entry_recorded"}
+
+@app.get("/employee/projects", response_class=HTMLResponse)
+async def employee_projects(request: Request,
+                            user: User = Depends(get_current_user),
+                            db: Session = Depends(get_db)):
+
+    assigned = db.query(ProjectTask).filter(
+        ProjectTask.assigned_to == user.employee_id
+    ).all()
+
+    # Group tasks by project
+    projects_map = {}
+    for t in assigned:
+        if t.project_id not in projects_map:
+            projects_map[t.project_id] = {
+                "project": db.query(Project).filter(Project.id == t.project_id).first(),
+                "tasks": []
+            }
+        projects_map[t.project_id]["tasks"].append(t)
+
+    return templates.TemplateResponse(
+        "employee_projects.html",
+        {
+            "request": request,
+            "user": user,
+            "projects": projects_map,
+            "current_year": datetime.datetime.utcnow().year
+        }
+    )
+
 
 
 # ------------------------------------------------------------

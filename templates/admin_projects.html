@@ -1,0 +1,35 @@
+{% extends "layout_base.html" %}
+{% block page_title %}Projects{% endblock %}
+
+{% block content %}
+
+<h3 class="font-semibold mb-3">All Projects</h3>
+
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+  {% for p in projects %}
+  <div class="glass p-4 rounded-lg">
+
+    <div class="font-semibold text-lg">{{ p.name }}</div>
+    <div class="muted text-sm">Deadline: {{ p.deadline }}</div>
+
+    <div class="mt-2 bg-white/10 rounded h-2">
+      <div class="bg-green-400 h-2 rounded" style="width: {{ p.progress }}%"></div>
+    </div>
+
+    <div class="text-sm mt-1">{{ p.progress }}% done</div>
+
+  </div>
+  {% endfor %}
+</div>
+
+
+<h3 class="font-semibold mb-3">Create New Project</h3>
+
+<form method="post" action="/admin/projects/create" class="glass p-4 rounded-lg space-y-3">
+  <input name="name" placeholder="Project Name" class="w-full p-3 rounded bg-transparent border border-white/10">
+  <textarea name="description" placeholder="Description" class="w-full p-3 rounded bg-transparent border border-white/10"></textarea>
+  <input type="date" name="deadline" class="w-full p-3 rounded bg-transparent border border-white/10">
+  <button class="w-full py-3 rounded bg-green-400 text-black font-semibold">Create</button>
+</form>
+
+{% endblock %}

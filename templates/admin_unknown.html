@@ -1,14 +1,18 @@
 {% extends "layout_base.html" %}
+{% block title %}Unknown RFID — TeamSync{% endblock %}
 {% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
 {% block page_title %}Unknown RFID{% endblock %}
-
 {% block content %}
-<div class="glass p-6 space-y-3">
-  {% for r in unknown_rfids %}
-  <div class="glass p-3">
-    <p class="font-semibold">Tag: {{ r.rfid_tag }}</p>
-    <p class="muted text-sm">Location: {{ r.location }}</p>
-  </div>
-  {% endfor %}
+<div class="space-y-3">
+  {% if unknown_rfids %}
+    {% for r in unknown_rfids %}
+      <div class="glass p-3 rounded">
+        <div class="font-medium">Tag: {{ r.rfid_tag }}</div>
+        <div class="muted text-sm">Location: {{ r.location }}</div>
+      </div>
+    {% endfor %}
+  {% else %}
+    <div class="glass p-4 rounded muted text-center">No unknown RFID tags.</div>
+  {% endif %}
 </div>
 {% endblock %}
