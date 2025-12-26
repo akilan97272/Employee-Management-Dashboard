@@ -1,17 +1,100 @@
-{% extends "layout_base.html" %}
-{% block title %}My Attendance — TeamSync{% endblock %}
-{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}My Attendance{% endblock %}
+{% extends "layout_employee.html" %}
+{% block title %}My Attendance{% endblock %}
+
 {% block content %}
-<div class="glass p-5">
-  <h4 class="font-semibold mb-3">Recent Check-ins</h4>
-  <div class="space-y-2">
-    {% for e in logs %}
-      <div class="p-3 glass rounded flex justify-between items-center">
-        <div>{{ e.location_name }} • Room {{ e.room_no }}</div>
-        <div class="muted text-sm">{{ e.entry_time }}{% if e.exit_time %} → {{ e.exit_time }}{% endif %}</div>
-      </div>
-    {% endfor %}
-  </div>
+<div class="space-y-6">
+
+    <!-- Summary Section -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="bg-gradient-to-r from-blue-600 to-blue-400 text-white p-5 rounded-xl shadow-lg">
+            <p class="text-sm opacity-85">Total Hours (Lifetime)</p>
+            <p class="text-3xl font-bold">{{ total_hours }} hrs</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-lg">
+            <p class="text-sm text-gray-500">This Month</p>
+            <p class="text-3xl font-bold text-blue-700" id="month-hours">—</p>
+        </div>
+
+        <div class="bg-white p-5 rounded-xl shadow-lg">
+            <p class="text-sm text-gray-500">Status Today</p>
+            {% if logs and not logs[0].exit_time %}
+            <p class="text-3xl font-bold text-green-600">Present</p>
+            {% else %}
+            <p class="text-3xl font-bold text-red-500">Not Checked-in</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Date Filter -->
+    <div class="glass p-4 rounded-lg shadow flex gap-3 items-end">
+        <div class="flex-1">
+            <label class="text-sm">From</label>
+            <input type="date" id="fromDate"
+                   class="w-full border rounded-lg p-2 text-sm focus:ring focus:ring-blue-300">
+        </div>
+        <div class="flex-1">
+            <label class="text-sm">To</label>
+            <input type="date" id="toDate"
+                   class="w-full border rounded-lg p-2 text-sm focus:ring focus:ring-blue-300">
+        </div>
+        <button id="filterBtn"
+                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+            Filter
+        </button>
+    </div>
+
+    <!-- Attendance Logs -->
+    <div class="glass p-6 rounded-2xl shadow-xl space-y-4">
+        <h3 class="text-lg font-semibold text-gray-700">Attendance Records</h3>
+
+        {% if logs %}
+            {% for a in logs %}
+            <div class="p-4 rounded-xl bg-white shadow hover:shadow-md transition">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold text-gray-800">
+                            {{ a.entry_time.strftime("%d %b %Y") }}
+                        </p>
+                        <p class="text-sm text-gray-600">
+                            {{ a.entry_time.strftime("%I:%M %p") }}
+                            →
+                            {% if a.exit_time %}
+                                {{ a.exit_time.strftime("%I:%M %p") }}
+                            {% else %}
+                                <span class="text-orange-500">Still Inside</span>
+                            {% endif %}
+                            • <span class="text-blue-700 font-medium">{{ a.location_name }}</span>
+                            (Room {{ a.room_no }})
+                        </p>
+                    </div>
+
+                    <div class="text-right">
+                        {% if a.duration %}
+                        <p class="text-sm font-bold text-blue-600">
+                            {{ "%.2f"|format(a.duration) }} hrs
+                        </p>
+                        {% else %}
+                        <p class="text-sm text-gray-400">—</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-center text-gray-500 py-6">No attendance recorded yet.</p>
+        {% endif %}
+    </div>
 </div>
+
+<script>
+// Calculate this month's hours on the frontend
+fetch("/api/month-hours")
+  .then(res => res.json())
+  .then(data => {
+      document.getElementById("month-hours").textContent = data.total_hours + " hrs";
+  });
+
+</script>
+
 {% endblock %}

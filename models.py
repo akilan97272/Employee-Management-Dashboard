@@ -1,11 +1,9 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Date, ForeignKey
+from sqlalchemy.orm import relationship
 from database import Base
 import datetime
 
 
-# ------------------------------------------------------------
-# USER TABLE
-# ------------------------------------------------------------
 class User(Base):
     __tablename__ = "users"
 
@@ -14,36 +12,33 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     rfid_tag = Column(String, unique=True, nullable=False)
-    role = Column(String, nullable=False)  # admin / employee
+    role = Column(String, nullable=False)  # "employee" or "admin"
     department = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+    hourly_rate = Column(Float, default=200.0)
+    allowances = Column(Float, default=0.0)
+    deductions = Column(Float, default=0.0)
 
 
-# ------------------------------------------------------------
-# ATTENDANCE TABLE
-# ------------------------------------------------------------
+
 class Attendance(Base):
     __tablename__ = "attendance"
 
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(String(60), nullable=False)
     rfid_tag = Column(String, nullable=False)
-
     entry_time = Column(DateTime, default=datetime.datetime.utcnow)
     exit_time = Column(DateTime, nullable=True)
-    duration = Column(Float, nullable=True)  # hours
+    duration = Column(Float, nullable=True)  # in hours
 
-    # NEW FIELDS
-    block = Column(String, nullable=True)                # Optional
-    room_no = Column(String, nullable=False)             # Room Number
-    location_name = Column(String, nullable=False)       # Block / Location
-    room_id = Column(String, nullable=True)              # Reference to rooms.room_id
+    # Location details
+    block = Column(String, nullable=True)         # backward compatibility / older data
+    room_no = Column(String, nullable=True)       # room number
+    location_name = Column(String, nullable=True) # location / block name
+    room_id = Column(String, nullable=True)       # reference to Room.room_id
 
 
-# ------------------------------------------------------------
-# REMOVED EMPLOYEE TABLE
-# ------------------------------------------------------------
 class RemovedEmployee(Base):
     __tablename__ = "removed_employees"
 
@@ -57,9 +52,6 @@ class RemovedEmployee(Base):
     removed_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
-# ------------------------------------------------------------
-# UNKNOWN RFID TABLE
-# ------------------------------------------------------------
 class UnknownRFID(Base):
     __tablename__ = "unknown_rfids"
 
@@ -69,9 +61,6 @@ class UnknownRFID(Base):
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
 
 
-# ------------------------------------------------------------
-# ROOM TABLE
-# ------------------------------------------------------------
 class Room(Base):
     __tablename__ = "rooms"
 
@@ -82,56 +71,36 @@ class Room(Base):
     description = Column(String, nullable=True)
 
 
-# ------------------------------------------------------------
-# DEPARTMENT TABLE
-# ------------------------------------------------------------
 class Department(Base):
     __tablename__ = "departments"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-    description = Column(String, nullable=True)
+    name = Column(String, unique=True, nullable=False)   # e.g., "IT", "HR"
+    description = Column(String, nullable=True)          # Optional description
 
 
-# ------------------------------------------------------------
-# TASK TABLE
-# ------------------------------------------------------------
 class Task(Base):
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    user_id = Column(String(60), nullable=False, index=True)  # employee_id
+    user_id = Column(String(60), nullable=False, index=True)
     title = Column(String(200), nullable=False)
-    description = Column(Text, nullable=True)
+    description = Column(Text)
     status = Column(String(20), default="pending")
+    priority = Column(String(20), default="medium")  # low / medium / high
+    due_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-class Project(Base):
-    __tablename__ = "projects"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(200), nullable=False)
-    description = Column(Text)
-    deadline = Column(DateTime)
-    status = Column(String(20), default="active")  # active, completed, paused
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+class LeaveRequest(Base):
+    __tablename__ = "leave_requests"
 
-class ProjectAssignment(Base):
-    __tablename__ = "project_assignments"
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(String(20), ForeignKey("users.employee_id"))
+    start_date = Column(Date)
+    end_date = Column(Date)
+    reason = Column(String(255))
+    status = Column(String(20), default="Pending")
 
-    id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, nullable=False)
-    employee_id = Column(String(60), nullable=False)    # users.employee_id
-
-
-class ProjectTask(Base):
-    __tablename__ = "project_tasks"
-
-    id = Column(Integer, primary_key=True)
-    project_id = Column(Integer, nullable=False)
-    title = Column(String(200), nullable=False)
-    description = Column(Text)
-    assigned_to = Column(String(60), nullable=False)      # employee_id
-    status = Column(String(20), default="pending")         # pending / in_progress / completed
-    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    user = relationship("User")
 

@@ -1,30 +1,77 @@
 {% extends "layout_base.html" %}
-{% block title %}Workspace — TeamSync{% endblock %}
 {% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}Welcome, {{ user.name }}{% endblock %}
-{% block content %}
-<div class="glass p-6 rounded-xl space-y-6 max-w-3xl">
-  <div class="flex items-center gap-4">
-    <div class="w-16 h-16 rounded-full glass flex items-center justify-center text-2xl">{{ user.name[0]|upper }}</div>
-    <div>
-      <div class="text-xl font-semibold">{{ user.name }}</div>
-      <div class="muted text-sm">{{ user.employee_id }} • {{ user.department }}</div>
-    </div>
-  </div>
+{% block page_title %}My Workspace{% endblock %}
 
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-    <div class="glass p-4">
-      <div class="muted text-sm">Total Hours</div>
-      <div class="text-2xl font-semibold">{{ total_hours }}</div>
+{% block content %}
+
+<div class="space-y-6">
+
+    <!-- Profile Card -->
+    <div class="glass p-6 rounded-xl flex items-center gap-6">
+        <div class="w-20 h-20 rounded-full bg-blue-200 text-blue-800 
+                    flex justify-center items-center text-3xl font-bold">
+            {{ user.name[0] }}
+        </div>
+        <div>
+            <h2 class="text-2xl font-semibold text-gray-800">{{ user.name }}</h2>
+            <p class="text-sm text-gray-500">ID: {{ user.employee_id }}</p>
+            <p class="text-sm text-gray-500">{{ user.role | upper }} • {{ user.department }}</p>
+        </div>
     </div>
-    <div class="glass p-4">
-      <div class="muted text-sm">Tasks</div>
-      <div class="text-2xl font-semibold">{{ tasks|length if tasks else 0 }}</div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
+        <!-- Total Hours -->
+        <div class="glass p-5 rounded-xl shadow hover:scale-[1.02] transition cursor-pointer">
+            <p class="text-sm text-gray-600">Total Hours</p>
+            <p class="text-3xl font-bold text-blue-700">{{ total_hours }} hrs</p>
+        </div>
+
+        <!-- RFID Card -->
+        <div class="glass p-5 rounded-xl shadow hover:scale-[1.02] transition">
+            <p class="text-sm text-gray-600">RFID Tag</p>
+            <p class="text-lg font-semibold text-gray-800">{{ user.rfid_tag }}</p>
+        </div>
+
+        <!-- Tasks -->
+        <a href="/employee/tasks" class="glass p-5 rounded-xl shadow hover:bg-blue-50 transition">
+            <p class="text-sm text-gray-600">Pending Tasks</p>
+            <p class="text-3xl font-bold text-blue-700">{{ tasks|length if tasks else 0 }}</p>
+        </a>
+
+        <!-- Leave -->
+        <a href="/employee/leave" class="glass p-5 rounded-xl shadow hover:bg-blue-50 transition">
+            <p class="text-sm text-gray-600">Leave Balance</p>
+            <p class="text-3xl font-bold text-blue-700">{{ leave_balance|default(0) }}</p>
+        </a>
     </div>
-    <div class="glass p-4">
-      <div class="muted text-sm">RFID</div>
-      <div class="text-lg font-medium">{{ user.rfid_tag }}</div>
+
+    <!-- Quick Actions -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+
+        <a href="/employee/attendance"
+           class="p-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-center font-medium">
+            <span>View Attendance</span>
+        </a>
+
+        <a href="/employee/tasks"
+           class="p-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-center font-medium">
+            <span>My Tasks</span>
+        </a>
+
+        <a href="/employee/leave"
+           class="p-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-center font-medium">
+            <span>Apply Leave</span>
+        </a>
+
+        <a href="/employee/profile"
+           class="p-4 rounded-xl bg-blue-400 hover:bg-blue-500 text-white text-center font-medium">
+            <span>My Profile</span>
+        </a>
+
     </div>
-  </div>
+
 </div>
+
 {% endblock %}

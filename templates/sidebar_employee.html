@@ -1,47 +1,16 @@
-<div class="glass p-4 h-full">
+<div class="sidebar h-full glass p-4">
 
-  <div class="mb-6">
-    <div class="font-semibold text-lg">TeamSync</div>
-    <div class="muted text-sm">Workspace</div>
-  </div>
+  <h2 class="text-xl font-semibold mb-6">TeamSync Workspace</h2>
 
   <nav class="space-y-2">
+    <a href="/employee">🏠 Dashboard</a>
+    <a href="/employee/attendance">⏱ Attendance</a>
+    <a href="/employee/tasks">🗒 Tasks</a>
+    <a href="/employee/leave">📝 Leave Request</a>
+    <a href="/employee/payslips">💸 Payslips</a>
+    <a href="/employee/profile" class="hover:bg-blue-100 block px-4 py-2 rounded">👤 Profile</a>
 
-    <a href="/employee"
-       class="block px-3 py-2 rounded hover:bg-white/6
-       {% if request.url.path == '/employee' %}bg-white/10{% endif %}">
-      🏠 Dashboard
-    </a>
-
-    <a href="/employee/attendance"
-       class="block px-3 py-2 rounded hover:bg-white/6
-       {% if '/employee/attendance' in request.url.path %}bg-white/10{% endif %}">
-      ⏱ Attendance
-    </a>
-
-    <a href="/employee/projects"
-       class="block px-3 py-2 rounded hover:bg-white/6
-       {% if '/employee/projects' in request.url.path %}bg-white/10{% endif %}">
-      🕐 Projects
-    </a>
-
-    <a href="/employee/tasks"
-       class="block px-3 py-2 rounded hover:bg-white/6
-       {% if '/employee/tasks' in request.url.path %}bg-white/10{% endif %}">
-      🗒 Tasks
-    </a>
-
-    <a href="/employee/payslips"
-       class="block px-3 py-2 rounded hover:bg-white/6
-       {% if '/employee/payslips' in request.url.path %}bg-white/10{% endif %}">
-      💸 Payslips
-    </a>
-
-    <a href="/employee/profile"
-       class="block px-3 py-2 rounded hover:bg-white/6
-       {% if '/employee/profile' in request.url.path %}bg-white/10{% endif %}">
-      👤 Profile
-    </a>
-
+    <a href="/logout" class="mt-6 text-red-400">🚪 Logout</a>
   </nav>
+
 </div>

@@ -1,106 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>{% block title %}TeamSync{% endblock %}</title>
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
-    /* iOS-style clear glass variables for light/dark */
     :root{
-      --bg: linear-gradient(180deg,#f3f6fb,#eef5ff);
-      --panel: rgba(255,255,255,0.18);
-      --glass-border: rgba(255,255,255,0.22);
-      --text: #0b1220;
-      --muted: #475569;
+      --bg: linear-gradient(180deg, #f5f7fb 0%, #ecf0fd 100%);
+      --panel: rgba(255,255,255,0.12);
+      --glass-border: rgba(255,255,255,0.18);
+      --text: #021023;
+      --muted: rgba(2,16,35,0.55);
       --accent: #06b6d4;
       --glass-blur: 20px;
+      --shadow: 0 20px 40px rgba(2,6,23,0.12);
     }
     [data-theme="dark"]{
-      --bg: linear-gradient(180deg,#071018,#041021);
-      --panel: rgba(255,255,255,0.03);
-      --glass-border: rgba(255,255,255,0.05);
+      --bg: linear-gradient(180deg, #060a11 0%, #0a121c 100%);
+      --panel: rgba(255,255,255,0.05);
+      --glass-border: rgba(255,255,255,0.10);
       --text: #e6eef6;
-      --muted: #93a4b4;
-      --accent: #58a6ff;
-      --glass-blur: 28px;
+      --muted: rgba(230,238,246,0.60);
+      --accent: #58a6ff; /* Github blue */
+      --glass-blur: 22px;
+      --shadow: 0 30px 60px rgba(0,0,0,0.40);
     }
 
-    html,body{height:100%;margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system; background:var(--bg); color:var(--text);}
-    .glass {
+    body { background: var(--bg); color: var(--text); font-family: Inter, sans-serif; }
+
+    .glass{
       background: var(--panel);
       border: 1px solid var(--glass-border);
       backdrop-filter: blur(var(--glass-blur));
-      -webkit-backdrop-filter: blur(var(--glass-blur));
+      box-shadow: var(--shadow);
       border-radius: 14px;
-      box-shadow: 0 8px 30px rgba(2,6,23,0.06);
     }
 
-    /* small helper */
-    .muted{ color: var(--muted); }
-    .accent{ color: var(--accent); }
+    .sidebar a{
+      display:flex; gap:12px; align-items:center;
+      padding:10px 12px; border-radius:10px;
+      text-decoration:none; color:var(--text);
+    }
+    .sidebar a:hover{
+      transform: translateX(6px);
+      transition:0.16s;
+      background: rgba(255,255,255,0.05);
+    }
+
+    .muted { color: var(--muted); }
+    .accent { color: var(--accent); }
+
+    /* Fix: flex sidebar structure */
+    .sidebar-container {
+      width: 240px;
+      flex-shrink: 0;
+    }
+
+    @media (max-width:900px){
+      .sidebar-container { display:none; }
+      .mobile-menu-btn { display:block; }
+    }
+
+    .mobile-menu-btn { display:none; }
   </style>
 </head>
-<body data-theme="light" class="min-h-screen">
-  <div class="flex min-h-screen">
-    <!-- Sidebar -->
-    <aside class="w-60 p-4 hidden lg:block">
-      {% block sidebar %}{% endblock %}
-    </aside>
 
-    <!-- Main -->
-    <main class="flex-1 p-6 lg:p-10">
-      <div class="flex items-start justify-between gap-4 mb-6">
+<body data-theme="light">
+  <div class="min-h-screen flex">
+
+    <!-- Sidebar injected here -->
+    <div class="sidebar-container">
+      {% block sidebar %}{% endblock %}
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="flex-1 p-6 lg:p-8">
+
+      <div class="flex items-center justify-between mb-6">
         <div>
-          <h1 class="text-2xl font-semibold">{% block page_title %}TeamSync{% endblock %}</h1>
-          <div class="muted text-sm">{% block page_subtitle %}{% endblock %}</div>
+          <h1 class="text-2xl font-bold">{% block page_title %}TeamSync{% endblock %}</h1>
+          <p class="muted text-sm">{% block page_subtitle %}{% endblock %}</p>
         </div>
 
         <div class="flex items-center gap-3">
-          <button id="themeToggle" class="glass px-3 py-2 rounded-lg flex items-center gap-2">
-            <svg id="themeIcon" width="18" height="18" viewBox="0 0 24 24" fill="none" class="text-current"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.4"/></svg>
-            <span class="muted text-sm">Theme</span>
+
+          <!-- Theme Toggle -->
+          <button id="themeToggle" class="glass px-3 py-2 rounded-lg text-sm flex items-center gap-2">
+            <span id="themeIcon">🌞</span>
           </button>
 
+          <!-- Username -->
           {% if user %}
-          <div class="glass px-3 py-2 rounded-lg text-sm muted">{{ user.name }}</div>
+          <div class="glass px-3 py-2 rounded-lg text-sm muted">
+            {{ user.name }}
+          </div>
           {% endif %}
 
-          <a href="/logout" class="glass px-3 py-2 rounded-lg text-sm text-rose-500">Logout</a>
+          <a href="/logout" class="glass px-3 py-2 rounded-lg text-sm text-red-400">Logout</a>
         </div>
       </div>
 
-      <div>
-        {% block content %}{% endblock %}
-      </div>
+      <!-- PAGE CONTENT -->
+      <div>{% block content %}{% endblock %}</div>
 
-      <footer class="mt-10 text-sm muted">© {{ current_year if current_year else '' }} TeamSync</footer>
-    </main>
+      <footer class="mt-10 text-sm muted">
+        © {{ current_year }} TeamSync
+      </footer>
+
+    </div>
   </div>
 
-  <script>
-    (function(){
-      const root = document.documentElement;
-      const body = document.body;
-      const btn = document.getElementById('themeToggle');
-      const icon = document.getElementById('themeIcon');
-      const saved = localStorage.getItem('ts_theme') || 'light';
-      body.setAttribute('data-theme', saved);
-      function updateIcon(t){
-        if(!icon) return;
-        if(t === 'dark') icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" stroke="currentColor" stroke-width="1.4" fill="none"/>';
-        else icon.innerHTML = '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.4" fill="none"/>';
-      }
-      updateIcon(saved);
-      btn?.addEventListener('click', ()=>{
-        const next = body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        body.setAttribute('data-theme', next);
-        localStorage.setItem('ts_theme', next);
-        updateIcon(next);
-      });
-    })();
-  </script>
+<script>
+  // theme switch
+  const body = document.body;
+  const toggle = document.getElementById("themeToggle");
 
-  {% block scripts %}{% endblock %}
+  function applyTheme(t){
+    body.setAttribute("data-theme", t);
+    document.getElementById("themeIcon").innerHTML = t === "dark" ? "🌙" : "🌞";
+  }
+
+  let saved = localStorage.getItem("ts-theme") || "light";
+  applyTheme(saved);
+
+  toggle.addEventListener("click", () => {
+    saved = saved === "dark" ? "light" : "dark";
+    localStorage.setItem("ts-theme", saved);
+    applyTheme(saved);
+  });
+</script>
+
 </body>
 </html>
