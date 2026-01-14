@@ -14,13 +14,14 @@
     </div>
 
     <!-- PROGRESS CHART -->
-    <div class="glass p-4 rounded-xl text-center space-y-2">
-        <canvas id="taskChart" width="200" height="200"></canvas>
+    <div class="glass p-4 rounded-xl flex justify-center items-center">
+        <canvas id="taskChart" width="270" height="270"></canvas>
     </div>
 
-    <!-- Add Task Form -->
+    <!-- ADD TASK FORM -->
     <form method="post" action="/employee/tasks/add" class="glass p-4 rounded-xl space-y-3">
-        <input name="title" placeholder="Task title" required class="glass w-full px-3 py-2 rounded"/>
+        <input name="title" placeholder="Task title" required
+               class="glass w-full px-3 py-2 rounded"/>
 
         <textarea name="description" placeholder="Task description"
                   class="glass w-full px-3 py-2 rounded h-20"></textarea>
@@ -38,7 +39,7 @@
         <button class="btn-primary w-full">➕ Add Task</button>
     </form>
 
-    <!-- Task Cards -->
+    <!-- TASK LIST -->
     <div class="space-y-3">
         {% for t in tasks %}
         <div class="glass p-4 rounded-xl shadow flex justify-between items-center">
@@ -49,43 +50,55 @@
 
                 <div class="flex gap-2 text-xs">
                     {% if t.priority == 'high' %}
-                    <span class="badge badge-red">High</span>
+                        <span class="badge badge-red">High</span>
                     {% elif t.priority == 'medium' %}
-                    <span class="badge badge-blue">Medium</span>
+                        <span class="badge badge-blue">Medium</span>
                     {% else %}
-                    <span class="badge badge-gray">Low</span>
+                        <span class="badge badge-gray">Low</span>
                     {% endif %}
 
                     {% if t.due_date %}
-                    <span class="badge badge-purple">Due: {{ t.due_date.strftime("%d %b") }}</span>
+                        <span class="badge badge-purple">
+                            Due: {{ t.due_date.strftime("%d %b") }}
+                        </span>
                     {% endif %}
                 </div>
             </div>
 
-            <form method="post" action="/employee/tasks/update" class="flex items-center gap-2">
+            <form method="post" action="/employee/tasks/update"
+                  class="flex items-center gap-2">
                 <input type="hidden" name="task_id" value="{{ t.id }}"/>
 
-                <select name="status" class="glass px-2 py-1 rounded text-sm"
+                <select name="status"
+                        class="glass px-2 py-1 rounded text-sm"
                         onchange="this.form.submit()">
-                    <option value="pending" {% if t.status=='pending' %}selected{% endif %}>Pending</option>
-                    <option value="in-progress" {% if t.status=='in-progress' %}selected{% endif %}>In-Progress</option>
-                    <option value="done" {% if t.status=='done' %}selected{% endif %}>Completed</option>
+                    <option value="pending" {% if t.status == 'pending' %}selected{% endif %}>
+                        Pending
+                    </option>
+                    <option value="in-progress" {% if t.status == 'in-progress' %}selected{% endif %}>
+                        In-Progress
+                    </option>
+                    <option value="done" {% if t.status == 'done' %}selected{% endif %}>
+                        Completed
+                    </option>
                 </select>
 
-                <!-- Delete button -->
-                <button formaction="/employee/tasks/delete" class="text-red-500"
-                        onclick="return confirm('Delete this task?');">🗑</button>
+                <button formaction="/employee/tasks/delete"
+                        class="text-red-500"
+                        onclick="return confirm('Delete this task?');">
+                    🗑
+                </button>
             </form>
 
         </div>
         {% else %}
-        <p class="muted text-center">No tasks available</p>
+            <p class="muted text-center">No tasks available</p>
         {% endfor %}
     </div>
 
 </div>
 
-<!-- Pie Chart Script -->
+<!-- CHART SCRIPT -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
     const pending = {{ pending }};
@@ -97,10 +110,22 @@
         data: {
             labels: ['Pending', 'In-Progress', 'Completed'],
             datasets: [{
-                data: [pending, inProgress, done]
+                data: [pending, inProgress, done],
+                radius: '65%'
             }]
+        },
+        options: {
+            responsive: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 10,
+                        font: { size: 11 }
+                    }
+                }
+            }
         }
     });
 </script>
-
 {% endblock %}

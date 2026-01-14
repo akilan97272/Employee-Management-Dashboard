@@ -12,13 +12,27 @@ class User(Base):
     name = Column(String, nullable=False)
     email = Column(String, unique=True, nullable=False)
     rfid_tag = Column(String, unique=True, nullable=False)
-    role = Column(String, nullable=False)  # "employee" or "admin"
+    role = Column(String, nullable=False)
     department = Column(String, nullable=True)
     password_hash = Column(String, nullable=False)
     is_active = Column(Boolean, default=True)
+
     hourly_rate = Column(Float, default=200.0)
     allowances = Column(Float, default=0.0)
     deductions = Column(Float, default=0.0)
+
+    # TEAM & LEADERSHIP
+    can_manage = Column(Boolean, default=False)
+    current_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    active_leader = Column(Boolean, default=False)
+
+    # ✅ EXPLICIT foreign_keys
+    team = relationship(
+        "Team",
+        back_populates="members",
+        foreign_keys=[current_team_id]
+    )
+
 
 
 
@@ -26,18 +40,17 @@ class Attendance(Base):
     __tablename__ = "attendance"
 
     id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(String(60), nullable=False)
-    rfid_tag = Column(String, nullable=False)
-    entry_time = Column(DateTime, default=datetime.datetime.utcnow)
+    employee_id = Column(String(60), nullable=False, index=True)
+    date = Column(Date, nullable=False)
+
+    entry_time = Column(DateTime, nullable=True)
     exit_time = Column(DateTime, nullable=True)
-    duration = Column(Float, nullable=True)  # in hours
+    duration = Column(Float, default=0.0)
 
-    # Location details
-    block = Column(String, nullable=True)         # backward compatibility / older data
-    room_no = Column(String, nullable=True)       # room number
-    location_name = Column(String, nullable=True) # location / block name
-    room_id = Column(String, nullable=True)       # reference to Room.room_id
+    status = Column(String(20), default="PRESENT")
 
+    location_name = Column(String, nullable=True)
+    room_no = Column(String, nullable=True)
 
 class RemovedEmployee(Base):
     __tablename__ = "removed_employees"
@@ -104,3 +117,25 @@ class LeaveRequest(Base):
 
     user = relationship("User")
 
+class Team(Base):
+    __tablename__ = "teams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(100), nullable=False)
+    department = Column(String(100), nullable=False)
+
+    leader_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # ✅ Leader relationship (explicit)
+    leader = relationship(
+        "User",
+        foreign_keys=[leader_id]
+    )
+
+    # ✅ Members relationship (explicit)
+    members = relationship(
+        "User",
+        back_populates="team",
+        foreign_keys="User.current_team_id"
+    )
