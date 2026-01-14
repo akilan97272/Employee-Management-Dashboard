@@ -1,0 +1,42 @@
+{% extends "layout_base.html" %}
+{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
+{% block page_title %}My Team{% endblock %}
+
+{% block content %}
+<div class="glass p-6 rounded-xl space-y-4">
+
+{% if team %}
+    <div>
+        <p><b>Team Name:</b> {{ team.name }}</p>
+        <p><b>Department:</b> {{ team.department }}</p>
+    </div>
+
+    <div class="mt-4">
+        <p class="font-semibold">👑 Team Leader</p>
+        {% if leader %}
+            <p>{{ leader.name }}</p>
+        {% else %}
+            <p class="muted">Not assigned</p>
+        {% endif %}
+    </div>
+
+    <div class="mt-4">
+        <p class="font-semibold">👥 Team Members</p>
+        <ul class="list-disc list-inside text-sm">
+            {% for m in members %}
+                <li>
+                    {{ m.name }}
+                    {% if m.active_leader %} ⭐ {% endif %}
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+
+{% else %}
+    <p class="muted text-center">
+        You are not assigned to any team yet.
+    </p>
+{% endif %}
+
+</div>
+{% endblock %}

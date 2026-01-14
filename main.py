@@ -465,6 +465,35 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
     )
 
 
+@app.get("/employee/team", response_class=HTMLResponse)
+async def employee_team(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    team = None
+    leader = None
+    members = []
+
+    if user.current_team_id:
+        team = db.query(Team).get(user.current_team_id)
+        if team:
+            leader = team.leader
+            members = team.members
+
+    return templates.TemplateResponse(
+        "employee_team.html",
+        {
+            "request": request,
+            "user": user,
+            "team": team,
+            "leader": leader,
+            "members": members
+        }
+    )
+
+
+
 @app.get("/employee/attendance", response_class=HTMLResponse)
 async def employee_attendance_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     logs = db.query(Attendance).filter(
