@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>TeamSync</title>
+    <style>
+        body { font-family: Arial; background: #0f172a; color: #e5e7eb; }
+        .card {
+            background: #111827;
+            padding: 20px;
+            border-radius: 12px;
+            width: 400px;
+            margin: 40px auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+        }
+        .leader { color: #22c55e; font-weight: bold; }
+        .acting { color: #facc15; font-size: 12px; }
+        ul { padding-left: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>👥 TeamSync Workspace</h2>
+
+    <p><strong>Team:</strong> {{ team.team_name }}</p>
+    <p><strong>Department:</strong> {{ user.department }}</p>
+
+    <p>
+        <strong>Leader:</strong>
+        <span class="leader">{{ team.leader }}</span>
+        {% if team.is_acting %}
+            <span class="acting">(Acting Leader)</span>
+        {% endif %}
+    </p>
+
+    <hr>
+
+    <h4>Team Members</h4>
+    <ul>
+        {% for member in team.members %}
+            <li>
+                {{ member }}
+                {% if member == team.leader %}
+                    ⭐
+                {% endif %}
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+</body>
+</html>

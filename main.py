@@ -12,6 +12,11 @@ import string
 import datetime
 from typing import Optional
 from calendar import monthrange
+from team_scheduler import auto_assign_leaders
+from threading import Thread
+import time
+from database import get_team_info
+
 
 Base.metadata.create_all(bind=engine)
 
@@ -80,9 +85,17 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
     # Fetch data for dashboard (dynamic blocks)
-    blocks_data = db.query(Attendance.location_name, Attendance.room_no,
-                           func.count(Attendance.id).label('count')).filter(Attendance.exit_time.is_(None)).group_by(
-        Attendance.location_name, Attendance.room_no).all()
+    blocks_data = db.query(
+        Attendance.location_name,
+        Attendance.room_no,
+        func.count(Attendance.id).label("count")
+    ).filter(
+        Attendance.status == "PRESENT",
+        Attendance.date == datetime.date.today()
+    ).group_by(
+        Attendance.location_name,
+        Attendance.room_no
+    ).all()
     employees = db.query(User).filter(User.is_active == True).all()
     unknown_rfids = db.query(UnknownRFID).all()
     admins = db.query(User).filter(User.role == "admin").all()  # For listing admins
@@ -93,51 +106,56 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
     })
 
 @app.post("/api/attendance")
-async def record_attendance(rfid_tag: str, room_no: str, location_name: str, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.rfid_tag == rfid_tag, User.is_active == True).first()
+async def record_attendance(
+    rfid_tag: str,
+    room_no: str,
+    location_name: str,
+    db: Session = Depends(get_db)
+):
+    user = db.query(User).filter(
+        User.rfid_tag == rfid_tag,
+        User.is_active == True
+    ).first()
+
     if not user:
-        # Unknown RFID
-        unknown = UnknownRFID(rfid_tag=rfid_tag, location=location_name)
-        db.add(unknown)
+        db.add(UnknownRFID(rfid_tag=rfid_tag, location=location_name))
         db.commit()
-        return {"status": "unknown_rfid_logged"}
+        return {"status": "unknown_rfid"}
 
-    # Find or create room
-    room = db.query(Room).filter(Room.room_no == room_no, Room.location_name == location_name).first()
-    if not room:
-        room_id = f"R{room_no}"
-        room = Room(room_id=room_id, room_no=room_no, location_name=location_name)
-        db.add(room)
-        db.commit()
+    today = datetime.date.today()
+    now = datetime.datetime.utcnow()
 
-    # Traverse from bottom (latest) to find open entry
-    latest_attendance = db.query(Attendance).filter(Attendance.rfid_tag == rfid_tag,
-                                                    Attendance.exit_time.is_(None)).order_by(
-        Attendance.id.desc()).first()
-    if latest_attendance:
-        # Exit
-        latest_attendance.exit_time = datetime.datetime.utcnow()
-        duration = (latest_attendance.exit_time - latest_attendance.entry_time).total_seconds() / 3600
-        latest_attendance.duration = duration
-    else:
-        # Entry
-        attendance = Attendance(employee_id=user.employee_id, rfid_tag=rfid_tag, entry_time=datetime.datetime.utcnow(),
-                                room_no=room_no, location_name=location_name, room_id=room.room_id)
+    attendance = db.query(Attendance).filter(
+        Attendance.employee_id == user.employee_id,
+        Attendance.date == today
+    ).first()
+
+    # FIRST SCAN → ENTRY
+    if not attendance:
+        attendance = Attendance(
+            employee_id=user.employee_id,
+            date=today,
+            entry_time=now,
+            status="PRESENT",
+            location_name=location_name,
+            room_no=room_no
+        )
         db.add(attendance)
-    db.commit()
-    return {"status": "recorded"}
+        db.commit()
+        return {"status": "checked_in"}
 
-@app.get("/admin/payroll")
-async def payroll(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
-    payroll_data = []
-    employees = db.query(User).filter(User.is_active == True).all()
-    for emp in employees:
-        total_hours = db.query(func.sum(Attendance.duration)).filter(Attendance.employee_id == emp.employee_id).scalar() or 0
-        salary = total_hours * 20  # $20/hour
-        payroll_data.append({"name": emp.name, "total_hours": total_hours, "salary": salary})
-    return templates.TemplateResponse("payroll.html", {"request": request, "payroll": payroll_data})
+    # SECOND SCAN → EXIT
+    if attendance.entry_time and not attendance.exit_time:
+        attendance.exit_time = now
+        attendance.duration = round(
+            (attendance.exit_time - attendance.entry_time).total_seconds() / 3600,
+            2
+        )
+        db.commit()
+        return {"status": "checked_out", "hours": attendance.duration}
+
+    return {"status": "already_checked_out"}
+
 
 @app.post("/admin/add_employee")
 async def add_employee(request: Request, name: str = Form(...), email: str = Form(...), rfid_tag: str = Form(...),
@@ -255,8 +273,34 @@ async def get_block_persons(location: str, room: str, db: Session = Depends(get_
 
 @app.get("/api/blocks")
 async def get_blocks(db: Session = Depends(get_db)):
-    blocks = db.query(Attendance.location_name, Attendance.room_no, func.count(Attendance.id).label('count')).filter(Attendance.exit_time.is_(None)).group_by(Attendance.location_name, Attendance.room_no).all()
-    return {"blocks": [{"location": b.location_name, "room": b.room_no, "count": b.count} for b in blocks]}
+    blocks = (
+        db.query(
+            Attendance.location_name,
+            Attendance.room_no,
+            func.count(Attendance.id).label("count")
+        )
+        .filter(
+            Attendance.status == "PRESENT",
+            Attendance.date == datetime.date.today()
+        )
+        .group_by(
+            Attendance.location_name,
+            Attendance.room_no
+        )
+        .all()
+    )
+
+    return {
+        "blocks": [
+            {
+                "location": b.location_name,
+                "room": b.room_no,
+                "count": b.count
+            }
+            for b in blocks
+        ]
+    }
+
 
 # Admin-only features (merged from super_admin)
 @app.post("/admin/add_admin")
@@ -403,7 +447,8 @@ async def admin_choice(request: Request, user: User = Depends(get_current_user))
 async def employee_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     total_hours = db.query(func.sum(Attendance.duration)).filter(
         Attendance.employee_id == user.employee_id
-    ).scalar() or 0
+        ).scalar() or 0
+
 
     tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
 
@@ -424,7 +469,8 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
 async def employee_attendance_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     logs = db.query(Attendance).filter(
         Attendance.employee_id == user.employee_id
-    ).order_by(Attendance.entry_time.desc()).all()
+            ).order_by(Attendance.date.desc()).all()
+
 
     return templates.TemplateResponse("employee_attendance.html",
                                       {"request": request, "user": user, "logs": logs,
@@ -596,29 +642,14 @@ async def employee_payslips_page(request: Request,
 # ----------------------------------------
 # ADMIN DASHBOARD + FEATURES
 # ----------------------------------------
-
-@app.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-
-    blocks = db.query(
-        Attendance.location_name,
-        Attendance.room_no,
-        func.count(Attendance.id).label("count")
-    ).filter(Attendance.exit_time.is_(None)).group_by(
-        Attendance.location_name, Attendance.room_no
-    ).all()
-
-    employees = db.query(User).filter(User.is_active == True).all()
-    unknown = db.query(UnknownRFID).all()
-
-    return templates.TemplateResponse("admin_dashboard.html",
-                                      {"request": request, "user": user, "blocks": blocks,
-                                       "employees": employees, "unknown_rfids": unknown,
-                                       "current_year": datetime.datetime.utcnow().year})
-
-
 @app.get("/admin/payroll", response_class=HTMLResponse)
-async def admin_payroll(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def admin_payroll(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
 
     employees = db.query(User).filter(User.is_active == True).all()
     payroll_data = []
@@ -629,8 +660,10 @@ async def admin_payroll(request: Request, user: User = Depends(get_current_user)
         ).scalar() or 0
 
         salary = total_hours * 200  # ₹200/hour
+
         payroll_data.append({
             "name": emp.name,
+            "employee_id": emp.employee_id,
             "total_hours": round(total_hours, 2),
             "salary": round(salary, 2)
         })
@@ -639,25 +672,19 @@ async def admin_payroll(request: Request, user: User = Depends(get_current_user)
     avg_salary = round(total_salary / len(payroll_data), 2) if payroll_data else 0
     max_salary = max((p["salary"] for p in payroll_data), default=0)
 
-    return templates.TemplateResponse("admin_payroll.html",
-                                     {
-                                         "request": request,
-                                         "user": user,
-                                         "payroll": payroll_data,
-                                         "total_salary": total_salary,
-                                         "avg_salary": avg_salary,
-                                         "max_salary": max_salary,
-                                         "current_year": datetime.datetime.utcnow().year
-                                     })
+    return templates.TemplateResponse(
+        "payroll.html",
+        {
+            "request": request,
+            "user": user,
+            "payroll": payroll_data,
+            "total_salary": total_salary,
+            "avg_salary": avg_salary,
+            "max_salary": max_salary,
+            "current_year": datetime.datetime.utcnow().year
+        }
+    )
 
-# ----------------------------------------
-# CREATE INITIAL ADMIN
-# ----------------------------------------
-
-# @app.on_event("startup")
-# def create_initial_admin():
-#     pass
-#     # Admin users already exist in database - no need to recreate on startup
 
 @app.get("/admin/attendance", response_class=HTMLResponse)
 async def admin_attendance(
@@ -668,12 +695,13 @@ async def admin_attendance(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
 
-    # Join User table to display name & department
-    query = db.query(Attendance).join(User, Attendance.employee_id == User.employee_id)
+    query = db.query(Attendance).join(
+        User,
+        Attendance.employee_id == User.employee_id
+    )
 
     if search:
         query = query.filter(
@@ -687,11 +715,14 @@ async def admin_attendance(
     if date:
         try:
             filter_date = datetime.datetime.strptime(date, "%Y-%m-%d").date()
-            query = query.filter(func.date(Attendance.entry_time) == filter_date)
-        except:
+            query = query.filter(Attendance.date == filter_date)
+        except ValueError:
             pass
 
-    records = query.order_by(Attendance.entry_time.desc()).limit(100).all()
+    records = query.order_by(
+        Attendance.date.desc(),
+        Attendance.entry_time.desc()
+    ).limit(100).all()
 
     return templates.TemplateResponse(
         "admin_attendance.html",
@@ -702,9 +733,9 @@ async def admin_attendance(
             "search": search,
             "date": date,
             "department": department,
-            "current_year": datetime.datetime.utcnow().year
         }
     )
+
 
 @app.get("/admin/manage_employees", response_class=HTMLResponse)
 async def admin_manage_employees(request: Request,
@@ -802,3 +833,28 @@ async def update_leave_status(request: Request,
     leave.status = "Approved" if action == "approve" else "Rejected"
     db.commit()
     return RedirectResponse("/admin/leave_requests", status_code=303)
+
+
+
+def scheduler_loop():
+    while True:
+        auto_assign_leaders()
+        time.sleep(300)  # every 5 mins
+
+@app.on_event("startup")
+def start_scheduler():
+    Thread(target=scheduler_loop, daemon=True).start()
+
+templates = Jinja2Templates(directory="templates")
+
+@app.get("/teamsync")
+def team_sync(request: Request, db=Depends(get_db), user=Depends(get_current_user)):
+    team_data = get_team_info(db, user.id)
+    return templates.TemplateResponse(
+        "teamsync.html",
+        {
+            "request": request,
+            "team": team_data,
+            "user": user
+        }
+    )
