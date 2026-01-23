@@ -1,7 +1,8 @@
-from datetime import datetime, time, date
+from datetime import datetime, time, date, timedelta
 from sqlalchemy.orm import Session
 from database import SessionLocal
 from models import Team, User, LeaveRequest, Attendance
+
 
 GRACE_TIME = time(9, 30)
 
@@ -73,3 +74,27 @@ def auto_assign_leaders():
 
     finally:
         db.close()
+
+
+
+# def auto_exit_gate(db: Session):
+#     now = datetime.utcnow().year
+
+#     expired_gates = db.query(Attendance).filter(
+#         Attendance.room_no == "GATE",
+#         Attendance.exit_time == None,
+#         Attendance.entry_time <= now - timedelta(minutes=30)
+#     ).all()
+
+#     for gate in expired_gates:
+#         # Check if user entered any room after gate entry
+#         room_used = db.query(Attendance).filter(
+#             Attendance.employee_id == gate.employee_id,
+#             Attendance.room_no != "GATE",
+#             Attendance.entry_time >= gate.entry_time
+#         ).first()
+
+#         if not room_used:
+#             gate.exit_time = now
+
+#     db.commit()

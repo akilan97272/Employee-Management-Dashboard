@@ -33,25 +33,29 @@ class User(Base):
         foreign_keys=[current_team_id]
     )
 
-
+    employee_id = Column(String(60), unique=True, index=True)
 
 
 class Attendance(Base):
     __tablename__ = "attendance"
 
     id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(String(60), nullable=False, index=True)
+    employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False, index=True)
+    
     date = Column(Date, nullable=False)
-
     entry_time = Column(DateTime, nullable=True)
     exit_time = Column(DateTime, nullable=True)
     duration = Column(Float, default=0.0)
-
     status = Column(String(20), default="PRESENT")
-
     location_name = Column(String, nullable=True)
     room_no = Column(String, nullable=True)
 
+    user = relationship(
+        "User", 
+        primaryjoin="Attendance.employee_id == User.employee_id", 
+        foreign_keys=[employee_id],
+        backref="attendance_logs"
+    )
 class RemovedEmployee(Base):
     __tablename__ = "removed_employees"
 
