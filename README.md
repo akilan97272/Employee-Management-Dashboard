@@ -1,10 +1,10 @@
-# Attendance Management System
+# 🧾 Attendance Management System
 
 A comprehensive **RFID-based attendance tracking system** built with **FastAPI**, **MariaDB**, and **Tailwind CSS**. This application allows organizations to monitor employee attendance in real-time, manage user roles, and generate reports.
 
 ---
 
-## Table of Contents
+## 📑 Table of Contents
 
 * [Features](#features)
 * [Tech Stack](#tech-stack)
@@ -27,7 +27,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 
 ---
 
-## Features
+## ✨ Features
 
 * **User Authentication**: Role-based access control (Super Admin, Admin, Employee).
 * **RFID Integration**: Real-time attendance recording using RFID tags sent from an ESP32 or similar microcontroller.
@@ -41,7 +41,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 * **Reporting**: Filter attendance by department, employee, or date.
 * **Unknown RFID Detection**: Log and alert on unrecognized RFID tags.
 
-## Tech Stack
+## 🧱 Tech Stack
 
 * **Backend**: FastAPI (Python)
 * **Database**: MariaDB
@@ -51,7 +51,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 
 ---
 
-## Prerequisites
+## 🧰 Prerequisites
 
 * Python 3.8+
 * `pip` (Python package manager)
@@ -59,7 +59,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 
 ---
 
-## Installation
+## ⚙️ Installation
 
 1. **Create a virtual environment**
 
@@ -97,7 +97,7 @@ DATABASE_URL=" <-- your database url --> "
 ```
 ---
 
-## Running the Application (Development)
+## ⚡ Running the Application (Development)
 
 ```bash
 # Start with auto-reload for development
@@ -114,7 +114,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## Usage
+## 📘 Usage
 
 ### Login and Navigation
 
@@ -151,7 +151,7 @@ Configure your ESP device to send POST requests to the attendance API endpoint w
 
 ---
 
-## API Endpoints
+## 📡 API Endpoints
 
 **Authentication**
 
@@ -174,23 +174,6 @@ Configure your ESP device to send POST requests to the attendance API endpoint w
 
 * `POST /api/attendance` - Record RFID attendance
 * `GET /api/block_persons` - Get persons in a specific block
-
----
-
-## Database Schema
-
-**Tables**
-
-* `users` — Employee/admin information
-
-  * Key fields: `id`, `employee_id`, `name`, `email`, `rfid_tag`, `role`, `department`, `password_hash`
-* `attendance` — Entry/exit records
-
-  * Key fields: `id`, `employee_id`, `rfid_tag`, `entry_time`, `exit_time`, `duration`, `block`
-* `removed_employees` — Archive of removed employees
-* `unknown_rfids` — Logs of unrecognized RFID tags
-
-> Tip: Inspect `models.py` (or your ORM definitions) for the exact table and column names used in your project.
 
 ---
 
@@ -375,7 +358,7 @@ Team ─── Leader (User)
 
 ---
 
-## Hosting on Your IP / Network Access
+## 🌐 Hosting on Your IP / Network Access
 
 1. Run the app bound to `0.0.0.0`:
 
@@ -399,7 +382,7 @@ ipconfig
 
 ---
 
-## Configuration & Environment Variables
+## ⚙️ Configuration & Environment Variables
 
 Recommended environment variables (examples):
 
@@ -409,7 +392,7 @@ Recommended environment variables (examples):
 
 ---
 
-## Security Notes
+## 🛡 Security Notes
 
 * **Change default Super Admin password** before deploying to production.
 * Use **HTTPS** in production.
@@ -418,7 +401,7 @@ Recommended environment variables (examples):
 
 ---
 
-## Troubleshooting
+## 🛠 Troubleshooting
 
 * **405 Method Not Allowed**: Ensure your login form `action` is `/login` and the method is `POST`.
 * **Styles Not Loading**: If using Tailwind CDN, check internet connectivity. For offline use, build Tailwind locally.
@@ -428,7 +411,7 @@ Recommended environment variables (examples):
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 1. Fork the repository.
 2. Create a feature branch: `git checkout -b feature/my-feature`
@@ -441,7 +424,7 @@ Please follow repository code style and ensure all new code is tested.
 ---
 
 
-## Support
+## 🫂 Support
 
 If you run into issues:
 
