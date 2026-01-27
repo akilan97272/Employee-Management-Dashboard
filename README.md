@@ -1,6 +1,6 @@
 # Attendance Management System
 
-A comprehensive **RFID-based attendance tracking system** built with **FastAPI**, **SQLite**, and **Tailwind CSS**. This application allows organizations to monitor employee attendance in real-time, manage user roles, and generate reports.
+A comprehensive **RFID-based attendance tracking system** built with **FastAPI**, **MariaDB**, and **Tailwind CSS**. This application allows organizations to monitor employee attendance in real-time, manage user roles, and generate reports.
 
 ---
 
@@ -11,7 +11,6 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 * [Prerequisites](#prerequisites)
 * [Installation](#installation)
 * [Running the Application](#running-the-application-development)
-* [Default Credentials](#default-credentials)
 * [Usage](#usage)
 
   * [Login and Navigation](#login-and-navigation)
@@ -19,7 +18,6 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
   * [RFID Integration (ESP32/Microcontroller)](#rfid-integration-esp32microcontroller)
 * [API Endpoints](#api-endpoints)
 * [Database Schema](#database-schema)
-* [Deployment](#deployment)
 * [Hosting on Your IP / Network Access](#hosting-on-your-ip--network-access)
 * [Configuration & Environment Variables](#configuration--environment-variables)
 * [Security Notes](#security-notes)
@@ -46,7 +44,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 ## Tech Stack
 
 * **Backend**: FastAPI (Python)
-* **Database**: SQLite
+* **Database**: MariaDB
 * **Frontend**: HTML + Tailwind CSS
 * **Auth**: Session-based with bcrypt password hashing
 * **Hardware**: ESP32 / microcontroller for RFID reading
@@ -93,8 +91,10 @@ cd attendance_system
 pip install -r requirements.txt
 ```
 
-4. **(Optional) Create a `.env` file or export environment variables if you want to override defaults (see Configuration section).**
-
+4. **Create a `.env` file or export environment variables if you want to override defaults (see Configuration section).**
+```env
+DATABASE_URL=" <-- your database url --> "
+```
 ---
 
 ## Running the Application (Development)
@@ -114,23 +114,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 
 ---
 
-## Default Credentials
-
-> **Change these in production!**
-
-* **Super Admin**
-
-  * Username: `sudoadmin`
-  * Password: `passcode@1234`
-
----
-
 ## Usage
 
 ### Login and Navigation
 
 * Visit the root URL (`/`) to access the login page.
-* Enter credentials appropriate to the role (Employee, Admin, Super Admin).
+* Enter credentials appropriate to the role (Employee, Admin).
 * Use the navigation links to move between dashboards.
 
 ### Admin Functions
@@ -139,6 +128,7 @@ uvicorn main:app --host 0.0.0.0 --port 8000
 * **Remove Employee**: Select employee to remove (may require Super Admin approval depending on settings).
 * **View Attendance**: Check current occupancy per block or view detailed summaries.
 * **Handle Unknown RFIDs**: Review and resolve logged unrecognized tags.
+* **Live Block Level Monitoring**: Block visualization is enabled based on the number of blockes and the number of persons in it.
 
 ### RFID Integration (ESP32/Microcontroller)
 
@@ -173,7 +163,6 @@ Configure your ESP device to send POST requests to the attendance API endpoint w
 
 * `GET /employee` - Employee dashboard
 * `GET /admin` - Admin dashboard
-* `GET /super_admin` - Super Admin dashboard
 
 **Admin Operations**
 
@@ -205,26 +194,184 @@ Configure your ESP device to send POST requests to the attendance API endpoint w
 
 ---
 
-## Deployment
+## 📦 Database Schema
 
-### Local / Small Deployment
+This project uses **SQLAlchemy ORM** with a relational database.
+Below is an overview of the core tables and their relationships.
 
-* Development: use `uvicorn main:app --reload`.
-* Production: use a production-ready server such as Gunicorn with Uvicorn workers.
 
-Example using Gunicorn (Linux):
 
-```bash
-gunicorn -k uvicorn.workers.UvicornWorker main:app --bind 0.0.0.0:8000 --workers 4
+## 👤 users
+
+Stores employee and system user information.
+
+| Column          | Type                    | Description                          |
+| --------------- | ----------------------- | ------------------------------------ |
+| id              | Integer (PK)            | Internal user ID                     |
+| employee_id     | String (60)             | Unique employee identifier           |
+| name            | String                  | Employee full name                   |
+| email           | String                  | Unique email address                 |
+| rfid_tag        | String                  | RFID card/tag                        |
+| role            | String                  | User role (Admin, Employee, Manager) |
+| department      | String                  | Department name                      |
+| password_hash   | String                  | bcrypt hashed password               |
+| is_active       | Boolean                 | Account status                       |
+| hourly_rate     | Float                   | Hourly wage                          |
+| allowances      | Float                   | Extra allowances                     |
+| deductions      | Float                   | Salary deductions                    |
+| can_manage      | Boolean                 | Manager permission                   |
+| current_team_id | Integer (FK → teams.id) | Assigned team                        |
+| active_leader   | Boolean                 | Leader status                        |
+
+
+
+## 🕒 attendance
+
+Tracks daily attendance using RFID.
+
+| Column        | Type                            | Description        |
+| ------------- | ------------------------------- | ------------------ |
+| id            | Integer (PK)                    | Attendance ID      |
+| employee_id   | String (FK → users.employee_id) | Employee reference |
+| date          | Date                            | Attendance date    |
+| entry_time    | DateTime                        | Entry timestamp    |
+| exit_time     | DateTime                        | Exit timestamp     |
+| duration      | Float                           | Working hours      |
+| status        | String                          | PRESENT / ABSENT   |
+| location_name | String                          | Location           |
+| room_no       | String                          | Room number        |
+
+🔗 **Relationship**:
+
+* One user → many attendance records
+
+
+
+## ❌ removed_employees
+
+Keeps history of removed employees.
+
+| Column      | Type         | Description       |
+| ----------- | ------------ | ----------------- |
+| id          | Integer (PK) | Record ID         |
+| employee_id | String       | Employee ID       |
+| name        | String       | Name              |
+| email       | String       | Email             |
+| rfid_tag    | String       | RFID              |
+| role        | String       | Role              |
+| department  | String       | Department        |
+| removed_at  | DateTime     | Removal timestamp |
+
+
+
+## 🚫 unknown_rfids
+
+Logs unauthorized or unknown RFID scans.
+
+| Column    | Type         | Description   |
+| --------- | ------------ | ------------- |
+| id        | Integer (PK) | Record ID     |
+| rfid_tag  | String       | Unknown RFID  |
+| location  | String       | Scan location |
+| timestamp | DateTime     | Scan time     |
+
+
+
+## 🏢 rooms
+
+Stores physical room details.
+
+| Column        | Type         | Description          |
+| ------------- | ------------ | -------------------- |
+| id            | Integer (PK) | Room ID              |
+| room_id       | String       | Unique room code     |
+| room_no       | String       | Room number          |
+| location_name | String       | Location             |
+| description   | String       | Optional description |
+
+
+
+## 🏬 departments
+
+Organization departments.
+
+| Column      | Type         | Description     |
+| ----------- | ------------ | --------------- |
+| id          | Integer (PK) | Department ID   |
+| name        | String       | Department name |
+| description | String       | Optional info   |
+
+
+
+## 📝 tasks
+
+Task management for employees.
+
+| Column      | Type         | Description         |
+| ----------- | ------------ | ------------------- |
+| id          | Integer (PK) | Task ID             |
+| user_id     | String       | Assigned employee   |
+| title       | String       | Task title          |
+| description | Text         | Task details        |
+| status      | String       | pending / completed |
+| priority    | String       | low / medium / high |
+| due_date    | DateTime     | Deadline            |
+| created_at  | DateTime     | Created timestamp   |
+
+
+
+## 🏖 leave_requests
+
+Employee leave management.
+
+| Column      | Type                            | Description                   |
+| ----------- | ------------------------------- | ----------------------------- |
+| id          | Integer (PK)                    | Request ID                    |
+| employee_id | String (FK → users.employee_id) | Employee                      |
+| start_date  | Date                            | Leave start                   |
+| end_date    | Date                            | Leave end                     |
+| reason      | String                          | Leave reason                  |
+| status      | String                          | Pending / Approved / Rejected |
+
+
+
+## 👥 teams
+
+Team and leadership structure.
+
+| Column     | Type                    | Description       |
+| ---------- | ----------------------- | ----------------- |
+| id         | Integer (PK)            | Team ID           |
+| name       | String                  | Team name         |
+| department | String                  | Department        |
+| leader_id  | Integer (FK → users.id) | Team leader       |
+| created_at | DateTime                | Created timestamp |
+
+🔗 **Relationships**:
+
+* One team → many users
+* One team → one leader
+
+
+
+## 🔗 Entity Relationship Overview
+
+```
+User ───< Attendance
+User ───< LeaveRequest
+User ───< Task
+Team ───< User
+Team ─── Leader (User)
 ```
 
-Place Nginx in front as a reverse proxy for TLS termination and static file serving.
 
-### Considerations for Production
 
-* Move from SQLite to PostgreSQL or MySQL for concurrency and reliability.
-* Use environment variables for secrets and configuration.
-* Use HTTPS (TLS) and set up a firewall and rate-limiting.
+## 🛡 Security Notes
+
+* Passwords are stored using **bcrypt hashing**
+* Authentication is **session-based**
+* RFID access is logged and validated
+* Unknown RFID attempts are tracked
 
 ---
 
@@ -248,7 +395,7 @@ ip addr show
 ipconfig
 ```
 
-3. Access from other devices using `http://<your_ip>:8000`.
+3. Access from other devices using `http://<your_ip>:8000/`.
 
 ---
 
