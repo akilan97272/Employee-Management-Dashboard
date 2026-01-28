@@ -1,163 +1,208 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="light">
+<html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Login | TeamSync</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Personnel Portal | TeamSync</title>
 
-  <!-- Tailwind -->
-  <script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.tailwindcss.com"></script>
 
-  <style>
-    :root{
-      --bg: linear-gradient(180deg,#eef2ff,#f8fafc);
-      --panel: rgba(255,255,255,0.10);
-      --glass-border: rgba(255,255,255,0.18);
-      --text: #021023;
-      --muted: rgba(2,16,35,0.55);
-      --accent: #06b6d4;
-      --glass-blur: 22px;
-      --shadow: 0 30px 70px rgba(2,6,23,0.12);
-      --placeholder: rgba(2,16,35,0.35);
-    }
+<style>
+/* =========================================
+   STARK EXECUTIVE STYLES
+   ========================================= */
 
-    [data-theme="dark"]{
-      --bg: linear-gradient(180deg,#0b1220,#071018);
-      --panel: rgba(255,255,255,0.02);
-      --glass-border: rgba(255,255,255,0.04);
-      --text: #c9d1d9;
-      --muted: #8b949e;
-      --accent: #58a6ff;
-      --glass-blur: 12px;
-      --shadow: 0 30px 70px rgba(2,6,23,0.6);
-      --placeholder: rgba(201,209,217,0.25);
-    }
+:root {
+  --executive-navy: #020617;
+  --executive-border: #262626;
+  --executive-accent: #3b82f6;
+}
 
-    html,body{
-      height:100%;
-      margin:0;
-      font-family: Inter, ui-sans-serif, system-ui;
-      background: var(--bg);
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding:20px;
-      color:var(--text);
-    }
+body {
+  background: #000000;
+  color: #ffffff;
+  font-family: 'Inter', sans-serif;
+  height: 100vh;
+  margin: 0;
+  overflow: hidden;
+}
 
-    .glass{
-      width:100%;
-      max-width:460px;
-      padding:32px;
-      border-radius:14px;
-      background:var(--panel);
-      border:1px solid var(--glass-border);
-      backdrop-filter: blur(var(--glass-blur));
-      box-shadow: var(--shadow);
-      transition: transform .2s ease;
-    }
-    .glass:hover{ transform: translateY(-6px); }
+/* --- THE NEW MINIMALIST SPLASH --- */
+#splash-screen {
+    background: #000000;
+    transition: all 1.2s cubic-bezier(0.19, 1, 0.22, 1);
+}
 
-    label{ font-size:13px; color:var(--muted); }
-    input{
-      width:100%;
-      padding:12px 14px;
-      border-radius:10px;
-      border:1px solid var(--glass-border);
-      background:transparent;
-      color:var(--text);
-      outline:none;
-    }
-    input::placeholder{ color:var(--placeholder); }
+#splash-logo-wrap {
+    filter: blur(20px);
+    opacity: 0;
+    transform: scale(0.9);
+    transition: all 1.5s cubic-bezier(0.19, 1, 0.22, 1);
+}
 
-    .accent-btn{
-      width:100%;
-      padding:12px;
-      border-radius:10px;
-      font-weight:600;
-      background:linear-gradient(90deg,var(--accent),#0ea5a4);
-      color:#022;
-    }
+#splash-text {
+    letter-spacing: 2em; 
+    opacity: 0;
+    transition: all 2s cubic-bezier(0.19, 1, 0.22, 1);
+}
 
-    .brand{
-      width:56px;
-      height:56px;
-      border-radius:12px;
-      background:linear-gradient(90deg,#06b6d4,#0ea5a4);
-      color:white;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      font-weight:800;
-      font-size:20px;
-      margin:0 auto;
-    }
+/* Flash Exit Effect */
+#splash-screen.exit-active {
+    background: #ffffff;
+    opacity: 0;
+    pointer-events: none;
+}
 
-    .themeBtn{
-      position:fixed;
-      top:16px;
-      right:16px;
-      padding:8px 12px;
-      border-radius:10px;
-      background:var(--panel);
-      border:1px solid var(--glass-border);
-      cursor:pointer;
-      font-size:13px;
-      color:var(--muted);
-      backdrop-filter: blur(8px);
-    }
-  </style>
+/* --- LOGIN INTERFACE STYLES --- */
+.left-panel {
+  background: var(--executive-navy);
+  border-right: 1px solid var(--executive-border);
+  position: relative;
+}
+
+.left-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+}
+
+.reveal-text {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: starkReveal 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes starkReveal {
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.terminal-input {
+  background: #0a0a0a;
+  border: 1px solid var(--executive-border);
+  color: white;
+  padding: 14px;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.terminal-input:focus {
+  outline: none;
+  border-color: var(--executive-accent);
+}
+
+.auth-btn {
+  background: white;
+  color: black;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 16px;
+  transition: all 0.3s ease;
+}
+
+.auth-btn:hover {
+    background: var(--executive-accent);
+    color: white;
+}
+</style>
 </head>
 
 <body>
 
-  <!-- Theme Toggle -->
-  <button id="themeToggle" class="themeBtn">Toggle Theme</button>
-
-  <!-- Login Card -->
-  <div class="glass">
-    <div class="text-center mb-6">
-      <div class="brand">TS</div>
-      <h1 class="mt-3 text-xl font-bold">TeamSync</h1>
-      <p class="text-sm text-gray-400">Sign in to your workspace</p>
-    </div>
-
-    <form method="post" action="/login" class="space-y-4">
-      <div>
-        <label>Employee ID</label>
-        <input name="username" placeholder="EMP001" required autocomplete="username">
+  <div id="splash-screen" class="fixed inset-0 z-[999] flex flex-col items-center justify-center p-6">
+      <div id="splash-logo-wrap" class="w-32 h-32 mb-12">
+          <img src="/static/assets/logo.png" alt="TS" class="w-full h-full object-contain">
       </div>
+      
+      <h1 id="splash-text" class="text-xs font-bold text-white uppercase tracking-[1.5em] ml-[1.5em]">
+          TeamSync
+      </h1>
 
-      <div>
-        <label>Password</label>
-        <input type="password" name="password" placeholder="••••••••" required autocomplete="current-password">
+      <div class="mt-20 w-32 h-[1px] bg-zinc-800 relative">
+          <div id="splash-loader" class="absolute top-0 left-0 h-full bg-white w-0 transition-all duration-[2000ms]"></div>
       </div>
-
-      {% if error %}
-        <p class="text-red-400 text-sm text-center">{{ error }}</p>
-      {% endif %}
-
-      <button type="submit" class="accent-btn">Sign in</button>
-    </form>
-
-    <p class="text-center text-xs mt-6 text-gray-400">
-      © {{ current_year if current_year else '' }} TeamSync
-    </p>
   </div>
 
-  <!-- Theme Script -->
+  <div class="min-h-screen flex">
+    <section class="hidden lg:flex w-1/2 left-panel flex-col justify-between p-20">
+      <div class="relative z-10">
+        <div class="flex items-center gap-4 reveal-text">
+            <img src="/static/assets/logo.png" alt="Logo" class="w-10 h-10 object-contain">
+            <span class="text-2xl font-black tracking-tighter uppercase">TeamSync</span>
+        </div>
+      </div>
+
+      <div class="relative z-10 space-y-6">
+        <h1 class="text-6xl font-black tracking-tighter leading-none reveal-text" style="animation-delay: 0.2s;">
+            INTEGRATED WORKPLACE<br>MANAGEMENT.
+        </h1>
+        <div class="h-1 w-20 bg-blue-600"></div>
+        <p class="text-slate-400 font-medium text-lg max-w-sm">
+          A centralized platform for team coordination and operational efficiency.
+        </p>
+      </div>
+
+      <div class="relative z-10 text-[10px] font-bold text-neutral-600 uppercase tracking-widest">
+         v3.6.5 // TeamSync 
+      </div>
+    </section>
+
+    <section class="flex w-full lg:w-1/2 items-center justify-center p-6 right-panel">
+      <div class="w-full max-w-md space-y-10">
+        <div class="space-y-2">
+          <h2 class="text-xs font-black uppercase tracking-[0.4em] text-blue-500">Personnel Portal</h2>
+          <p class="text-3xl font-bold tracking-tight">Sign in to TeamSync</p>
+        </div>
+
+        <form method="post" action="/login" class="space-y-6">
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">Employee ID</label>
+            <input name="username" class="terminal-input w-full" placeholder="Enter ID" required>
+          </div>
+          <div class="space-y-2">
+            <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">Account Password</label>
+            <input type="password" name="password" class="terminal-input w-full" placeholder="••••••••" required>
+          </div>
+          <button type="submit" class="auth-btn w-full">Sign In</button>
+        </form>
+
+        <div class="pt-10 border-t border-neutral-800 text-[10px] font-bold text-neutral-600 uppercase tracking-widest flex justify-between">
+           <span></span>
+            <span class="text-emerald-500">Connection Active</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
   <script>
-    const root = document.documentElement;
-    const btn = document.getElementById("themeToggle");
+    window.addEventListener('load', () => {
+        const logo = document.getElementById('splash-logo-wrap');
+        const text = document.getElementById('splash-text');
+        const loader = document.getElementById('splash-loader');
+        const splash = document.getElementById('splash-screen');
 
-    let theme = localStorage.getItem("ts_theme") || "light";
-    root.setAttribute("data-theme", theme);
+        setTimeout(() => {
+            logo.style.filter = "blur(0)";
+            logo.style.opacity = "1";
+            logo.style.transform = "scale(1)";
+            
+            text.style.opacity = "1";
+            text.style.letterSpacing = "1em"; 
+            
+            loader.style.width = "100%";
+        }, 100);
 
-    btn.onclick = () => {
-      theme = theme === "dark" ? "light" : "dark";
-      root.setAttribute("data-theme", theme);
-      localStorage.setItem("ts_theme", theme);
-    };
+        setTimeout(() => {
+            splash.classList.add('exit-active');
+            setTimeout(() => {
+                splash.style.display = "none";
+            }, 1200);
+        }, 2800);
+    });
   </script>
 
 </body>

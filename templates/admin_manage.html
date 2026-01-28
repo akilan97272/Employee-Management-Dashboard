@@ -1,96 +1,132 @@
 {% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
-{% block page_title %}Manage Employees{% endblock %}
+
+{% block title %}Personnel Directory | TeamSync{% endblock %}
+
+{% block page_title %}PERSONNEL_MANAGEMENT{% endblock %}
 
 {% block content %}
-<div class="space-y-4">
+<div class="space-y-8">
 
-  <!-- Search + Filter -->
-  <form method="get" action="/admin/manage_employees"
-        class="flex gap-3 glass p-4 rounded-lg">
-    <input name="search" placeholder="Search by name or ID"
-           class="flex-1 p-2 rounded border" value="{{ search or '' }}"/>
+  <div class="border border-[var(--border)] bg-[var(--panel)] p-6">
+    <form method="get" action="/admin/manage_employees" class="flex flex-wrap md:flex-nowrap gap-4">
+      <div class="flex-1 relative">
+        <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input name="search" placeholder="Search by name or employee ID..."
+               class="w-full pl-11 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600 transition-colors" 
+               value="{{ search or '' }}"/>
+      </div>
 
-    <select name="department" class="p-2 rounded border">
-      <option value="">All Departments</option>
-      <option value="IT">IT</option>
-      <option value="HR">HR</option>
-      <option value="Finance">Finance</option>
-    </select>
+      <select name="department" class="px-4 py-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-600">
+        <option value="">All Departments</option>
+        <option value="IT" {% if department == 'IT' %}selected{% endif %}>IT Department</option>
+        <option value="HR" {% if department == 'HR' %}selected{% endif %}>HR Department</option>
+        <option value="Finance" {% if department == 'Finance' %}selected{% endif %}>Finance</option>
+      </select>
 
-    <button class="px-4 bg-accent text-white rounded">Search</button>
-  </form>
+      <button class="px-8 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+        Apply Filter
+      </button>
+    </form>
+  </div>
 
-  <!-- Employees Table -->
-  <div class="glass p-4 rounded-lg overflow-x-auto">
-    <table class="w-full text-left text-sm">
-      <thead class="border-b font-semibold">
-        <tr>
-          <th class="p-2">ID</th>
-          <th class="p-2">Name</th>
-          <th class="p-2">Department</th>
-          <th class="p-2">Role</th>
-          <th class="p-2"></th>
-        </tr>
-      </thead>
-      <tbody>
-      {% for emp in employees %}
-        <tr class="border-b hover:bg-gray-100/20">
-          <td class="p-2">{{ emp.employee_id }}</td>
-          <td class="p-2">{{ emp.name }}</td>
-          <td class="p-2">{{ emp.department }}</td>
-          <td class="p-2">{{ emp.role }}</td>
-          <td class="p-2 flex gap-2">
-            <button class="glass px-3 py-1 rounded"
-                    onclick="openEditModal('{{ emp.employee_id }}', '{{ emp.name }}', '{{ emp.email }}', '{{ emp.department }}', '{{ emp.role }}')">
-              ✏️ Edit
-            </button>
-            <form action="/admin/remove_employee" method="post"
-                  onsubmit="return confirm('Remove this employee?')">
-              <input type="hidden" name="employee_id" value="{{ emp.employee_id }}">
-              <button class="bg-red-500 text-white px-3 py-1 rounded">Delete</button>
-            </form>
-          </td>
-        </tr>
-      {% endfor %}
-      </tbody>
-    </table>
+  <div class="border border-[var(--border)] bg-[var(--panel)] p-8">
+    <div class="flex items-center gap-3 mb-8">
+        <div class="h-5 w-1 bg-blue-600"></div>
+        <h3 class="text-xs font-black uppercase tracking-[0.2em]">Active Employee Directory</h3>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="border-b border-[var(--border)] text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <th class="pb-4 px-2">Employee ID</th>
+            <th class="pb-4">Name</th>
+            <th class="pb-4">Department</th>
+            <th class="pb-4">Role</th>
+            <th class="pb-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[var(--border)]">
+        {% for emp in employees %}
+          <tr class="hover:bg-slate-50 transition-colors group">
+            <td class="py-4 px-2 executive-mono font-bold text-xs text-blue-600 uppercase">{{ emp.employee_id }}</td>
+            <td class="py-4">
+                <p class="font-bold text-sm">{{ emp.name }}</p>
+                <p class="text-[10px] text-slate-400 font-medium">{{ emp.email }}</p>
+            </td>
+            <td class="py-4 executive-mono text-[10px] font-bold uppercase text-slate-500">{{ emp.department }}</td>
+            <td class="py-4">
+                <span class="px-2 py-1 text-[9px] font-black uppercase tracking-widest border {% if emp.role == 'admin' %}border-blue-600 text-blue-600 bg-blue-50{% else %}border-slate-200 text-slate-500 bg-slate-50{% endif %}">
+                    {{ emp.role }}
+                </span>
+            </td>
+            <td class="py-4 text-right">
+                <div class="flex justify-end gap-2">
+                    <button class="px-3 py-1.5 border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all"
+                            onclick="openEditModal('{{ emp.employee_id }}', '{{ emp.name }}', '{{ emp.email }}', '{{ emp.department }}', '{{ emp.role }}')">
+                       <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <form action="/admin/remove_employee" method="post" onsubmit="return confirm('Confirm removal of this employee record?')">
+                      <input type="hidden" name="employee_id" value="{{ emp.employee_id }}">
+                      <button class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-100 text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </form>
+                </div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
   </div>
 
 </div>
 
 
-<!-- Edit Modal -->
-<div id="editModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center">
-  <div class="glass p-6 rounded-xl w-80">
-    <h3 class="font-semibold text-lg mb-3">Edit Employee</h3>
+<div id="editModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200]">
+  <div class="bg-[var(--panel)] border border-[var(--border)] p-10 w-full max-w-md relative">
+    <div class="h-1 w-full bg-blue-600 absolute top-0 left-0"></div>
+    <h3 class="text-xs font-black uppercase tracking-[0.2em] mb-8 text-blue-600">Modify Employee Record</h3>
 
-    <form method="post" action="/admin/update_employee" class="grid gap-3">
-
+    <form method="post" action="/admin/update_employee" class="space-y-4">
       <input type="hidden" id="edit_employee_id" name="employee_id"/>
 
-      <input id="edit_name" name="name" placeholder="Full Name"
-             class="p-2 rounded border bg-white"/>
+      <div class="space-y-1">
+        <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Legal Name</label>
+        <input id="edit_name" name="name" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600"/>
+      </div>
 
-      <input id="edit_email" name="email" placeholder="Email"
-             class="p-2 rounded border bg-white"/>
+      <div class="space-y-1">
+        <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Work Email</label>
+        <input id="edit_email" name="email" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600"/>
+      </div>
 
-      <select id="edit_department" name="department"
-              class="p-2 rounded border bg-white">
-        <option>IT</option>
-        <option>HR</option>
-        <option>Finance</option>
-      </select>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-1">
+            <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Department</label>
+            <select id="edit_department" name="department" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase outline-none focus:border-blue-600">
+                <option>IT</option>
+                <option>HR</option>
+                <option>Finance</option>
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">System Role</label>
+            <select id="edit_role" name="role" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase outline-none focus:border-blue-600">
+                <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+      </div>
 
-      <select id="edit_role" name="role"
-              class="p-2 rounded border bg-white">
-        <option>employee</option>
-        <option>admin</option>
-      </select>
-
-      <div class="flex justify-end gap-2">
-        <button type="button" onclick="closeModal()" class="glass px-3 py-1 rounded">Cancel</button>
-        <button class="bg-accent text-white px-3 py-1 rounded">Save</button>
+      <div class="flex gap-3 pt-6">
+        <button type="button" onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">
+            Cancel
+        </button>
+        <button class="flex-1 py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all">
+            Save Changes
+        </button>
       </div>
 
     </form>

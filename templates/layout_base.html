@@ -3,134 +3,257 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>{% block title %}TeamSync{% endblock %}</title>
+  <title>{% block title %}TeamSync | Executive{% endblock %}</title>
+  
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
 
   <style>
-    :root{
-      --bg: linear-gradient(180deg, #f5f7fb 0%, #ecf0fd 100%);
-      --panel: rgba(255,255,255,0.12);
-      --glass-border: rgba(255,255,255,0.18);
-      --text: #021023;
-      --muted: rgba(2,16,35,0.55);
-      --accent: #06b6d4;
-      --glass-blur: 20px;
-      --shadow: 0 20px 40px rgba(2,6,23,0.12);
-    }
-    [data-theme="dark"]{
-      --bg: linear-gradient(180deg, #060a11 0%, #0a121c 100%);
-      --panel: rgba(255,255,255,0.05);
-      --glass-border: rgba(255,255,255,0.10);
-      --text: #e6eef6;
-      --muted: rgba(230,238,246,0.60);
-      --accent: #58a6ff; /* Github blue */
-      --glass-blur: 22px;
-      --shadow: 0 30px 60px rgba(0,0,0,0.40);
+    :root {
+      --bg: #ffffff;
+      --side: #0f172a;
+      --border: #e2e8f0;
+      --text: #020617;
+      --text-muted: #64748b;
     }
 
-    body { background: var(--bg); color: var(--text); font-family: Inter, sans-serif; }
-
-    .glass{
-      background: var(--panel);
-      border: 1px solid var(--glass-border);
-      backdrop-filter: blur(var(--glass-blur));
-      box-shadow: var(--shadow);
-      border-radius: 14px;
+    [data-theme="dark"] {
+      --bg: #000000;
+      --side: #0a0a0a;
+      --border: #262626;
+      --text: #ffffff;
     }
 
-    .sidebar a{
-      display:flex; gap:12px; align-items:center;
-      padding:10px 12px; border-radius:10px;
-      text-decoration:none; color:var(--text);
-    }
-    .sidebar a:hover{
-      transform: translateX(6px);
-      transition:0.16s;
-      background: rgba(255,255,255,0.05);
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      overflow-x: hidden;
+      transition: background 0.3s ease;
     }
 
-    .muted { color: var(--muted); }
-    .accent { color: var(--accent); }
-
-    /* Fix: flex sidebar structure */
-    .sidebar-container {
-      width: 240px;
-      flex-shrink: 0;
+    /* --- UNIFIED SIDEBAR STRUCTURE --- */
+    .sidebar-fixed {
+      width: 280px;
+      background: var(--side);
+      border-right: 1px solid var(--border);
+      height: 100vh;
+      position: fixed;
+      left: 0; top: 0; z-index: 100;
+      display: flex;
+      flex-direction: column;
     }
 
-    @media (max-width:900px){
-      .sidebar-container { display:none; }
-      .mobile-menu-btn { display:block; }
+    .main-canvas {
+      margin-left: {% if request.path == '/admin/select_dashboard' %} 0 {% else %} 280px {% endif %};
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
     }
 
-    .mobile-menu-btn { display:none; }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 20px;
+      color: #94a3b8;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .nav-link:hover { color: white; background: rgba(255,255,255,0.05); }
+    .nav-link.active { background: white; color: #000; }
+
+    /* Theme Toggle Styling */
+    .theme-btn {
+      width: 40px;
+      height: 40px;
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-center;
+      transition: all 0.2s ease;
+    }
+    .theme-btn:hover {
+      background: var(--text);
+      color: var(--bg);
+    }
+
+    .executive-mono { font-family: 'JetBrains Mono', monospace; font-size: 11px; }
+
+    @media (max-width: 1024px) {
+      .sidebar-fixed { display: none; }
+      .main-canvas { margin-left: 0; }
+    }
   </style>
 </head>
-
 <body data-theme="light">
-  <div class="min-h-screen flex">
 
-    <!-- Sidebar injected here -->
-    <div class="sidebar-container">
-      {% block sidebar %}{% endblock %}
-    </div>
-
-    <!-- MAIN CONTENT -->
-    <div class="flex-1 p-6 lg:p-8">
-
-      <div class="flex items-center justify-between mb-6">
-        <div>
-          <h1 class="text-2xl font-bold">{% block page_title %}TeamSync{% endblock %}</h1>
-          <p class="muted text-sm">{% block page_subtitle %}{% endblock %}</p>
+  {% if request.path != '/admin/select_dashboard' %}
+  <aside class="sidebar-fixed">
+    
+    <div class="p-8">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10">
+            <img src="/static/assets/logo.png" alt="TS" class="w-full h-full object-contain filter drop-shadow(0 0 5px rgba(59, 130, 246, 0.3))">
         </div>
-
-        <div class="flex items-center gap-3">
-
-          <!-- Theme Toggle -->
-          <button id="themeToggle" class="glass px-3 py-2 rounded-lg text-sm flex items-center gap-2">
-            <span id="themeIcon">🌞</span>
-          </button>
-
-          <!-- Username -->
-          {% if user %}
-          <div class="glass px-3 py-2 rounded-lg text-sm muted">
-            {{ user.name }}
-          </div>
-          {% endif %}
-
-          <a href="/logout" class="glass px-3 py-2 rounded-lg text-sm text-red-400">Logout</a>
+        <div>
+          <h1 class="text-xl font-black tracking-tighter text-white uppercase leading-none">TeamSync</h1>
+          <span class="text-[9px] font-bold text-blue-500 tracking-[0.2em] mt-1 block">
+            {% if request.path.startswith('/admin') %}ADMIN_CORE{% else %}WORKSPACE{% endif %}
+          </span>
         </div>
       </div>
-
-      <!-- PAGE CONTENT -->
-      <div>{% block content %}{% endblock %}</div>
-
-      <footer class="mt-10 text-sm muted">
-        © {{ current_year }} TeamSync
-      </footer>
-
     </div>
-  </div>
 
-<script>
-  // theme switch
-  const body = document.body;
-  const toggle = document.getElementById("themeToggle");
+    <nav class="flex-1 px-4 space-y-1">
+      
+      {% if request.path.startswith('/admin') %}
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 mb-2">Operations</div>
+        <a href="/admin" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+          <i class="bi bi-grid-1x2"></i> Dashboard
+        </a>
+        <a href="/admin/attendance" class="nav-link">
+          <i class="bi bi-stopwatch"></i> Attendance
+        </a>
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 mt-8 mb-2">Management</div>
+        <a href="/admin/manage_employees" class="nav-link">
+          <i class="bi bi-people"></i> Manage Employees
+        </a>
+        <a href="/admin/leave_requests" class="nav-link justify-between">
+          <div class="flex items-center gap-3"><i class="bi bi-calendar-check"></i> <span>Leave Approvals</span></div>
+          <span id="leaveCountBadge" class="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 hidden">0</span>
+        </a>
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 mt-8 mb-2">System</div>
+        <a href="/admin/payroll" class="nav-link">
+          <i class="bi bi-safe2"></i> Payroll Overview
+        </a>
+           <a href="/admin/unknown_rfid" class="nav-link">
+         <i class="bi bi-question-diamond"></i> Unknown RFID Logs
+        </a>
+      {% else %}
+        <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 mb-2">Main</div>
+        <a href="/employee" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+          <i class="bi bi-grid-1x2"></i> Dashboard
+        </a>
+        <a href="/employee/attendance" class="nav-link">
+          <i class="bi bi-stopwatch"></i> Attendance
+        </a>
+        <a href="/employee/tasks" class="nav-link">
+          <i class="bi bi-check2-square"></i> My Tasks
+        </a>
+        <a href="/employee/leave" class="nav-link">
+          <i class="bi bi-calendar-plus"></i> Leave Request
+        </a>
+        <a href="/employee/payslips" class="nav-link">
+          <i class="bi bi-wallet2"></i> My Payslips
+        </a>
+      {% endif %}
 
-  function applyTheme(t){
-    body.setAttribute("data-theme", t);
-    document.getElementById("themeIcon").innerHTML = t === "dark" ? "🌙" : "🌞";
-  }
+{% if user.role == 'admin' %}
+      <div class="border-t border-slate-800 my-4"></div>
+      <a href="/admin/select_dashboard" class="nav-link text-blue-400">
+        <i class="bi bi-arrow-left-right"></i> Switch Mode
+      </a>
+      {% endif %}
+    </nav>
+<div class="p-4 border-t border-slate-800">
+{% if request.path.startswith('/employee') %}
+      <a href="/employee/profile" class="flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-all group">
+        <div class="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-xs group-hover:bg-blue-600 transition-colors">
+          {{ user.name[0] }}
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-xs font-bold text-white truncate group-hover:text-blue-400 transition-colors">{{ user.name }}</p>
+          <div class="flex items-center gap-1.5">
+            <p class="text-[9px] text-slate-500 font-mono font-bold tracking-widest uppercase truncate">ID: {{ user.employee_id }}</p>
+          </div>
+        </div>
+      </a>
+      {% else %}
+      <div class="flex items-center gap-3 p-3 opacity-80">
+        <div class="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-xs">
+          {{ user.name[0] }}
+        </div>
+        <div class="overflow-hidden">
+          <p class="text-xs font-bold text-white truncate">{{ user.name }}</p>
+          <div class="flex items-center gap-1.5">
+            <p class="text-[9px] text-slate-500 font-mono font-bold tracking-widest uppercase truncate">ID: {{ user.employee_id }}</p>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+      <a href="/logout" class="mt-2 flex items-center gap-2 px-3 py-2 text-xs font-bold text-red-500 hover:bg-red-500/10 transition-colors uppercase">
+        <i class="bi bi-power"></i> Logout
+      </a>
+    </div>
+  </aside>
+  {% endif %}
 
-  let saved = localStorage.getItem("ts-theme") || "light";
-  applyTheme(saved);
+  <main class="main-canvas">
+    <header class="h-20 border-b border-[var(--border)] px-8 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+          <h2 class="text-sm font-black uppercase tracking-[0.3em]">
+            {% if request.path.startswith('/admin') %}COMMAND CENTER{% else %}MY WORKSPACE{% endif %}
+          </h2>
+      </div>
+      
+      <div class="flex items-center gap-6">
+        <div id="clock" class="executive-mono text-[var(--text-muted)]">00:00:00</div>
+        <button id="themeToggle" class="theme-btn flex items-center justify-center">
+          <i class="bi bi-moon" id="themeIcon"></i>
+        </button>
+      </div>
+    </header>
 
-  toggle.addEventListener("click", () => {
-    saved = saved === "dark" ? "light" : "dark";
-    localStorage.setItem("ts-theme", saved);
-    applyTheme(saved);
-  });
-</script>
+    <section class="p-8 lg:p-12 flex-1">
+      {% block content %}{% endblock %}
+    </section>
 
+    <footer class="p-8 border-t border-[var(--border)] flex justify-between executive-mono text-[var(--text-muted)] uppercase tracking-widest">
+      <div>Ver 3.6.5 // SR'S_TOUCH</div>
+      <div>&copy; 2026 TeamSync </div>
+    </footer>
+  </main>
+
+  <script>
+    // Theme Switcher Logic
+    const toggle = document.getElementById('themeToggle');
+    const icon = document.getElementById('themeIcon');
+    
+    function setTheme(t) {
+      document.body.setAttribute('data-theme', t);
+      icon.className = t === 'dark' ? 'bi bi-sun' : 'bi bi-moon';
+      localStorage.setItem('theme', t);
+    }
+
+    toggle.addEventListener('click', () => {
+      const current = document.body.getAttribute('data-theme');
+      setTheme(current === 'dark' ? 'light' : 'dark');
+    });
+
+    // Initialize Theme
+    setTheme(localStorage.getItem('theme') || 'light');
+
+    // Real-time Clock
+    function updateClock() {
+      const now = new Date();
+      document.getElementById('clock').textContent = now.toLocaleTimeString('en-GB');
+    }
+    setInterval(updateClock, 1000); updateClock();
+
+    // Leave Count API
+    if (document.getElementById("leaveCountBadge")) {
+        fetch("/api/leave_count").then(res => res.json()).then(data => {
+            const badge = document.getElementById("leaveCountBadge");
+            if (data.count > 0) {
+                badge.textContent = data.count;
+                badge.classList.remove("hidden");
+            }
+        });
+    }
+  </script>
 </body>
 </html>
