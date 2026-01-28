@@ -37,7 +37,7 @@
         <!-- Tasks -->
         <a href="/employee/tasks" class="glass p-5 rounded-xl shadow hover:bg-blue-50 transition">
             <p class="text-sm text-gray-600">Pending Tasks</p>
-            <p class="text-3xl font-bold text-blue-700">{{ tasks|length if tasks else 0 }}</p>
+            <p class="text-3xl font-bold text-blue-700">{{ tasks_count|default(0) }}</p>
         </a>
 
         <!-- Leave -->

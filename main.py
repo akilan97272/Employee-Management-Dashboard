@@ -1,15 +1,17 @@
 from fastapi import FastAPI, Depends, HTTPException, Request, Form, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from sqlalchemy.orm import Session
-from database import SessionLocal, get_db, engine, Base
-from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest
-from auth import authenticate_user, hash_password
+from sqlalchemy.orm import Session, load_only
+from database import SessionLocal, get_db, engine, Base, ensure_user_hash_columns
+from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest, Team
+from auth import authenticate_user
+from Security.Password_hash import hash_password
 from sqlalchemy import func
 import random
 import string
 import datetime
+import os
 from typing import Optional
 from calendar import monthrange
 from team_scheduler import auto_assign_leaders
@@ -17,21 +19,28 @@ from threading import Thread
 import time
 from database import get_team_info
 from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+
+# ============================================================================
+# SECURITY INTEGRATION
+# ============================================================================
+from security_integration import apply_security_to_app, get_security
 
 scheduler = BackgroundScheduler()
 
 
 Base.metadata.create_all(bind=engine)
+ensure_user_hash_columns()
 
 # FastAPI app
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-
-# Session middleware (simple in-memory for demo; use proper sessions in prod)
-from starlette.middleware.sessions import SessionMiddleware
-app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
+# Apply all 54 security modules
+security = apply_security_to_app(app)
+logger = logging.getLogger("main")
+logger.info("✅ All 54 security modules integrated successfully")
 
 # ----------------------------------------
 # SESSION HANDLERS
@@ -41,7 +50,25 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     user_id = request.session.get("user_id")
     if not user_id:
         raise HTTPException(status_code=401, detail="Not authenticated")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = (
+        db.query(User)
+        .options(
+            load_only(
+                User.id,
+                User.employee_id,
+                User.name,
+                User.role,
+                User.department,
+                User.email,
+                User.rfid_tag,
+                User.current_team_id,
+                User.active_leader,
+                User.can_manage,
+            )
+        )
+        .filter(User.id == user_id)
+        .first()
+    )
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
@@ -51,17 +78,47 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 # ----------------------------------------
 
 @app.get("/", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+async def login_page(request: Request, db: Session = Depends(get_db)):
+    # Check if admin user exists
+    admin_exists = (
+        db.query(User)
+        .options(load_only(User.id))
+        .filter(User.role == "admin")
+        .first()
+        is not None
+    )
+    return templates.TemplateResponse("login.html", {"request": request, "admin_exists": admin_exists})
 
 @app.post("/login")
-async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
+async def login(
+    request: Request, 
+    username: str = Form(...), 
+    password: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    """Authenticate both admin and employee users"""
+
+    # Now verify username and password
     user = authenticate_user(db, username, password)
     
     if not user:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
+        return templates.TemplateResponse(
+            "login.html", 
+            {
+                "request": request, 
+                "error": "❌ Username or password not found. Please check your credentials.",
+                "admin_exists": (
+                    db.query(User)
+                    .options(load_only(User.id))
+                    .filter(User.role == "admin")
+                    .first()
+                    is not None
+                )
+            }
+        )
     
-    # Secure the session
+    # Initialize basic session
+    request.session.clear()
     request.session["user_id"] = user.id
 
     # Route based on role
@@ -81,6 +138,33 @@ async def logout(request: Request):
     # Force the browser to forget the session cookie
     response.delete_cookie("session") 
     return response
+
+@app.get("/api/session/timing")
+async def session_timing(request: Request, user: User = Depends(get_current_user)):
+    """Return detailed session timing for authenticated users (admin and employee)."""
+    security = get_security()
+    timing_info = security.get_session_timing_info(request, user.id)
+    return {
+        "remaining": timing_info.get("remaining_seconds"),
+        "idle_remaining": timing_info.get("idle_remaining_seconds"),
+        "max_age": timing_info.get("max_age"),
+        "idle_timeout": timing_info.get("idle_timeout"),
+        "user_id": user.id,
+    }
+
+@app.get("/api/session/timer")
+async def session_timer(request: Request, user: User = Depends(get_current_user)):
+    """Real-time session timer endpoint for live countdown."""
+    security = get_security()
+    timing_info = security.get_session_timing_info(request, user.id)
+    return JSONResponse({
+        "remaining_seconds": timing_info.get("remaining_seconds") or 0,
+        "idle_remaining_seconds": timing_info.get("idle_remaining_seconds") or 0,
+        "max_age": timing_info.get("max_age"),
+        "idle_timeout": timing_info.get("idle_timeout"),
+        "user_id": user.id,
+        "user_name": user.name,
+    })
 
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
@@ -127,13 +211,20 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
         Attendance.location_name,
         Attendance.room_no
     ).all()
-    employees = db.query(User).filter(User.is_active == True).all()
-    unknown_rfids = db.query(UnknownRFID).all()
-    admins = db.query(User).filter(User.role == "admin").all()  # For listing admins
-    removed_employees = db.query(RemovedEmployee).all()  # For verification
+    employees = (
+        db.query(User)
+        .options(load_only(User.id, User.employee_id, User.name, User.role, User.department))
+        .filter(User.is_active == True)
+        .all()
+    )
+    unknown_rfids = (
+        db.query(UnknownRFID)
+        .order_by(UnknownRFID.timestamp.desc())
+        .limit(20)
+        .all()
+    )
     return templates.TemplateResponse("admin_dashboard.html", {
-        "request": request, "user": user, "blocks": blocks_data, "employees": employees, "unknown_rfids": unknown_rfids,
-        "admins": admins, "removed_employees": removed_employees
+        "request": request, "user": user, "blocks": blocks_data, "employees": employees, "unknown_rfids": unknown_rfids
     })
 
 #----------------------------------------
@@ -158,8 +249,19 @@ async def add_employee(request: Request, name: str = Form(...), email: str = For
     # Generate password
     password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
     password_hash = hash_password(password)
-    new_user = User(employee_id=employee_id, name=name, email=email, rfid_tag=rfid_tag, role=role,
-                    department=department, password_hash=password_hash)
+    email_hash = None
+    rfid_hash = None
+    new_user = User(
+        employee_id=employee_id,
+        name=name,
+        email=email,
+        email_hash=email_hash,
+        rfid_tag=rfid_tag,
+        rfid_hash=rfid_hash,
+        role=role,
+        department=department,
+        password_hash=password_hash,
+    )
     db.add(new_user)
     db.commit()
     return {"employee_id": employee_id, "password": password}
@@ -197,14 +299,22 @@ async def admin_manage_employees(request: Request,
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
     query = db.query(User).filter(User.is_active == True)
-    if search:
-        query = query.filter(
-            (User.employee_id.like(f"%{search}%")) |
-            (User.name.ilike(f"%{search}%"))
-        )
-    if department:
-        query = query.filter(User.department == department)
     employees = query.all()
+
+    if search:
+        search_lower = search.lower()
+        employees = [
+            emp for emp in employees
+            if (emp.employee_id and search_lower in emp.employee_id.lower())
+            or (emp.name and search_lower in emp.name.lower())
+        ]
+
+    if department:
+        dept_lower = department.lower()
+        employees = [
+            emp for emp in employees
+            if emp.department and dept_lower == emp.department.lower()
+        ]
     return templates.TemplateResponse("admin_manage.html",{
         "request": request,
         "user": user,
@@ -500,14 +610,14 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
     total_hours = db.query(func.sum(Attendance.duration)).filter(
         Attendance.employee_id == user.employee_id
         ).scalar() or 0
-    tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
+    tasks_count = db.query(func.count(Task.id)).filter(Task.user_id == user.employee_id).scalar() or 0
     return templates.TemplateResponse(
         "employee_dashboard.html",
         {
             "request": request,
             "user": user,
             "total_hours": round(total_hours, 2),
-            "tasks": tasks,
+            "tasks_count": tasks_count,
             "leave_balance": 0,
             "current_year": datetime.datetime.utcnow().year
         }
@@ -926,4 +1036,6 @@ def start_scheduler():
 @app.on_event("shutdown")
 def shutdown_scheduler():
     scheduler.shutdown()
+
+
 

@@ -1,0 +1,5 @@
+2026-01-28 12:51:41,998 INFO event=login_success user_id=1 details=ip=127.0.0.1
+2026-01-28 12:52:58,909 INFO event=logout user_id=1 details=
+2026-01-28 13:00:18,473 INFO event=login_success user_id=1 details=ip=127.0.0.1
+2026-01-28 13:03:53,996 INFO event=login_success user_id=1 details=ip=127.0.0.1
+2026-01-28 13:07:28,987 INFO event=login_success user_id=1 details=ip=127.0.0.1

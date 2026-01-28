@@ -1,15 +1,15 @@
-import bcrypt
-from sqlalchemy.orm import Session
-from models import User
+"""
+AUTH MODULE
+===========
+Centralized authentication wrapper for the application.
 
-def hash_password(password: str) -> str:
-    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+WHY:
+- Keeps auth logic in one place for consistency.
 
-def verify_password(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+HOW:
+- Delegates to the secure authentication helper that verifies hashed passwords.
+"""
 
-def authenticate_user(db: Session, username: str, password: str):
-    user = db.query(User).filter(User.employee_id == username).first()
-    if user and verify_password(password, user.password_hash):
-        return user
-    return None
+from Security.authentication import authenticate_user
+
+__all__ = ["authenticate_user"]

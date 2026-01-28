@@ -20,6 +20,12 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 * [Database Schema](#database-schema)
 * [Hosting on Your IP / Network Access](#hosting-on-your-ip--network-access)
 * [Configuration & Environment Variables](#configuration--environment-variables)
+* [Release / Version](#release--version)
+* [Security Configuration Table](#security-configuration-table)
+* [HTTPS / TLS Setup](#https--tls-setup)
+* [Logging Locations](#logging-locations)
+* [Session Timer & Reload Behavior](#session-timer--reload-behavior)
+* [Deployment Checklist](#deployment-checklist)
 * [Security Notes](#security-notes)
 * [Troubleshooting](#troubleshooting)
 * [Contributing](#contributing)
@@ -41,12 +47,45 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 * **Reporting**: Filter attendance by department, employee, or date.
 * **Unknown RFID Detection**: Log and alert on unrecognized RFID tags.
 
+## Security Features
+
+* **Encrypted Sessions**: Fernet-encrypted session cookies with idle/absolute timeouts.
+* **HTTPS Enforcement**: Configurable HTTPS redirect and secure cookie handling.
+* **CSRF Protection**: Middleware support, toggled by environment.
+* **Security Headers**: HSTS, X-Frame-Options, and related headers (configurable).
+* **XSS Protection**: Response header hardening for script injection defenses.
+* **Input Safety**: Body size limits and sanitization helpers for user input.
+* **Login Throttling**: Login attempt limiting to reduce brute-force attacks.
+* **Request Tracing**: Request ID injection for auditability.
+* **Activity Logging**: Access logs to logs/security.log.
+* **Audit Trail**: Structured audit events to logs/audit.log.
+* **Encryption at Rest**: AES-256-GCM helpers for sensitive fields.
+
+* **Security Integration Layer**: Centralized wiring in [security_integration.py](security_integration.py).
+* **Environment Profiles**: Separate config files: [.env.localhost](.env.localhost) and [.env.production](.env.production).
+* **Env Selection**: `APP_ENV` or `ENV_ACTIVE` toggles which env file loads at startup.
+* **Auto Key Generation**: `SECRET_KEY` and `ENCRYPTION_KEY` auto-generate in production when set to `AUTO_GENERATE`.
+* **Session Timer UI**: Live countdown header pill with /api/session/timing.
+* **Reload Logout Modal**: Corporate-style reload confirmation with logout on continue.
+
 ## Tech Stack
 
 * **Backend**: FastAPI (Python)
 * **Database**: MariaDB
 * **Frontend**: HTML + Tailwind CSS
 * **Auth**: Session-based with bcrypt password hashing
+* **Security**:
+  * **Language**: Python
+  * **Session Security**: Encrypted session cookies (Fernet)
+  * **Password Hashing**: bcrypt
+  * **CSRF**: Middleware-based CSRF validation
+  * **HTTPS/TLS**: Redirect and secure-cookie enforcement
+  * **Headers**: HSTS and security header hardening
+  * **XSS**: Response header protection
+  * **Input Safety**: Body size limits and sanitization helpers
+  * **Rate Limiting**: Login attempt throttling
+  * **Audit/Logging**: Activity logs + audit trail
+  * **Encryption at Rest**: AES-256-GCM helpers
 * **Hardware**: ESP32 / microcontroller for RFID reading
 
 ---
@@ -401,11 +440,86 @@ ipconfig
 
 ## Configuration & Environment Variables
 
+Environment profiles:
+
+* Local development: [.env.localhost](.env.localhost)
+* Production: [.env.production](.env.production)
+
+Selection:
+
+* Set `APP_ENV=production` to load production settings.
+* If `APP_ENV` is not set, `ENV_ACTIVE=true` in the env file determines which profile is active.
+
 Recommended environment variables (examples):
 
 * `DATABASE_URL` — SQLite path or other DB URL (default: `sqlite:///./attendance.db`)
 * `SECRET_KEY` — Session/signing secret
 * `ADMIN_PASSWORD` — Override default admin password
+
+---
+
+## Release / Version
+
+* Versioning: Semantic versioning recommended (MAJOR.MINOR.PATCH).
+* Track releases in your Git tags (e.g., v1.0.0).
+
+---
+
+## Security Configuration Table
+
+| Flag | Description | Default | Recommended (Prod) |
+| --- | --- | --- | --- |
+| `FORCE_HTTPS` | Redirect HTTP to HTTPS | false | true |
+| `ALLOW_INSECURE_LOCALHOST` | Allow HTTP on localhost | true | false |
+| `HSTS_ENABLED` | Enable security headers | false | true |
+| `CSRF_ENABLED` | Enforce CSRF tokens | false | true |
+| `SESSION_HTTPS_ONLY` | HTTPS-only cookies | false | true |
+| `SESSION_MAX_AGE` | Session max age (seconds) | 600 | 3600 |
+| `SESSION_IDLE_TIMEOUT` | Idle timeout (seconds) | 600 | 1800 |
+
+---
+
+## HTTPS / TLS Setup
+
+1. Set `FORCE_HTTPS="true"` and `ALLOW_INSECURE_LOCALHOST="false"` in [.env.production](.env.production).
+2. Provide certificate paths:
+  * `TLS_CERT_FILE`
+  * `TLS_KEY_FILE`
+  * `TLS_CA_FILE` (optional)
+3. Run the TLS server:
+  ```bash
+  python Security/run_tls.py
+  ```
+
+---
+
+## Logging Locations
+
+* Activity logs: `logs/security.log`
+* Audit trail: `logs/audit.log`
+
+---
+
+## Session Timer & Reload Behavior
+
+* Session countdown appears in the header and updates via `/api/session/timing`.
+* Reloading a page shows a confirmation modal:
+  * **Cancel** keeps the current session.
+  * **Continue** logs out and redirects to the login page.
+
+---
+
+## Deployment Checklist
+
+* Set `APP_ENV=production`
+* Set `FORCE_HTTPS="true"`
+* Set `ALLOW_INSECURE_LOCALHOST="false"`
+* Set `CSRF_ENABLED="true"`
+* Set `HSTS_ENABLED="true"`
+* Set `SESSION_HTTPS_ONLY="true"`
+* Update `CORS_ORIGINS` to your domain
+* Confirm `SECRET_KEY` and `ENCRYPTION_KEY` are set (auto-generated if `AUTO_GENERATE`)
+* Configure TLS cert paths and run `Security/run_tls.py`
 
 ---
 

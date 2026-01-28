@@ -1,0 +1,233 @@
+2026-01-28 10:33:37,987 INFO method=GET path=/ status=400 user_id=None ip=127.0.0.1
+2026-01-28 10:33:38,783 INFO method=GET path=/favicon.ico status=400 user_id=None ip=127.0.0.1
+2026-01-28 10:34:52,980 INFO method=GET path=/ status=307 user_id=None ip=127.0.0.1
+2026-01-28 10:35:45,255 INFO method=GET path=/favicon.ico status=404 user_id=None ip=127.0.0.1
+2026-01-28 10:39:18,080 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 10:39:19,115 INFO method=GET path=/favicon.ico status=404 user_id=None ip=127.0.0.1
+2026-01-28 10:39:27,613 INFO method=POST path=/login status=403 user_id=None ip=127.0.0.1
+2026-01-28 10:40:46,783 INFO method=POST path=/login status=403 user_id=None ip=127.0.0.1
+2026-01-28 10:40:50,080 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 10:41:06,563 INFO method=POST path=/login status=400 user_id=None ip=127.0.0.1
+2026-01-28 10:46:27,811 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 10:46:51,948 INFO method=GET path=/.well-known/appspecific/com.chrome.devtools.json status=404 user_id=None ip=127.0.0.1
+2026-01-28 10:46:57,478 INFO method=POST path=/login status=400 user_id=None ip=127.0.0.1
+2026-01-28 10:55:47,792 INFO method=POST path=/login status=200 user_id=None ip=127.0.0.1
+2026-01-28 10:55:59,785 INFO method=POST path=/login status=200 user_id=None ip=127.0.0.1
+2026-01-28 11:14:50,955 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 11:15:00,378 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:15:00,460 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:15:00,605 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:15:04,510 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:15:04,664 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:21:11,285 INFO method=GET path=/ status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:21:18,248 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:21:18,332 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:21:18,485 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:22:50,122 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:22:52,174 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:23:17,125 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:23:21,253 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:23:21,317 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:30:15,253 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 11:30:24,033 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:30:24,093 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:30:24,227 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:30:24,247 INFO method=GET path=/api/tasks/count status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:32:45,518 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:32:45,870 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:32:48,807 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:32:48,851 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:32:48,974 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:35:11,160 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 11:35:11,784 INFO method=GET path=/favicon.ico status=404 user_id=None ip=127.0.0.1
+2026-01-28 11:35:19,021 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:35:19,089 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:39:08,428 INFO method=GET path=/ status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:39:13,471 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:39:13,543 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:39:18,678 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:41:26,643 INFO method=GET path=/employee status=401 user_id=None ip=127.0.0.1
+2026-01-28 11:41:28,580 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 11:41:33,480 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:41:33,544 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:41:33,657 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:55:10,733 INFO method=GET path=/ status=200 user_id=None ip=127.0.0.1
+2026-01-28 11:55:19,176 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 11:55:19,266 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:55:19,399 INFO method=GET path=/api/session/timing status=200 user_id=1 ip=127.0.0.1
+2026-01-28 11:57:38,085 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 12:00:21,285 INFO method=GET path=/ status=200 user_id=1 ip=127.0.0.1
+2026-01-28 12:00:27,678 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 12:00:27,739 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 12:04:05,815 INFO method=GET path=/ status=200 user_id=1 ip=127.0.0.1
+2026-01-28 12:04:14,601 INFO method=POST path=/login status=303 user_id=1 ip=127.0.0.1
+2026-01-28 12:04:14,663 INFO method=GET path=/employee status=200 user_id=1 ip=127.0.0.1
+2026-01-28 12:44:57,699 INFO method=GET path=/ query= status=200 user_id=None request_id=9ff561b6-0a2e-4648-a224-c44dc3557774 ip=127.0.0.1
+2026-01-28 12:45:20,166 INFO method=GET path=/employee query= status=401 user_id=None request_id=df43eb1b-6207-4635-b90d-5886c9aa2b04 ip=127.0.0.1
+2026-01-28 12:45:22,019 INFO method=GET path=/ query= status=200 user_id=None request_id=f95cb9ce-0d5f-4ea7-9d6e-7f90ba6a270d ip=127.0.0.1
+2026-01-28 12:48:45,257 INFO method=GET path=/ query= status=200 user_id=None request_id=5c19db05-e02f-4908-84e2-b66cd47cf186 ip=127.0.0.1
+2026-01-28 12:51:35,004 INFO method=GET path=/ query= status=200 user_id=None request_id=ac920e7e-a8ec-4d1f-af6a-41e9052282b9 ip=127.0.0.1
+2026-01-28 12:51:41,999 INFO method=POST path=/login query= status=303 user_id=1 request_id=e0ca3c9a-f3cf-489b-a6fe-bbcd5334cb6b ip=127.0.0.1
+2026-01-28 12:51:42,214 INFO method=GET path=/employee query= status=200 user_id=1 request_id=4e2054fe-ba48-4d58-a83e-ad40ce1430c3 ip=127.0.0.1
+2026-01-28 12:51:42,335 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=95b6ecdc-e871-48e3-a0f2-fae6e5af520e ip=127.0.0.1
+2026-01-28 12:52:58,910 INFO method=GET path=/logout query= status=303 user_id=None request_id=bacbc9d3-4771-4943-b894-98a69f09adb9 ip=127.0.0.1
+2026-01-28 12:52:58,940 INFO method=GET path=/ query= status=200 user_id=None request_id=637f8c37-6f00-4964-8a52-ba007e78c91a ip=127.0.0.1
+2026-01-28 13:00:07,733 INFO method=GET path=/ query= status=200 user_id=None request_id=7296d04c-9658-4be7-adf4-9e6b72a4fd7d ip=127.0.0.1
+2026-01-28 13:00:18,474 INFO method=POST path=/login query= status=303 user_id=1 request_id=0c34e83b-aa22-4ee9-83e9-51b4c6f8773b ip=127.0.0.1
+2026-01-28 13:00:18,569 INFO method=GET path=/employee query= status=200 user_id=1 request_id=98f60989-4ec8-4e1a-a3d9-fba88a7854fa ip=127.0.0.1
+2026-01-28 13:00:18,681 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=8a52cf36-9e79-4cf5-83eb-50b564cbba8d ip=127.0.0.1
+2026-01-28 13:03:47,336 INFO method=GET path=/ query= status=200 user_id=1 request_id=de05ecbe-06c2-4c44-9ffc-db989d1acf7a ip=127.0.0.1
+2026-01-28 13:03:54,000 INFO method=POST path=/login query= status=303 user_id=1 request_id=9a5fbcf9-2750-4170-bbbf-e35f4c18b31c ip=127.0.0.1
+2026-01-28 13:03:54,153 INFO method=GET path=/employee query= status=200 user_id=1 request_id=fbab8522-ab89-4927-8225-f20ed4a5ff89 ip=127.0.0.1
+2026-01-28 13:03:54,400 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=0e1ae355-6432-40a4-ab23-c62aac559b82 ip=127.0.0.1
+2026-01-28 13:04:46,161 INFO method=GET path=/employee/attendance query= status=200 user_id=1 request_id=7790c642-f472-4a57-b4a3-0dff391ceb0d ip=127.0.0.1
+2026-01-28 13:04:47,510 INFO method=GET path=/api/month-hours query= status=200 user_id=1 request_id=95ea97eb-ea74-4cc0-81e6-9fdbf2c00fe0 ip=127.0.0.1
+2026-01-28 13:04:49,023 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=a8efbab3-1a69-4304-a557-28dacfb6cd4a ip=127.0.0.1
+2026-01-28 13:07:21,956 INFO method=GET path=/ query= status=200 user_id=1 request_id=f50d0f7a-188e-427d-8761-b4cf87528b24 ip=127.0.0.1
+2026-01-28 13:07:22,649 INFO method=GET path=/favicon.ico query= status=404 user_id=1 request_id=614800ff-6ba7-4052-965a-cec0d26f6fe9 ip=127.0.0.1
+2026-01-28 13:07:28,987 INFO method=POST path=/login query= status=303 user_id=1 request_id=a5024c33-ebf6-4dcf-b5d7-24416e266d4a ip=127.0.0.1
+2026-01-28 13:07:29,057 INFO method=GET path=/employee query= status=200 user_id=1 request_id=dc5d2b0d-6672-4ad7-81a5-2c2534b56202 ip=127.0.0.1
+2026-01-28 13:07:29,173 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=6f56538e-fdf6-41a3-87aa-663ba2fe6292 ip=127.0.0.1
+2026-01-28 14:34:11,617 INFO method=GET path=/ query= status=200 user_id=None request_id=ddcd78a7-2053-4052-9209-cda4aa7e9a0c ip=127.0.0.1
+2026-01-28 14:34:12,463 INFO method=GET path=/favicon.ico query= status=404 user_id=None request_id=175bff20-776f-4460-9fcd-8a58b6667d7c ip=127.0.0.1
+2026-01-28 14:36:56,746 INFO method=GET path=/ query= status=200 user_id=None request_id=ef45a344-d23e-4378-8e65-1efa865c9f25 ip=127.0.0.1
+2026-01-28 14:37:04,008 INFO method=POST path=/login query= status=303 user_id=1 request_id=27d0e968-7fbb-45b8-a601-27b4a2e94d31 ip=127.0.0.1
+2026-01-28 14:37:04,071 INFO method=GET path=/employee query= status=200 user_id=1 request_id=63fb2d1a-9bb0-48cf-94ac-3a07efaf903f ip=127.0.0.1
+2026-01-28 14:37:04,595 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=f3d1afb7-59b5-4fc8-807c-cecc71f70314 ip=127.0.0.1
+2026-01-28 15:00:17,556 INFO method=GET path=/ query= status=200 user_id=None request_id=efb8e908-a348-4bb3-b537-be40f5ea03a3 ip=127.0.0.1
+2026-01-28 15:00:23,932 INFO method=POST path=/login query= status=303 user_id=1 request_id=5f2cecc0-690d-4abb-a22d-277507b29f03 ip=127.0.0.1
+2026-01-28 15:00:24,012 INFO method=GET path=/employee query= status=200 user_id=1 request_id=9f56135e-13e3-46dc-9fe9-9ee20decb78f ip=127.0.0.1
+2026-01-28 15:00:24,157 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=aecc132f-4eb6-4e6d-a502-3ecc57a4a37f ip=127.0.0.1
+2026-01-28 15:06:08,614 INFO method=GET path=/ query= status=200 user_id=1 request_id=1b431c7b-694f-4d82-bd00-8502c6237f27 ip=127.0.0.1
+2026-01-28 15:06:15,932 INFO method=POST path=/login query= status=303 user_id=1 request_id=9cecd3a4-a1ba-42fe-9c13-249eafa27d5e ip=127.0.0.1
+2026-01-28 15:06:16,027 INFO method=GET path=/employee query= status=200 user_id=1 request_id=b3fc30ae-b679-4459-9e2d-a394308b9eab ip=127.0.0.1
+2026-01-28 15:06:16,146 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=9f1ae1b2-dbfe-48c6-b072-1059b92a692d ip=127.0.0.1
+2026-01-28 15:09:45,944 INFO method=GET path=/ query= status=200 user_id=1 request_id=61fbdf32-14fe-4352-84f6-36418fa446c5 ip=127.0.0.1
+2026-01-28 15:09:52,660 INFO method=POST path=/login query= status=303 user_id=1 request_id=aa290bdb-2059-4a77-8d25-259888c3d411 ip=127.0.0.1
+2026-01-28 15:09:52,744 INFO method=GET path=/employee query= status=200 user_id=1 request_id=dddc7c50-a9bc-46df-ad81-0b4232866571 ip=127.0.0.1
+2026-01-28 15:09:52,905 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=9efc22db-a964-405f-bb38-d6395c4e96ac ip=127.0.0.1
+2026-01-28 15:14:23,490 INFO method=GET path=/employee query= status=401 user_id=None request_id=be22bed6-b0c0-4983-8ba7-8cee35c5a188 ip=127.0.0.1
+2026-01-28 15:14:25,458 INFO method=GET path=/ query= status=200 user_id=None request_id=c0b151d0-b62a-4333-9025-ffde3fd70bb1 ip=127.0.0.1
+2026-01-28 15:14:43,488 INFO method=POST path=/login query= status=303 user_id=1 request_id=00235d32-fd91-4f82-babd-760553aa68b2 ip=127.0.0.1
+2026-01-28 15:14:43,506 INFO method=GET path=/employee query= status=401 user_id=None request_id=7365fdcb-828e-4dcd-835b-5da7ef2edf13 ip=127.0.0.1
+2026-01-28 15:14:46,122 INFO method=GET path=/ query= status=200 user_id=None request_id=46918d48-0f22-463c-8711-435d57d0f8e0 ip=127.0.0.1
+2026-01-28 15:15:09,738 INFO method=GET path=/ query= status=200 user_id=None request_id=735742a2-729c-490a-a150-35e915f1189e ip=127.0.0.1
+2026-01-28 15:15:15,851 INFO method=POST path=/login query= status=303 user_id=1 request_id=0aeaef99-87b0-42b2-b3d2-58212f08658f ip=127.0.0.1
+2026-01-28 15:15:15,869 INFO method=GET path=/employee query= status=401 user_id=None request_id=1ffc027e-5fa8-4418-bd0f-d91ce515eb42 ip=127.0.0.1
+2026-01-28 15:15:18,024 INFO method=GET path=/ query= status=200 user_id=None request_id=c74f1bbc-b34a-4c1e-900d-f0989e20a1ad ip=127.0.0.1
+2026-01-28 15:15:57,232 INFO method=GET path=/ query= status=200 user_id=None request_id=29632f5c-d47d-457d-9870-aefec00552a7 ip=127.0.0.1
+2026-01-28 15:15:59,129 INFO method=GET path=/favicon.ico query= status=404 user_id=None request_id=097af598-1629-406f-8f14-7ed04cca09e1 ip=127.0.0.1
+2026-01-28 15:16:08,763 INFO method=POST path=/login query= status=303 user_id=1 request_id=3126d765-0723-436a-92ca-f123dc2437b1 ip=127.0.0.1
+2026-01-28 15:16:08,785 INFO method=GET path=/employee query= status=401 user_id=None request_id=58ac4631-7e2b-43d9-b091-0f8224b8fb46 ip=127.0.0.1
+2026-01-28 15:16:11,338 INFO method=GET path=/ query= status=200 user_id=None request_id=cb46ead7-2cc6-4b6a-b0b4-fec68089252a ip=127.0.0.1
+2026-01-28 15:16:34,701 INFO method=GET path=/ query= status=200 user_id=None request_id=7dae9b70-36db-4993-b66a-d0c48c0ddc4c ip=127.0.0.1
+2026-01-28 15:18:03,051 INFO method=GET path=/ query= status=200 user_id=None request_id=4d0a98bf-0d40-4707-a7bc-4480ada36f47 ip=127.0.0.1
+2026-01-28 15:18:12,086 INFO method=POST path=/login query= status=303 user_id=1 request_id=4832ac24-fb21-47fe-83d7-115f4f97d6a2 ip=127.0.0.1
+2026-01-28 15:18:12,151 INFO method=GET path=/employee query= status=200 user_id=1 request_id=e8a8d002-eda7-4d8a-a97e-38780e37eca9 ip=127.0.0.1
+2026-01-28 15:18:12,231 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=cce473ec-9b0d-4b0c-88aa-4b180e4fee5a ip=127.0.0.1
+2026-01-28 15:22:42,606 INFO method=GET path=/employee query= status=200 user_id=1 request_id=3e68cbed-77f9-4795-a719-bf06362db46b ip=127.0.0.1
+2026-01-28 15:22:45,274 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=a5e682e6-6116-4eaa-8f56-f2305d60f063 ip=127.0.0.1
+2026-01-28 15:22:45,320 INFO method=GET path=/employee query= status=200 user_id=1 request_id=6b31b8e2-0d0c-4eaf-9f6d-3643a117471a ip=127.0.0.1
+2026-01-28 15:22:45,412 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=2c3d951a-7667-4ff6-8de3-d2fab011020a ip=127.0.0.1
+2026-01-28 15:22:46,449 INFO method=GET path=/ query= status=200 user_id=1 request_id=1bd7ee33-78e6-45dc-a094-5c7b06fd2986 ip=127.0.0.1
+2026-01-28 15:22:52,795 INFO method=POST path=/login query= status=303 user_id=1 request_id=87e640c5-cfff-49eb-90d9-2e5d72052f02 ip=127.0.0.1
+2026-01-28 15:22:52,831 INFO method=GET path=/employee query= status=200 user_id=1 request_id=3757e98e-1064-44dd-b380-014328c1c176 ip=127.0.0.1
+2026-01-28 15:22:52,925 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=3fab8981-f4a1-4bf8-b043-1713d53a1def ip=127.0.0.1
+2026-01-28 15:23:58,317 INFO method=GET path=/employee query= status=200 user_id=1 request_id=9ebd1ea8-4236-4bce-aac1-c2eaed27f385 ip=127.0.0.1
+2026-01-28 15:23:58,397 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=dcfb1291-9d93-46c9-b203-843635aab3d8 ip=127.0.0.1
+2026-01-28 15:24:00,708 INFO method=GET path=/employee query= status=200 user_id=1 request_id=74c0830a-3b88-4987-9d89-3ecda04bcba7 ip=127.0.0.1
+2026-01-28 15:24:00,745 INFO method=GET path=/ query= status=200 user_id=1 request_id=a5dd9ed7-4ee6-4ba7-bf18-38f2a5c08ed3 ip=127.0.0.1
+2026-01-28 15:24:07,310 INFO method=POST path=/login query= status=303 user_id=1 request_id=1ffa7cfd-edd1-4bbd-9290-91556dbe66c3 ip=127.0.0.1
+2026-01-28 15:24:07,351 INFO method=GET path=/employee query= status=200 user_id=1 request_id=3a1f431d-3009-4a3f-833d-439ed2ff526a ip=127.0.0.1
+2026-01-28 15:24:07,453 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=448aa3a1-86ac-4b15-b738-2adad2380fc6 ip=127.0.0.1
+2026-01-28 15:25:41,786 INFO method=GET path=/employee query= status=200 user_id=1 request_id=0639de20-b43d-4c53-82e0-2067365cef88 ip=127.0.0.1
+2026-01-28 15:25:44,667 INFO method=GET path=/ query= status=200 user_id=1 request_id=ee4278a3-33da-4189-b789-c461d5bbe244 ip=127.0.0.1
+2026-01-28 15:25:44,671 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=beefa784-7176-48c4-afda-79326cd753d2 ip=127.0.0.1
+2026-01-28 15:25:55,514 INFO method=POST path=/login query= status=303 user_id=1 request_id=6de2349e-2bfe-4d77-b965-7a8cfd4db7ba ip=127.0.0.1
+2026-01-28 15:25:55,563 INFO method=GET path=/employee query= status=200 user_id=1 request_id=e536e09b-e658-418f-955a-dc17416eb0a6 ip=127.0.0.1
+2026-01-28 15:25:55,736 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=331a2041-68c4-4e8e-9dfc-efd7a0f73763 ip=127.0.0.1
+2026-01-28 15:33:21,166 INFO method=GET path=/employee query= status=401 user_id=None request_id=2df5460b-9ae7-45f8-8edf-c61d8a919445 ip=127.0.0.1
+2026-01-28 15:33:21,423 INFO method=GET path=/ query= status=200 user_id=None request_id=1bb17ee7-b2e4-452d-8f0f-ce2869add525 ip=127.0.0.1
+2026-01-28 15:33:39,255 INFO method=POST path=/login query= status=303 user_id=1 request_id=4de27797-fb9b-4066-99e8-e4a49bcce09a ip=127.0.0.1
+2026-01-28 15:33:39,318 INFO method=GET path=/employee query= status=200 user_id=1 request_id=84612123-c488-4880-a42b-9ef631845f92 ip=127.0.0.1
+2026-01-28 15:33:39,511 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=acf0befc-3463-4f16-82d1-ae280fe1d2a0 ip=127.0.0.1
+2026-01-28 15:39:33,415 INFO method=GET path=/favicon.ico query= status=404 user_id=None request_id=558a0d67-9666-4a3e-9efd-38de4a64777b ip=127.0.0.1
+2026-01-28 15:43:03,727 INFO method=GET path=/employee query= status=200 user_id=1 request_id=8730639d-4c70-4545-81b5-48b8af39c06e ip=127.0.0.1
+2026-01-28 15:43:04,300 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=9992a129-0782-4ea8-aafe-e3d21bb698f8 ip=127.0.0.1
+2026-01-28 15:56:28,666 INFO method=GET path=/ query= status=200 user_id=None request_id=288a7fe9-76a3-4225-8685-eacb21d7fa02 ip=127.0.0.1
+2026-01-28 15:56:40,745 INFO method=POST path=/login query= status=303 user_id=1 request_id=0eaee909-29ae-4d56-994b-1c832e9a5a6b ip=127.0.0.1
+2026-01-28 15:56:40,830 INFO method=GET path=/employee query= status=200 user_id=1 request_id=82f0690d-af4c-41a9-a2e6-56e4ef972d98 ip=127.0.0.1
+2026-01-28 15:56:41,150 INFO method=GET path=/static/script.js query= status=200 user_id=1 request_id=ccedf00c-b364-4947-9987-3e0fad4ba1bb ip=127.0.0.1
+2026-01-28 15:56:41,191 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=fdb0ff8c-b25f-47e8-b1ef-fa24136c01c3 ip=127.0.0.1
+2026-01-28 15:56:43,318 INFO method=GET path=/employee query= status=200 user_id=1 request_id=0888ca73-9071-4a01-a217-139fa68c3f31 ip=127.0.0.1
+2026-01-28 15:56:43,459 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=29dfa2c1-683a-467c-b2da-bd701dbce969 ip=127.0.0.1
+2026-01-28 15:56:47,700 INFO method=GET path=/logout query= status=303 user_id=None request_id=369229d2-4215-4d1b-80ba-097df6d4f520 ip=127.0.0.1
+2026-01-28 15:56:47,713 INFO method=GET path=/ query= status=200 user_id=None request_id=fcfc59e2-83ea-4c48-b59c-48051d3bfaca ip=127.0.0.1
+2026-01-28 15:59:23,568 INFO method=GET path=/ query= status=200 user_id=None request_id=69994da6-201b-4923-8c33-b8a6ab116b14 ip=127.0.0.1
+2026-01-28 15:59:24,263 INFO method=GET path=/favicon.ico query= status=404 user_id=None request_id=6ed1c3e0-f872-4144-a3f2-f410aaddde56 ip=127.0.0.1
+2026-01-28 15:59:36,707 INFO method=POST path=/login query= status=303 user_id=1 request_id=09e8b285-f520-421a-9f64-d0e46eadebcb ip=127.0.0.1
+2026-01-28 15:59:36,748 INFO method=GET path=/employee query= status=200 user_id=1 request_id=04390280-c4f3-489f-be5c-de9d32559bdf ip=127.0.0.1
+2026-01-28 15:59:36,799 INFO method=GET path=/static/script.js query= status=200 user_id=1 request_id=5aaa721c-96b5-4f4a-950e-f88a95137bd5 ip=127.0.0.1
+2026-01-28 15:59:36,986 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=e4575ea2-1cc9-4546-a10f-47ea08fafa0f ip=127.0.0.1
+2026-01-28 15:59:37,827 INFO method=GET path=/employee/tasks query= status=200 user_id=1 request_id=2e63c04c-dd4f-413e-a8f9-83e16f897222 ip=127.0.0.1
+2026-01-28 15:59:38,336 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=2069e1aa-a0e4-492c-b3f7-33a2d4957811 ip=127.0.0.1
+2026-01-28 15:59:52,328 INFO method=GET path=/employee query= status=200 user_id=1 request_id=8695bdcc-38e6-4d69-997f-0acbd9fff401 ip=127.0.0.1
+2026-01-28 15:59:52,577 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=13af6f75-6eb9-480e-9a15-c0e4b5f3e307 ip=127.0.0.1
+2026-01-28 15:59:55,722 INFO method=GET path=/employee/tasks query= status=200 user_id=1 request_id=e85bb06a-ae61-48c6-b04c-3ebbbb7dcc95 ip=127.0.0.1
+2026-01-28 15:59:56,014 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=17e273c0-14ae-44d8-a1ae-abd105d6c13d ip=127.0.0.1
+2026-01-28 16:00:03,182 INFO method=GET path=/employee/payslips query= status=200 user_id=1 request_id=2c63ef2d-e5ba-4e7a-82fd-d1ed6c4f0744 ip=127.0.0.1
+2026-01-28 16:00:03,338 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=8316fe40-4b0e-4e36-9cbd-01a744aafd99 ip=127.0.0.1
+2026-01-28 16:00:06,012 INFO method=GET path=/employee/payslips query=month=1&year=2026 status=200 user_id=1 request_id=283049d8-dfd2-4af9-bfae-64636228bd6e ip=127.0.0.1
+2026-01-28 16:00:06,152 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=532b2294-84ca-4730-8e18-c93e40a1b6c8 ip=127.0.0.1
+2026-01-28 16:00:09,446 INFO method=GET path=/employee/payslips query=month=1&year=2026 status=200 user_id=1 request_id=abfc26e1-56b1-4353-9dea-29211e9a5d38 ip=127.0.0.1
+2026-01-28 16:00:09,583 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=f58ab244-333d-4637-b462-55f5a64c20db ip=127.0.0.1
+2026-01-28 16:00:16,045 INFO method=GET path=/logout query= status=303 user_id=None request_id=4e7887a6-a5fc-4957-9fde-96c35c90eecd ip=127.0.0.1
+2026-01-28 16:00:16,060 INFO method=GET path=/ query= status=200 user_id=None request_id=725662bc-bbbc-4671-aee0-d4b6276a4ad2 ip=127.0.0.1
+2026-01-28 16:00:28,331 INFO method=POST path=/login query= status=303 user_id=1 request_id=00ee3f3b-c8e4-4dcf-886b-1a00fa054e42 ip=127.0.0.1
+2026-01-28 16:00:28,360 INFO method=GET path=/employee query= status=200 user_id=1 request_id=1ebca135-e14b-43df-b7f8-e88c541b7161 ip=127.0.0.1
+2026-01-28 16:00:28,405 INFO method=GET path=/static/script.js query= status=304 user_id=1 request_id=7d2f18b7-1bcb-45f5-b1b0-afeb99aeff1c ip=127.0.0.1
+2026-01-28 16:00:28,640 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=7de0cca6-5488-45d7-b96c-e823f374c9ae ip=127.0.0.1
+2026-01-28 16:00:33,795 INFO method=GET path=/employee/attendance query= status=200 user_id=1 request_id=38ce3156-8e08-4122-aa32-78e156a723a5 ip=127.0.0.1
+2026-01-28 16:00:34,121 INFO method=GET path=/api/month-hours query= status=200 user_id=1 request_id=20b82b25-231a-4c10-a714-599a40cefb4c ip=127.0.0.1
+2026-01-28 16:00:34,157 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=dd86a7c0-3135-4b8d-b7b2-3e4e830ad5b2 ip=127.0.0.1
+2026-01-28 16:00:37,321 INFO method=GET path=/employee/tasks query= status=200 user_id=1 request_id=3ca6da6c-a68b-42b9-a6cb-822ac21d7bbb ip=127.0.0.1
+2026-01-28 16:00:37,610 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=53a3b4f5-9159-46a8-a977-81578566be8c ip=127.0.0.1
+2026-01-28 16:00:38,818 INFO method=GET path=/employee/leave query= status=200 user_id=1 request_id=10c6fc09-5c1f-46a9-ba76-529d7bde3d32 ip=127.0.0.1
+2026-01-28 16:00:39,115 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=170e91e6-b612-492a-ae04-9f7dbd534702 ip=127.0.0.1
+2026-01-28 16:00:40,311 INFO method=GET path=/employee/profile query= status=200 user_id=1 request_id=88cc4227-fb17-49bf-83e4-b9a934a2cd5f ip=127.0.0.1
+2026-01-28 16:00:40,575 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=58a4cd47-435e-4cf6-a1eb-7f827f05ab8c ip=127.0.0.1
+2026-01-28 16:00:49,391 INFO method=GET path=/employee/profile query= status=200 user_id=1 request_id=f7fd4838-b2c0-4535-9eb9-5d09692c36ae ip=127.0.0.1
+2026-01-28 16:00:49,559 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=95099c41-2260-4e8b-a1a0-5f772d7ef63d ip=127.0.0.1
+2026-01-28 16:00:50,325 INFO method=GET path=/employee/payslips query= status=200 user_id=1 request_id=d89edfc2-1c9d-46fe-a913-11cd0a8f42c3 ip=127.0.0.1
+2026-01-28 16:00:50,491 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=11f2c3c5-f04f-4a82-8fb7-12a73f3c550b ip=127.0.0.1
+2026-01-28 16:00:51,487 INFO method=GET path=/employee/leave query= status=200 user_id=1 request_id=9268e821-afa8-4cff-936e-7a7470f7a3eb ip=127.0.0.1
+2026-01-28 16:00:51,702 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=2c872ae1-45a5-4dd9-a537-4104c4c2227c ip=127.0.0.1
+2026-01-28 16:00:52,781 INFO method=GET path=/employee/tasks query= status=200 user_id=1 request_id=afcf747f-7b70-4aca-99ec-32d63c94e737 ip=127.0.0.1
+2026-01-28 16:00:53,071 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=71fcb388-3bf6-4f20-b944-9bbe78d5d39e ip=127.0.0.1
+2026-01-28 16:00:53,995 INFO method=GET path=/employee/attendance query= status=200 user_id=1 request_id=1a97f4b7-badb-4881-a4d4-fafd9030b99d ip=127.0.0.1
+2026-01-28 16:00:54,275 INFO method=GET path=/api/month-hours query= status=200 user_id=1 request_id=2ac6067b-339e-4a53-96b4-6413b66f2c3d ip=127.0.0.1
+2026-01-28 16:00:54,312 INFO method=GET path=/api/session/timing query= status=200 user_id=1 request_id=54bd6c69-7865-47bd-af87-35eab349f6df ip=127.0.0.1
+2026-01-28 16:01:56,075 INFO method=GET path=/logout query= status=303 user_id=None request_id=a604b98a-5e6d-4114-9ae5-32c525eb8d66 ip=127.0.0.1
+2026-01-28 16:01:56,089 INFO method=GET path=/ query= status=200 user_id=None request_id=3413ca10-ce78-43c5-ad81-20641d4c52b9 ip=127.0.0.1
+2026-01-28 16:02:12,019 INFO method=POST path=/login query= status=200 user_id=None request_id=bf91f8a8-efb5-4f2a-b524-c2973b0772c0 ip=127.0.0.1
+2026-01-28 16:02:26,703 INFO method=POST path=/login query= status=303 user_id=3 request_id=9a779432-1a95-402a-adab-d8e32e2cff9e ip=127.0.0.1
+2026-01-28 16:02:26,731 INFO method=GET path=/admin/select_dashboard query= status=200 user_id=3 request_id=aaa9ffde-2552-47c7-b57d-21b899d392ae ip=127.0.0.1
+2026-01-28 16:02:26,779 INFO method=GET path=/static/script.js query= status=304 user_id=3 request_id=c2f214a6-c94f-4b46-85df-49543705265a ip=127.0.0.1
+2026-01-28 16:02:26,899 INFO method=GET path=/api/session/timing query= status=200 user_id=3 request_id=dc2be7b3-afee-4365-af5b-aa5e9a0d2e6e ip=127.0.0.1
+2026-01-28 16:02:32,491 INFO method=GET path=/admin query= status=200 user_id=3 request_id=1349990e-d05f-4611-8fd0-5fbf90d6f65c ip=127.0.0.1
+2026-01-28 16:02:32,766 INFO method=GET path=/api/leave_count query= status=200 user_id=3 request_id=1119218f-3b88-4eb5-8810-3482bb493327 ip=127.0.0.1
+2026-01-28 16:02:32,915 INFO method=GET path=/api/session/timing query= status=200 user_id=3 request_id=9453dad6-d72e-4365-9f2a-4ed35970e60b ip=127.0.0.1
+2026-01-28 16:02:41,515 INFO method=GET path=/admin/leave_requests query= status=200 user_id=3 request_id=5d5e0b6b-afef-4e5e-b0e8-38b085dee294 ip=127.0.0.1
+2026-01-28 16:02:41,759 INFO method=GET path=/api/leave_count query= status=200 user_id=3 request_id=8fabd85b-ae55-4f21-908f-44bcad19ac0b ip=127.0.0.1
+2026-01-28 16:02:41,800 INFO method=GET path=/api/session/timing query= status=200 user_id=3 request_id=4cfcb5b0-385f-4bd6-baf6-02a512812817 ip=127.0.0.1
+2026-01-28 16:02:53,007 INFO method=GET path=/admin/unknown_rfid query= status=200 user_id=3 request_id=3943474e-40eb-4816-9f9a-e3079c3f6226 ip=127.0.0.1
+2026-01-28 16:02:53,256 INFO method=GET path=/api/leave_count query= status=200 user_id=3 request_id=f23af148-0ff1-4dd0-914c-f66051f19c43 ip=127.0.0.1
+2026-01-28 16:02:53,291 INFO method=GET path=/api/session/timing query= status=200 user_id=3 request_id=21ef17d0-8066-43bb-8008-0d3d2ce04198 ip=127.0.0.1
+2026-01-28 16:02:56,600 INFO method=GET path=/admin query= status=200 user_id=3 request_id=1b588604-4a31-40bb-b6ba-b3dddad63f58 ip=127.0.0.1
+2026-01-28 16:02:56,827 INFO method=GET path=/api/leave_count query= status=200 user_id=3 request_id=1819fdaf-0e25-49d8-9858-2079d54a2ca4 ip=127.0.0.1
+2026-01-28 16:02:56,902 INFO method=GET path=/api/session/timing query= status=200 user_id=3 request_id=d4f74933-1e2a-45c8-a298-e8500c96c49a ip=127.0.0.1
+2026-01-28 16:03:03,308 INFO method=GET path=/logout query= status=303 user_id=None request_id=42b27687-e1d4-4b1a-a662-8e7d76b1d102 ip=127.0.0.1
+2026-01-28 16:03:03,324 INFO method=GET path=/ query= status=200 user_id=None request_id=06e89d83-57a7-4ddb-acb8-3a125a947144 ip=127.0.0.1
+2026-01-28 16:03:14,511 INFO method=GET path=/admin query= status=401 user_id=None request_id=24956701-cfe7-48e0-8f49-7fc4c31fbab0 ip=127.0.0.1
+2026-01-28 16:03:27,263 INFO method=GET path=/ query= status=200 user_id=None request_id=21fd9212-d008-44d5-bc8b-d15f8403fd01 ip=127.0.0.1
+2026-01-28 16:03:31,040 INFO method=GET path=/admin query= status=401 user_id=None request_id=35a410a6-0ee2-490a-8c93-af60cab2a8d2 ip=127.0.0.1
