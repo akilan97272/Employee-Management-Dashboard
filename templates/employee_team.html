@@ -1,42 +1,95 @@
 {% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}My Team{% endblock %}
+
+{% block sidebar %}
+  {% include "sidebar_employee.html" %}
+{% endblock %}
 
 {% block content %}
-<div class="glass p-6 rounded-xl space-y-4">
 
-{% if team %}
-    <div>
-        <p><b>Team Name:</b> {{ team.name }}</p>
-        <p><b>Department:</b> {{ team.department }}</p>
-    </div>
+<div class="space-y-10 max-w-5xl mx-auto">
 
-    <div class="mt-4">
-        <p class="font-semibold">👑 Team Leader</p>
-        {% if leader %}
-            <p>{{ leader.name }}</p>
-        {% else %}
-            <p class="muted">Not assigned</p>
-        {% endif %}
-    </div>
-
-    <div class="mt-4">
-        <p class="font-semibold">👥 Team Members</p>
-        <ul class="list-disc list-inside text-sm">
-            {% for m in members %}
-                <li>
-                    {{ m.name }}
-                    {% if m.active_leader %} ⭐ {% endif %}
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
-
-{% else %}
-    <p class="muted text-center">
-        You are not assigned to any team yet.
+  <!-- Header -->
+  <div>
+    <h1 class="text-2xl font-bold text-main">My Team</h1>
+    <p class="text-sm text-muted">
+      Team structure and assigned members
     </p>
-{% endif %}
+  </div>
+
+  {% if team %}
+
+  <!-- Team Info -->
+  <div class="neo-card hover-soft p-6 space-y-2">
+    <h2 class="text-xl font-semibold text-main">{{ team.name }}</h2>
+    <p class="text-sm text-muted">
+      {{ team.department }} Department
+    </p>
+  </div>
+
+  <!-- Leader -->
+  <div class="neo-card hover-soft p-6 flex items-center gap-6">
+    <div class="w-16 h-16 rounded-full neo-inset
+                flex items-center justify-center
+                text-2xl font-bold text-blue-500">
+      {{ leader.name[0] if leader else "?" }}
+    </div>
+
+    <div>
+      <p class="text-xs uppercase tracking-wide text-muted">Team Leader</p>
+      <p class="text-lg font-semibold text-main">
+        {{ leader.name if leader else "Not Assigned" }}
+      </p>
+      {% if leader %}
+      <p class="text-xs text-muted">{{ leader.employee_id }}</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Members -->
+  <div class="neo-card p-6">
+    <h3 class="text-lg font-semibold text-main mb-5">
+      Team Members
+    </h3>
+
+    {% if members %}
+    <ul class="grid sm:grid-cols-2 gap-5">
+      {% for member in members %}
+      <li class="neo-inset hover-soft p-4 flex items-center gap-4">
+        <div class="w-12 h-12 rounded-full neo-card
+                    flex items-center justify-center
+                    font-bold text-blue-500">
+          {{ member.name[0] }}
+        </div>
+        <div>
+          <p class="font-medium text-main">{{ member.name }}</p>
+          <p class="text-xs text-muted">
+            {{ member.employee_id }} • {{ member.department }}
+          </p>
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+      <p class="text-sm text-muted italic">
+        No members assigned yet.
+      </p>
+    {% endif %}
+  </div>
+
+  {% else %}
+
+  <!-- Empty State -->
+  <div class="neo-card hover-soft p-10 text-center">
+    <p class="text-lg font-semibold text-main">
+      You are not assigned to any team
+    </p>
+    <p class="text-sm text-muted mt-2">
+      Please contact your administrator or team leader
+    </p>
+  </div>
+
+  {% endif %}
 
 </div>
+
 {% endblock %}
