@@ -58,6 +58,30 @@
       flex-shrink: 0;
     }
 
+
+    /* --- BORDERLESS GLASS ENHANCEMENTS --- */
+.neo-card {
+    border: none !important;
+}
+
+.neo-inset {
+    border: none !important;
+}
+
+/* Soft hover lift */
+.hover-soft {
+    transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.hover-soft:hover {
+    transform: translateY(-3px);
+    box-shadow:
+      10px 10px 20px var(--shadow-dark),
+     -10px -10px 20px var(--shadow-light);
+}
+
+
+
     @media (max-width:900px){
       .sidebar-container { display:none; }
       .mobile-menu-btn { display:block; }
