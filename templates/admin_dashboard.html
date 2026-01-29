@@ -1,233 +1,76 @@
-{% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
-{% block page_title %}Command Center{% endblock %}
-{% block page_subtitle %}Live Status • Team Overview{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
-
-<!-- ====== TOP STAT CARDS ====== -->
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-8">
-
-  <div class="glass p-6 rounded-2xl flex items-center gap-4 hover:scale-[1.02] transition cursor-pointer">
-    <div class="text-4xl">👥</div>
-    <div>
-      <p class="text-sm muted">Active Employees</p>
-      <p class="text-3xl font-bold">{{ employees|length }}</p>
-    </div>
-  </div>
-
-  <div class="glass p-6 rounded-2xl flex items-center gap-4 hover:scale-[1.02] transition cursor-pointer">
-    <div class="text-4xl">🏢</div>
-    <div>
-      <p class="text-sm muted">Blocks Occupied</p>
-      <p class="text-3xl font-bold">{{ blocks|length }}</p>
-    </div>
-  </div>
-
-  <div class="glass p-6 rounded-2xl flex items-center gap-4 hover:scale-[1.02] transition cursor-pointer">
-    <div class="text-4xl">❓</div>
-    <div>
-      <p class="text-sm muted">Unknown RFID</p>
-      <p class="text-3xl font-bold text-red-300">{{ unknown_rfids|length }}</p>
-    </div>
-  </div>
-
-</div>
-
-
-
-<!-- ====== BLOCKS + PAYROLL ====== -->
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-
-  <!-- Block Visualization -->
-  <div class="glass rounded-2xl p-6 lg:col-span-2">
-    <h2 class="font-semibold mb-4 text-lg">Block Visualization</h2>
-
-    {% if blocks %}
-    <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-      {% for block in blocks %}
-      <div onclick="openModal('{{block.location_name}}','{{block.room_no}}',{{block.count}})"
-           class="p-5 rounded-xl border border-[var(--glass-border)] hover:bg-white/5 transition cursor-pointer">
-        <div class="flex justify-between items-center">
-          <div>
-            <h4 class="font-medium">{{ block.location_name }}</h4>
-            <p class="text-xs muted">Room {{ block.room_no }}</p>
-          </div>
-          <span class="text-xl font-bold text-[var(--accent)]">{{ block.count }}</span>
-        </div>
-
-        <div class="mt-3 h-2 rounded-full bg-white/10 overflow-hidden">
-          <div class="h-full"
-               style="width: calc({{ block.count }} * 10%); background: var(--accent);"></div>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="muted italic">No active rooms currently.</p>
-    {% endif %}
-  </div>
-
-  <!-- Payroll -->
-  <div class="glass rounded-2xl p-6">
-    <h2 class="font-semibold mb-4 text-lg">Payroll Overview</h2>
-    <canvas id="payrollChart" height="180"></canvas>
-  </div>
-
-</div>
-
-
-
-<!-- ====== ATTENDANCE + HR Actions ====== -->
-<div class="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
-
-  <!-- Attendance Summary -->
-  <div class="glass p-6 rounded-2xl">
-    <h3 class="font-semibold mb-4 text-lg">Attendance Summary</h3>
-
-    <ul class="divide-y divide-white/10">
-      {% for emp in employees %}
-      <li class="py-3 flex justify-between items-center">
+<div class="flex flex-col space-y-8">
+    
+    <div class="flex flex-col md:flex-row justify-between items-center">
         <div>
-          <span class="font-medium">{{ emp.name }}</span>
-          <p class="text-xs muted">{{ emp.role }} • {{ emp.department }}</p>
+            <h2 class="text-3xl font-bold text-gray-700">Admin Dashboard</h2>
+            <p class="text-gray-500 mt-1">Overview of company attendance and security</p>
         </div>
-        <span class="text-sm text-[var(--accent)]">{{ emp.total_hours|default('—') }} hrs</span>
-      </li>
-      {% endfor %}
-    </ul>
-  </div>
-
-
-  <!-- Add & Remove Employees -->
-  <div class="grid gap-6">
-
-    <!-- Add Employee Form -->
-    <div class="glass p-6 rounded-2xl border-l-4 border-[var(--accent)]">
-      <h3 class="font-semibold mb-3">Add Employee</h3>
-
-      <form method="post" action="/admin/add_employee" class="grid gap-3">
-        <input class="form-input" name="name" placeholder="Full Name" required />
-        <input class="form-input" name="email" placeholder="Email" required />
-        <input class="form-input" name="rfid_tag" placeholder="RFID Tag" required />
-
-        <select name="role" class="form-input">
-          <option>employee</option><option>admin</option>
-        </select>
-
-        <select name="department" class="form-input">
-          <option>IT</option><option>HR</option><option>Finance</option>
-        </select>
-
-        <button class="primary-btn w-fit px-4 py-2 mt-2" type="submit">
-          ➕ Add Employee
-        </button>
-      </form>
+        <div class="mt-4 md:mt-0">
+             <span class="neo-card px-4 py-2 text-sm font-semibold text-green-600 rounded-full">
+                 <i class="fas fa-dot-circle mr-2"></i> System Online
+             </span>
+        </div>
     </div>
 
-    <!-- Remove Employee -->
-    <div class="glass p-6 rounded-2xl border-l-4 border-red-500">
-      <h3 class="font-semibold mb-3 text-red-300">Remove Employee</h3>
-
-      <form method="post" action="/admin/remove_employee" class="grid gap-3">
-        <input class="form-input" name="employee_id" placeholder="Employee ID" required />
-
-        <button class="w-fit px-4 py-2 mt-2 rounded-xl bg-red-500 hover:bg-red-400 transition">
-          🗑 Remove
-        </button>
-      </form>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div class="neo-card p-6 flex flex-col items-center justify-center">
+            <div class="text-gray-500 mb-2">Total Employees</div>
+            <div class="text-3xl font-bold text-blue-600">{{ employees|length }}</div>
+        </div>
+        <div class="neo-card p-6 flex flex-col items-center justify-center">
+            <div class="text-gray-500 mb-2">Active Blocks</div>
+            <div class="text-3xl font-bold text-indigo-600">{{ blocks|length }}</div>
+        </div>
+        <div class="neo-card p-6 flex flex-col items-center justify-center">
+            <div class="text-gray-500 mb-2">Unknown RFID</div>
+            <div class="text-3xl font-bold text-red-500">{{ unknown_rfids|length }}</div>
+        </div>
+        <div class="neo-card p-6 flex flex-col items-center justify-center">
+            <div class="text-gray-500 mb-2">Removed Staff</div>
+            <div class="text-3xl font-bold text-gray-400">{{ removed_employees|length }}</div>
+        </div>
     </div>
 
-  </div>
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2 neo-card p-6">
+            <h3 class="text-xl font-bold text-gray-700 mb-4">Live Room Occupancy</h3>
+            {% if blocks %}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {% for block in blocks %}
+                    <div class="neo-inset p-4 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-lg">{{ block.location_name }}</div>
+                            <div class="text-xs text-gray-500">Room {{ block.room_no }}</div>
+                        </div>
+                        <div class="text-xl font-bold text-blue-600">
+                            {{ block.count }} <span class="text-xs text-gray-400 font-normal">users</span>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-10 text-gray-400">No active attendance in rooms</div>
+            {% endif %}
+        </div>
+
+        <div class="neo-card p-6">
+            <h3 class="text-xl font-bold text-gray-700 mb-4">Quick Actions</h3>
+            <div class="space-y-4">
+                <button onclick="location.href='/admin/add_employee_page'" class="neo-btn w-full py-3 text-sm hover:text-blue-600">
+                    + Add New Employee
+                </button>
+                <button onclick="location.href='/admin/unknown_rfid'" class="neo-btn w-full py-3 text-sm hover:text-red-600">
+                    ! Resolve RFID Issues
+                </button>
+                <button onclick="location.href='/admin/leave_requests'" class="neo-btn w-full py-3 text-sm hover:text-green-600">
+                    ✓ Review Leave Requests
+                </button>
+            </div>
+        </div>
+    </div>
 </div>
-
-
-
-<!-- ====== Unknown RFID ====== -->
-<div class="glass rounded-2xl p-6">
-  <h3 class="font-semibold mb-4 text-lg">Unknown RFID Tags</h3>
-
-  {% if unknown_rfids %}
-  <ul class="divide-y divide-white/10">
-    {% for rfid in unknown_rfids %}
-    <li class="py-3 flex justify-between items-center">
-      <div>
-        <p class="font-medium">Tag: {{ rfid.rfid_tag }}</p>
-        <p class="text-xs muted">Location: {{ rfid.location }}</p>
-      </div>
-    </li>
-    {% endfor %}
-  </ul>
-  {% else %}
-  <p class="muted italic">No unknown RFID tags found.</p>
-  {% endif %}
-</div>
-
-
-
-<!-- ====== Modal ====== -->
-<div id="modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm flex justify-center items-center p-4">
-  <div class="glass p-6 rounded-2xl max-w-sm w-full">
-    <h3 id="modalTitle" class="font-semibold mb-4"></h3>
-    <div id="modalBody" class="space-y-2"></div>
-    <button onclick="closeModal()" class="primary-btn mt-4 px-4 py-2">Close</button>
-  </div>
-</div>
-
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-<script>
-function openModal(loc, room, count){
-  document.getElementById("modalTitle").innerHTML =
-  `${loc} — Room ${room} (${count})`;
-
-  fetch(`/api/block_persons?location=${loc}&room=${room}`)
-    .then(r=>r.json())
-    .then(data=>{
-      let html="";
-      if(data.persons.length===0){
-        html = "<p class='muted'>No one currently inside.</p>";
-      } else {
-        data.persons.forEach(p=>{
-          html += `<div class='glass p-2 rounded-xl'>${p.name}</div>`;
-        });
-      }
-      document.getElementById("modalBody").innerHTML = html;
-      document.getElementById("modal").classList.remove("hidden");
-    });
-}
-
-function closeModal(){
-  document.getElementById("modal").classList.add("hidden");
-}
-
-
-// Payroll chart
-const labels = {{ payroll|map(attribute='name')|list|safe }};
-const values = {{ payroll|map(attribute='salary')|list|safe }};
-
-new Chart(document.getElementById('payrollChart'), {
-  type: 'bar',
-  data: {
-    labels,
-    datasets: [{
-      data: values,
-      backgroundColor: 'rgba(59,130,246,0.6)',
-      borderColor: '#3b82f6',
-      borderWidth: 2,
-      borderRadius: 8
-    }]
-  },
-  options: {
-    plugins: { legend: { display: false }},
-    scales: {
-      y: { beginAtZero:true, grid:{color:"#ffffff20"}},
-      x: { grid:{display:false}}
-    }
-  }
-});
-</script>
-
-
 {% endblock %}

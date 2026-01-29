@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    {% if error %}
+        <div class="neo-card p-6 text-center text-red-500">{{ error }}</div>
+    {% else %}
+        <div class="neo-card p-8 relative overflow-hidden">
+            <div class="absolute -top-10 -right-10 w-40 h-40 bg-blue-100 rounded-full opacity-50 blur-xl"></div>
+
+            <div class="flex flex-col md:flex-row items-start md:items-center mb-8">
+                <div class="w-24 h-24 rounded-full neo-inset flex items-center justify-center text-4xl text-gray-400 mb-4 md:mb-0 md:mr-6">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div>
+                    <h2 class="text-3xl font-bold text-gray-800">{{ employee.name }}</h2>
+                    <div class="flex flex-wrap gap-2 mt-2">
+                        <span class="px-3 py-1 text-xs font-bold rounded-full bg-gray-200 text-gray-600">{{ employee.department }}</span>
+                        <span class="px-3 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-600 capitalize">{{ employee.role }}</span>
+                        <span class="px-3 py-1 text-xs font-bold rounded-full bg-green-100 text-green-600">Active</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-4">
+                    <div class="neo-inset p-4">
+                        <div class="text-xs text-gray-500 uppercase">Employee ID</div>
+                        <div class="font-mono font-bold">{{ employee.employee_id }}</div>
+                    </div>
+                    <div class="neo-inset p-4">
+                        <div class="text-xs text-gray-500 uppercase">Email</div>
+                        <div>{{ employee.email }}</div>
+                    </div>
+                    <div class="neo-inset p-4">
+                        <div class="text-xs text-gray-500 uppercase">RFID Tag</div>
+                        <div class="font-mono">{{ employee.rfid_tag }}</div>
+                    </div>
+                </div>
+
+                <div class="neo-card p-6 flex flex-col items-center justify-center text-center">
+                    <div class="text-gray-500 mb-2">Total Hours Worked</div>
+                    <div class="text-4xl font-bold text-blue-600">{{ "%.2f"|format(total_hours) }}</div>
+                    <div class="text-xs text-gray-400 mt-2">All time</div>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-gray-200 flex justify-end">
+                <button onclick="history.back()" class="text-gray-500 hover:text-gray-700 font-bold px-4">Back</button>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

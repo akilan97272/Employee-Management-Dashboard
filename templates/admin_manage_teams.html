@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col space-y-8 max-w-6xl mx-auto">
+    
+    <div class="flex justify-between items-center">
+        <h2 class="text-3xl font-bold">Team Management</h2>
+        <button onclick="document.getElementById('createTeamModal').classList.remove('hidden')" 
+                class="neo-btn px-6 py-2 text-blue-500 font-bold">
+            <i class="fas fa-plus mr-2"></i> Create New Team
+        </button>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2 space-y-6">
+            <h3 class="text-xl font-bold opacity-80 border-b border-gray-500/20 pb-2">Active Teams</h3>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {% for team in teams %}
+                <div class="neo-card p-6 relative group hover:scale-[1.01] transition-transform">
+                    <div class="flex justify-between items-start mb-4">
+                        <div>
+                            <h4 class="text-lg font-bold text-blue-500">{{ team.name }}</h4>
+                            <span class="text-xs font-bold px-2 py-1 rounded bg-gray-200/50 dark:bg-gray-700/50 uppercase">
+                                {{ team.department }}
+                            </span>
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs opacity-50">Leader</div>
+                            {% if team.leader %}
+                                <div class="font-bold text-sm">{{ team.leader.name }}</div>
+                            {% else %}
+                                <div class="font-bold text-sm text-red-400">Unassigned</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="neo-inset p-3 max-h-32 overflow-y-auto custom-scrollbar">
+                        <div class="text-xs font-bold opacity-50 mb-2 uppercase">Members ({{ team.members|length }})</div>
+                        {% for member in team.members %}
+                            {% if member.id != team.leader_id %}
+                            <div class="flex items-center space-x-2 text-sm mb-1">
+                                <i class="fas fa-user text-xs opacity-40"></i>
+                                <span>{{ member.name }}</span>
+                            </div>
+                            {% endif %}
+                        {% else %}
+                            <div class="text-xs opacity-40 italic">No members assigned</div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% else %}
+                <div class="neo-card p-8 text-center opacity-50 col-span-2">
+                    No teams found. Create one to get started.
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="space-y-6">
+            <h3 class="text-xl font-bold opacity-80 border-b border-gray-500/20 pb-2">Assign Members</h3>
+            
+            <div class="neo-card p-6">
+                <form action="/admin/assign_member" method="POST" class="space-y-4">
+                    <div>
+                        <label class="text-xs font-bold ml-2 opacity-70">Select Employee</label>
+                        <select name="employee_id" class="neo-inset w-full px-4 py-3 outline-none focus:ring-1 focus:ring-blue-400 bg-transparent">
+                            {% for emp in employees %}
+                                <option value="{{ emp.employee_id }}" class="dark:bg-gray-800">
+                                    {{ emp.name }} ({{ emp.department }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="text-xs font-bold ml-2 opacity-70">Select Team</label>
+                        <select name="team_id" class="neo-inset w-full px-4 py-3 outline-none focus:ring-1 focus:ring-blue-400 bg-transparent">
+                            {% for team in teams %}
+                                <option value="{{ team.id }}" class="dark:bg-gray-800">{{ team.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="neo-btn w-full py-3 text-green-500 font-bold">
+                        <i class="fas fa-user-plus mr-2"></i> Assign to Team
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="createTeamModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="neo-card w-full max-w-lg p-8 mx-4 shadow-2xl">
+        <h3 class="text-xl font-bold mb-6">Create New Team</h3>
+        <form action="/admin/create_team" method="POST" class="space-y-4">
+            <div>
+                <label class="text-xs font-bold ml-2 opacity-70">Team Name</label>
+                <input type="text" name="name" required placeholder="e.g. Alpha Squad" class="neo-inset w-full px-4 py-3 outline-none">
+            </div>
+            
+            <div>
+                <label class="text-xs font-bold ml-2 opacity-70">Department</label>
+                <select name="department" class="neo-inset w-full px-4 py-3 outline-none bg-transparent">
+                    <option value="IT" class="dark:bg-gray-800">IT</option>
+                    <option value="HR" class="dark:bg-gray-800">HR</option>
+                    <option value="Finance" class="dark:bg-gray-800">Finance</option>
+                    <option value="Ops" class="dark:bg-gray-800">Operations</option>
+                </select>
+            </div>
+
+            <div>
+                <label class="text-xs font-bold ml-2 opacity-70">Initial Leader (Optional)</label>
+                <select name="leader_employee_id" class="neo-inset w-full px-4 py-3 outline-none bg-transparent">
+                    {% for emp in employees %}
+                        <option value="{{ emp.employee_id }}" class="dark:bg-gray-800">{{ emp.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="text-[10px] opacity-50 ml-2 mt-1">* Leader will be marked as "Can Manage"</p>
+            </div>
+
+            <div class="flex justify-end space-x-4 mt-8">
+                <button type="button" onclick="document.getElementById('createTeamModal').classList.add('hidden')" 
+                        class="px-6 py-2 opacity-60 hover:opacity-100 font-bold">Cancel</button>
+                <button type="submit" class="neo-btn px-8 py-2 text-blue-500">Create</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="flex flex-col space-y-6">
+    <div class="flex justify-between items-end">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-700">Payroll Overview</h2>
+            <p class="text-sm text-gray-500">Based on clocked hours (₹200/hr base)</p>
+        </div>
+        <div class="text-right">
+            <div class="text-xs text-gray-500">Total Payout Est.</div>
+            <div class="text-2xl font-bold text-blue-600">₹{{ total_salary }}</div>
+        </div>
+    </div>
+
+    <div class="neo-card overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left">
+                <thead>
+                    <tr class="text-gray-500 border-b border-gray-200 bg-gray-50/30">
+                        <th class="p-4">Employee</th>
+                        <th class="p-4 text-right">Total Hours</th>
+                        <th class="p-4 text-right">Calculated Salary</th>
+                        <th class="p-4 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payroll %}
+                    <tr class="neo-table-row">
+                        <td class="p-4">
+                            <div class="font-bold text-gray-700">{{ p.name }}</div>
+                            <div class="text-xs text-gray-500">{{ p.employee_id }}</div>
+                        </td>
+                        <td class="p-4 text-right font-mono">{{ p.total_hours }} hrs</td>
+                        <td class="p-4 text-right font-bold text-green-600">₹{{ p.salary }}</td>
+                        <td class="p-4 text-center">
+                            <button onclick="alert('Update feature coming soon')" class="text-xs neo-btn px-3 py-1 text-blue-500">
+                                Edit
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

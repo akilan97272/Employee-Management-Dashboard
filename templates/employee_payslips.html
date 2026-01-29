@@ -1,74 +1,150 @@
-{% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}Payslips{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
+<div class="max-w-4xl mx-auto flex flex-col space-y-8">
+    
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gray-700">My Payslips</h2>
+        <div class="neo-inset px-4 py-2 text-sm text-gray-500 font-mono rounded-full">
+            {{ current_year }} Fiscal Year
+        </div>
+    </div>
 
-<div class="glass p-8 rounded-xl space-y-6 max-w-3xl mx-auto">
+    <div class="neo-card p-6 md:p-8">
+        <form method="GET" action="/employee/payslips" class="flex flex-col md:flex-row gap-6 items-end">
+            <div class="w-full md:w-1/3">
+                <label class="block text-xs font-bold ml-3 mb-2 text-gray-500 uppercase">Select Month</label>
+                <div class="relative">
+                    <select name="month" class="neo-inset w-full px-6 py-3 appearance-none outline-none bg-transparent cursor-pointer text-gray-700 font-semibold">
+                        <option value="1" {% if month == 1 %}selected{% endif %}>January</option>
+                        <option value="2" {% if month == 2 %}selected{% endif %}>February</option>
+                        <option value="3" {% if month == 3 %}selected{% endif %}>March</option>
+                        <option value="4" {% if month == 4 %}selected{% endif %}>April</option>
+                        <option value="5" {% if month == 5 %}selected{% endif %}>May</option>
+                        <option value="6" {% if month == 6 %}selected{% endif %}>June</option>
+                        <option value="7" {% if month == 7 %}selected{% endif %}>July</option>
+                        <option value="8" {% if month == 8 %}selected{% endif %}>August</option>
+                        <option value="9" {% if month == 9 %}selected{% endif %}>September</option>
+                        <option value="10" {% if month == 10 %}selected{% endif %}>October</option>
+                        <option value="11" {% if month == 11 %}selected{% endif %}>November</option>
+                        <option value="12" {% if month == 12 %}selected{% endif %}>December</option>
+                    </select>
+                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                        <i class="fas fa-chevron-down text-xs"></i>
+                    </div>
+                </div>
+            </div>
 
-    <form method="GET" action="/employee/payslips" class="flex gap-4">
+            <div class="w-full md:w-1/3">
+                <label class="block text-xs font-bold ml-3 mb-2 text-gray-500 uppercase">Select Year</label>
+                <input type="number" name="year" value="{{ year or current_year }}" min="2020" max="2030" 
+                       class="neo-inset w-full px-6 py-3 outline-none text-gray-700 font-semibold">
+            </div>
 
-        <select name="month" class="glass px-3 py-2 rounded">
-            {% for i in range(1,13) %}
-            <option value="{{ i }}" {% if i == month %}selected{% endif %}>
-                {{ i }}
-            </option>
-            {% endfor %}
-        </select>
-
-        <select name="year" class="glass px-3 py-2 rounded">
-            {% for y in range(current_year-5, current_year+1) %}
-            <option value="{{ y }}" {% if y == year %}selected{% endif %}>
-                {{ y }}
-            </option>
-            {% endfor %}
-        </select>
-
-        <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded shadow">
-            View Payslip
-        </button>
-
-    </form>
+            <div class="w-full md:w-1/3">
+                <button type="submit" class="neo-btn w-full py-3 text-blue-600 font-bold hover:text-blue-700">
+                    <i class="fas fa-calculator mr-2"></i> View Slip
+                </button>
+            </div>
+        </form>
+    </div>
 
     {% if computed %}
-    <div class="bg-white/70 p-6 rounded-xl shadow space-y-4">
+    <div class="animate-fade-in-up">
+        <div class="neo-card p-8 relative overflow-hidden border-t-4 border-blue-400">
+            
+            <div class="absolute -right-10 -bottom-10 text-9xl text-gray-200 opacity-20 pointer-events-none">
+                <i class="fas fa-file-invoice-dollar"></i>
+            </div>
 
-        <div class="flex justify-between"><span class="text-gray-600">Employee:</span><span>{{ user.name }}</span></div>
-        <div class="flex justify-between"><span class="text-gray-600">Emp ID:</span><span>{{ user.employee_id }}</span></div>
+            <div class="flex flex-col md:flex-row justify-between items-start border-b border-gray-200 pb-6 mb-6">
+                <div>
+                    <h1 class="text-3xl font-bold text-gray-700 tracking-tight">Payslip</h1>
+                    <p class="text-gray-500 mt-1">Period: <span class="font-semibold text-gray-700">{{ month }}/{{ year }}</span></p>
+                </div>
+                <div class="text-right mt-4 md:mt-0">
+                    <div class="text-sm text-gray-500">Employee</div>
+                    <div class="font-bold text-lg text-gray-800">{{ user.name }}</div>
+                    <div class="text-xs font-mono text-gray-400">{{ user.employee_id }}</div>
+                </div>
+            </div>
 
-        <hr>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold text-green-600 uppercase tracking-wide border-b border-green-100 pb-2">Earnings</h3>
+                    <div class="flex justify-between items-center px-2">
+                        <span class="text-gray-600">Total Hours Worked</span>
+                        <span class="font-mono font-bold">{{ "%.2f"|format(total_hours) }} hrs</span>
+                    </div>
+                    <div class="flex justify-between items-center px-2">
+                        <span class="text-gray-600">Hourly Rate</span>
+                        <span class="font-mono">₹200.00</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-gray-50 p-2 rounded-lg neo-inset mt-2">
+                        <span class="font-bold text-gray-700">Gross Salary</span>
+                        <span class="font-bold text-gray-800">₹{{ "%.2f"|format(gross_salary) }}</span>
+                    </div>
+                </div>
 
-        <div class="flex justify-between"><span>Month:</span><span>{{ month }}/{{ year }}</span></div>
-        <div class="flex justify-between"><span>Total Hours:</span><span class="text-blue-700">{{ total_hours }} hrs</span></div>
+                <div class="space-y-4">
+                    <h3 class="text-sm font-bold text-red-500 uppercase tracking-wide border-b border-red-100 pb-2">Deductions</h3>
+                    <div class="flex justify-between items-center px-2">
+                        <span class="text-gray-600">Tax (10%)</span>
+                        <span class="font-mono text-red-400">- ₹{{ "%.2f"|format(tax_deduction) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center px-2">
+                        <span class="text-gray-600">Unpaid Leave</span>
+                        <span class="font-mono text-red-400">- ₹{{ "%.2f"|format(leave_deduction) }}</span>
+                    </div>
+                    <div class="flex justify-between items-center bg-gray-50 p-2 rounded-lg neo-inset mt-2">
+                        <span class="font-bold text-gray-700">Total Deductions</span>
+                        <span class="font-bold text-red-500">- ₹{{ "%.2f"|format(tax_deduction + leave_deduction) }}</span>
+                    </div>
+                </div>
+            </div>
 
-        <div class="flex justify-between font-semibold text-lg">
-            <span>Gross Salary:</span><span>₹{{ gross_salary }}</span>
+            <div class="bg-blue-50 neo-inset p-6 rounded-xl flex flex-col md:flex-row justify-between items-center">
+                <div class="text-center md:text-left mb-4 md:mb-0">
+                    <div class="text-xs font-bold text-blue-400 uppercase tracking-widest">Net Payable</div>
+                    <div class="text-sm text-gray-500">Transferred to account ending in ****</div>
+                </div>
+                <div class="text-4xl font-bold text-blue-600">
+                    ₹{{ "%.2f"|format(net_salary) }}
+                </div>
+            </div>
+
+            <div class="mt-8 text-center">
+                <button onclick="window.print()" class="text-gray-400 hover:text-gray-600 text-sm font-bold transition">
+                    <i class="fas fa-print mr-2"></i> Print Payslip
+                </button>
+            </div>
+
         </div>
-
-        <div class="flex justify-between text-red-600">
-            <span>Leave Deductions:</span><span>- ₹{{ leave_deduction }}</span>
-        </div>
-
-        <div class="flex justify-between text-yellow-600">
-            <span>Tax Deduction (10%):</span><span>- ₹{{ tax_deduction }}</span>
-        </div>
-
-        <hr>
-
-        <div class="flex justify-between text-xl font-bold">
-            <span>Net Salary:</span><span class="text-green-600">₹{{ net_salary }}</span>
-        </div>
-
-        <div class="text-center">
-            <a href="/employee/payslips/download?month={{ month }}&year={{ year }}"
-               class="bg-blue-600 text-white px-6 py-2 rounded shadow hover:bg-blue-700">
-                Download PDF
-            </a>
-        </div>
-
+    </div>
+    {% elif not computed and month %}
+    <div class="neo-card p-6 text-center text-gray-400">
+        No data found for the selected period.
     </div>
     {% endif %}
 
 </div>
 
+<style>
+    .animate-fade-in-up {
+        animation: fadeInUp 0.5s ease-out forwards;
+    }
+    @keyframes fadeInUp {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* Print Styles */
+    @media print {
+        body * { visibility: hidden; }
+        .neo-card, .neo-card * { visibility: visible; }
+        .neo-card { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none; border: 1px solid #ccc; }
+        .neo-btn, form { display: none; }
+    }
+</style>
 {% endblock %}

@@ -1,77 +1,56 @@
-{% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}My Workspace{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
+<div class="flex flex-col space-y-8">
 
-<div class="space-y-6">
-
-    <!-- Profile Card -->
-    <div class="glass p-6 rounded-xl flex items-center gap-6">
-        <div class="w-20 h-20 rounded-full bg-blue-200 text-blue-800 
-                    flex justify-center items-center text-3xl font-bold">
-            {{ user.name[0] }}
-        </div>
+    <div class="neo-card p-8 flex flex-col md:flex-row items-center justify-between">
         <div>
-            <h2 class="text-2xl font-semibold text-gray-800">{{ user.name }}</h2>
-            <p class="text-sm text-gray-500">ID: {{ user.employee_id }}</p>
-            <p class="text-sm text-gray-500">{{ user.role | upper }} • {{ user.department }}</p>
+            <h2 class="text-2xl md:text-4xl font-bold text-gray-700">Hello, {{ user.name }}</h2>
+            <p class="text-gray-500 mt-2">Department: <span class="font-semibold">{{ user.department }}</span> | ID: {{ user.employee_id }}</p>
+        </div>
+        <div class="mt-6 md:mt-0 text-center">
+            <div class="text-4xl font-bold text-blue-600">{{ total_hours }}</div>
+            <div class="text-sm text-gray-500 uppercase tracking-wide">Hours Worked</div>
         </div>
     </div>
 
-    <!-- Stats Grid -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
-
-        <!-- Total Hours -->
-        <div class="glass p-5 rounded-xl shadow hover:scale-[1.02] transition cursor-pointer">
-            <p class="text-sm text-gray-600">Total Hours</p>
-            <p class="text-3xl font-bold text-blue-700">{{ total_hours }} hrs</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
+        <div class="neo-card p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-bold">My Tasks</h3>
+                <a href="/employee/tasks" class="text-sm text-blue-500 hover:underline">View All</a>
+            </div>
+            <div class="space-y-3">
+                {% for task in tasks[:3] %}
+                <div class="neo-inset p-3 flex justify-between items-center">
+                    <span class="text-sm truncate w-2/3">{{ task.title }}</span>
+                    <span class="text-xs px-2 py-1 rounded-full 
+                        {% if task.status == 'done' %}bg-green-200 text-green-700{% elif task.status == 'in-progress' %}bg-yellow-200 text-yellow-700{% else %}bg-gray-300 text-gray-600{% endif %}">
+                        {{ task.status }}
+                    </span>
+                </div>
+                {% else %}
+                <p class="text-sm text-gray-400">No pending tasks.</p>
+                {% endfor %}
+            </div>
         </div>
 
-        <!-- RFID Card -->
-        <div class="glass p-5 rounded-xl shadow hover:scale-[1.02] transition">
-            <p class="text-sm text-gray-600">RFID Tag</p>
-            <p class="text-lg font-semibold text-gray-800">{{ user.rfid_tag }}</p>
+        <div class="neo-card p-6">
+            <h3 class="text-lg font-bold mb-4">Team Info</h3>
+            <p class="text-sm text-gray-500 mb-4">Check your team structure and leadership.</p>
+            <a href="/employee/team" class="neo-btn block w-full py-3 text-center text-sm">
+                View Team
+            </a>
         </div>
 
-        <!-- Tasks -->
-        <a href="/employee/tasks" class="glass p-5 rounded-xl shadow hover:bg-blue-50 transition">
-            <p class="text-sm text-gray-600">Pending Tasks</p>
-            <p class="text-3xl font-bold text-blue-700">{{ tasks|length if tasks else 0 }}</p>
-        </a>
-
-        <!-- Leave -->
-        <a href="/employee/leave" class="glass p-5 rounded-xl shadow hover:bg-blue-50 transition">
-            <p class="text-sm text-gray-600">Leave Balance</p>
-            <p class="text-3xl font-bold text-blue-700">{{ leave_balance|default(0) }}</p>
-        </a>
+        <div class="neo-card p-6">
+            <h3 class="text-lg font-bold mb-4">Time Off</h3>
+            <p class="text-sm text-gray-500 mb-4">Need a break? Apply for leave quickly.</p>
+            <a href="/employee/leave" class="neo-btn block w-full py-3 text-center text-sm text-indigo-600">
+                Apply for Leave
+            </a>
+        </div>
     </div>
-
-    <!-- Quick Actions -->
-    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-
-        <a href="/employee/attendance"
-           class="p-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-center font-medium">
-            <span>View Attendance</span>
-        </a>
-
-        <a href="/employee/tasks"
-           class="p-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-center font-medium">
-            <span>My Tasks</span>
-        </a>
-
-        <a href="/employee/leave"
-           class="p-4 rounded-xl bg-blue-500 hover:bg-blue-600 text-white text-center font-medium">
-            <span>Apply Leave</span>
-        </a>
-
-        <a href="/employee/profile"
-           class="p-4 rounded-xl bg-blue-400 hover:bg-blue-500 text-white text-center font-medium">
-            <span>My Profile</span>
-        </a>
-
-    </div>
-
 </div>
-
 {% endblock %}

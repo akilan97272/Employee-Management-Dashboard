@@ -1,63 +1,35 @@
-{% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_admin.html" %}{% endblock %}
-{% block page_title %}Unknown RFID Alerts{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
-<div class="space-y-5">
+<div class="flex flex-col space-y-6">
+    <h2 class="text-2xl font-bold text-red-500">
+        <i class="fas fa-exclamation-triangle mr-2"></i>Unregistered Access Attempts
+    </h2>
 
-  <!-- Search Filter -->
-  <form method="get" action="/admin/unknown_rfid"
-        class="glass p-4 rounded-lg flex gap-3">
-    <input name="search" placeholder="Search tag or location"
-           value="{{ search or '' }}"
-           class="flex-1 p-2 rounded border" />
-    <button class="bg-red-500 text-white rounded px-4">Search</button>
-  </form>
-
-  <!-- Unknown RFID List -->
-  <div class="glass p-4 rounded-lg overflow-x-auto">
-    <table class="w-full text-sm text-left">
-      <thead class="border-b font-semibold">
-        <tr>
-          <th class="p-2">RFID Tag</th>
-          <th class="p-2">Location</th>
-          <th class="p-2">Timestamp</th>
-          <th class="p-2"></th>
-        </tr>
-      </thead>
-
-      <tbody>
-      {% if unknown_rfids %}
-        {% for r in unknown_rfids %}
-        <tr class="border-b hover:bg-gray-100/20">
-          <td class="p-2 font-semibold text-red-400">{{ r.rfid_tag }}</td>
-          <td class="p-2">{{ r.location }}</td>
-          <td class="p-2">
-            {{ r.timestamp.strftime("%d-%m-%Y %H:%M:%S") }}
-          </td>
-          <td class="p-2">
-            <form method="post" action="/admin/resolve_rfid"
-                  class="inline-block"
-                  onsubmit="return confirm('Mark as resolved?')">
-              <input type="hidden" name="rfid_tag" value="{{ r.rfid_tag }}">
-              <button class="bg-green-500 text-white px-3 py-1 rounded">
-                Resolve
-              </button>
+    <div class="grid grid-cols-1 gap-4">
+        {% for unknown in unknown_rfids %}
+        <div class="neo-card p-4 flex flex-col md:flex-row justify-between items-center border-l-4 border-red-400">
+            <div class="mb-4 md:mb-0">
+                <div class="font-mono text-lg font-bold text-gray-700">{{ unknown.rfid_tag }}</div>
+                <div class="text-sm text-gray-500">
+                    <i class="fas fa-map-marker-alt mr-1"></i> {{ unknown.location }}
+                    <span class="mx-2">•</span>
+                    <i class="fas fa-clock mr-1"></i> {{ unknown.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                </div>
+            </div>
+            <form action="/admin/resolve_rfid" method="POST">
+                <input type="hidden" name="rfid_tag" value="{{ unknown.rfid_tag }}">
+                <button type="submit" class="neo-btn px-6 py-2 text-green-600 text-sm font-bold">
+                    <i class="fas fa-check mr-2"></i> Resolve
+                </button>
             </form>
-          </td>
-        </tr>
+        </div>
+        {% else %}
+        <div class="neo-card p-8 text-center text-gray-400">
+            <i class="fas fa-shield-alt text-4xl mb-4"></i>
+            <p>No unauthorized attempts recorded.</p>
+        </div>
         {% endfor %}
-      {% else %}
-        <tr>
-          <td colspan="4" class="text-center py-4 text-gray-400 italic">
-            🎉 No unknown RFIDs currently!
-          </td>
-        </tr>
-      {% endif %}
-      </tbody>
-
-    </table>
-  </div>
-
+    </div>
 </div>
 {% endblock %}

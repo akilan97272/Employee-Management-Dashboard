@@ -17,6 +17,9 @@ from threading import Thread
 import time
 from database import get_team_info
 from apscheduler.schedulers.background import BackgroundScheduler
+# Ensure these are imported from your models
+from models import Team, User
+from fastapi.exception_handlers import http_exception_handler
 
 scheduler = BackgroundScheduler()
 
@@ -96,8 +99,9 @@ async def add_no_cache_headers(request: Request, call_next):
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
         return templates.TemplateResponse("401.html", {"request": request}, status_code=401)
-    # Handle other errors normally
-    return await request.app.default_exception_handler(request, exc)
+    
+    # Use the imported default handler for all other errors
+    return await http_exception_handler(request, exc)
 
 # ----------------------------------------
 # ADMIN SELECT DASHBOARD
@@ -164,6 +168,25 @@ async def add_employee(request: Request, name: str = Form(...), email: str = For
     db.commit()
     return {"employee_id": employee_id, "password": password}
 
+#----------------------------------------
+#ADMIN - Settings
+#----------------------------------------
+
+@app.get("/admin/settings", response_class=HTMLResponse)
+async def admin_settings_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    rooms = db.query(Room).all()
+    departments = db.query(Department).all()
+    
+    return templates.TemplateResponse("admin_settings.html", {
+        "request": request, 
+        "user": user, 
+        "rooms": rooms, 
+        "departments": departments
+    })
+
 #-----------------------------------------
 #ADMIN - REMOVE EMPLOYEE ROUTE
 #-----------------------------------------
@@ -212,6 +235,70 @@ async def admin_manage_employees(request: Request,
         "search": search,
         "current_year": datetime.datetime.utcnow().year
         })
+
+# ----------------------------------------
+# ADMIN TEAM MANAGEMENT ROUTES
+# ----------------------------------------
+
+@app.get("/admin/manage_teams", response_class=HTMLResponse)
+async def admin_manage_teams(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    # Eager load relationships to prevent closed session errors in templates
+    teams = db.query(Team).all()
+    
+    # Get all active employees to populate dropdowns
+    employees = db.query(User).filter(User.is_active == True).all()
+    
+    return templates.TemplateResponse("admin_manage_teams.html", {
+        "request": request, 
+        "user": user, 
+        "teams": teams, 
+        "employees": employees
+    })
+
+@app.post("/admin/create_team")
+async def create_team(
+    name: str = Form(...),
+    department: str = Form(...),
+    leader_employee_id: str = Form(None), # Optional
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin": raise HTTPException(status_code=403)
+    
+    leader_id = None
+    if leader_employee_id:
+        leader = db.query(User).filter(User.employee_id == leader_employee_id).first()
+        if leader:
+            leader_id = leader.id
+            leader.can_manage = True # Grant management rights
+
+    new_team = Team(name=name, department=department, leader_id=leader_id)
+    db.add(new_team)
+    db.commit()
+    
+    return RedirectResponse("/admin/manage_teams", status_code=303)
+
+@app.post("/admin/assign_member")
+async def assign_team_member(
+    employee_id: str = Form(...),
+    team_id: int = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin": raise HTTPException(status_code=403)
+
+    emp = db.query(User).filter(User.employee_id == employee_id).first()
+    team = db.query(Team).filter(Team.id == team_id).first()
+    
+    if not emp or not team:
+        raise HTTPException(status_code=404, detail="Data not found")
+        
+    emp.current_team_id = team.id
+    db.commit()
+    return RedirectResponse("/admin/manage_teams", status_code=303)
 
 #-----------------------------------------
 #ADMIN - PAYROLL UPDATE ROUTE
@@ -359,7 +446,7 @@ async def admin_payroll(
     max_salary = max((p["salary"] for p in payroll_data), default=0)
 
     return templates.TemplateResponse(
-        "payroll.html",
+        "admin_payroll.html",
         {
             "request": request,
             "user": user,
@@ -513,10 +600,6 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
         }
     )
 
-#----------------------------------------
-#EMPLOYEE TEAM PAGE
-#----------------------------------------
-
 @app.get("/employee/team", response_class=HTMLResponse)
 async def employee_team(
     request: Request,
@@ -527,11 +610,18 @@ async def employee_team(
     leader = None
     members = []
 
+    # 1. If user is assigned to a team
     if user.current_team_id:
-        team = db.query(Team).get(user.current_team_id)
-        if team:
-            leader = team.leader
-            members = team.members
+        team = db.query(Team).filter(Team.id == user.current_team_id).first()
+    
+    # 2. Or if user IS the leader (and maybe the team_id field wasn't set on them self)
+    if not team:
+        team = db.query(Team).filter(Team.leader_id == user.id).first()
+
+    if team:
+        leader = team.leader
+        # Convert relationship to list to avoid template issues
+        members = list(team.members)
 
     return templates.TemplateResponse(
         "employee_team.html",
@@ -662,6 +752,43 @@ async def update_profile(
     user.address = address
     db.commit()
     return RedirectResponse(url="/employee/profile", status_code=303)
+
+@app.get("/employee/team", response_class=HTMLResponse)
+async def employee_team(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    team = None
+    leader = None
+    members = []
+
+    # Case 1: User is a member of a team
+    if user.current_team_id:
+        team = db.query(Team).filter(Team.id == user.current_team_id).first()
+    
+    # Case 2: User IS the leader of a team (and might not have current_team_id set)
+    if not team:
+        team = db.query(Team).filter(Team.leader_id == user.id).first()
+
+    if team:
+        leader = team.leader # Uses the relationship defined in models
+        members = team.members # Uses the relationship defined in models
+        
+        # Filter out the leader from the members list if they are in there
+        if leader:
+            members = [m for m in members if m.id != leader.id]
+
+    return templates.TemplateResponse(
+        "employee_team.html",
+        {
+            "request": request,
+            "user": user,
+            "team": team,
+            "leader": leader,
+            "members": members
+        }
+    )
 
 #-----------------------------------------
 #EMPLOYEE PAYSLIPS PAGE
@@ -926,4 +1053,5 @@ def start_scheduler():
 @app.on_event("shutdown")
 def shutdown_scheduler():
     scheduler.shutdown()
+
 

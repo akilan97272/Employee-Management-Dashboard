@@ -1,142 +1,81 @@
-{% extends "layout_base.html" %}
-{% block sidebar %}{% include "sidebar_employee.html" %}{% endblock %}
-{% block page_title %}My Tasks{% endblock %}
+{% extends "base.html" %}
 
 {% block content %}
-<div class="glass rounded-xl p-6 space-y-6">
-
-    <!-- FILTER TABS -->
-    <div class="flex gap-3 text-sm font-semibold">
-        <a href="?filter=all" class="tab-btn">All</a>
-        <a href="?filter=pending" class="tab-btn text-yellow-400">Pending</a>
-        <a href="?filter=in-progress" class="tab-btn text-blue-400">In-Progress</a>
-        <a href="?filter=done" class="tab-btn text-green-400">Done</a>
-    </div>
-
-    <!-- PROGRESS CHART -->
-    <div class="glass p-4 rounded-xl flex justify-center items-center">
-        <canvas id="taskChart" width="270" height="270"></canvas>
-    </div>
-
-    <!-- ADD TASK FORM -->
-    <form method="post" action="/employee/tasks/add" class="glass p-4 rounded-xl space-y-3">
-        <input name="title" placeholder="Task title" required
-               class="glass w-full px-3 py-2 rounded"/>
-
-        <textarea name="description" placeholder="Task description"
-                  class="glass w-full px-3 py-2 rounded h-20"></textarea>
-
-        <div class="flex gap-3">
-            <select name="priority" class="glass px-2 py-2 rounded">
-                <option value="low">Low 🔹</option>
-                <option value="medium" selected>Medium 🔷</option>
-                <option value="high">High 🔥</option>
-            </select>
-
-            <input type="date" name="due_date" class="glass px-2 py-2 rounded"/>
-        </div>
-
-        <button class="btn-primary w-full">➕ Add Task</button>
-    </form>
+<div class="flex flex-col space-y-6">
     
-
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold">My Tasks</h2>
-
-            <a href="/employee/team"
-                class="glass px-4 py-2 rounded-lg text-sm hover:opacity-80">
-                    👥 View My Team
-            </a>
+    <div class="flex justify-between items-center">
+        <h2 class="text-2xl font-bold text-gray-700">Task Management</h2>
+        <button onclick="document.getElementById('taskModal').classList.remove('hidden')" 
+                class="neo-btn px-6 py-2 text-blue-600">
+            <i class="fas fa-plus"></i> New Task
+        </button>
     </div>
 
+    <div class="flex space-x-4 overflow-x-auto pb-4">
+        <a href="/employee/tasks" class="neo-btn px-4 py-2 text-sm">All</a>
+        <a href="/employee/tasks?filter=pending" class="neo-btn px-4 py-2 text-sm text-red-500">Pending</a>
+        <a href="/employee/tasks?filter=in-progress" class="neo-btn px-4 py-2 text-sm text-yellow-600">In Progress</a>
+        <a href="/employee/tasks?filter=done" class="neo-btn px-4 py-2 text-sm text-green-600">Done</a>
+    </div>
 
-    <!-- TASK LIST -->
-    <div class="space-y-3">
-        {% for t in tasks %}
-        <div class="glass p-4 rounded-xl shadow flex justify-between items-center">
-
-            <div class="space-y-1">
-                <p class="font-semibold text-lg">{{ t.title }}</p>
-                <p class="muted text-sm">{{ t.description }}</p>
-
-                <div class="flex gap-2 text-xs">
-                    {% if t.priority == 'high' %}
-                        <span class="badge badge-red">High</span>
-                    {% elif t.priority == 'medium' %}
-                        <span class="badge badge-blue">Medium</span>
-                    {% else %}
-                        <span class="badge badge-gray">Low</span>
-                    {% endif %}
-
-                    {% if t.due_date %}
-                        <span class="badge badge-purple">
-                            Due: {{ t.due_date.strftime("%d %b") }}
-                        </span>
-                    {% endif %}
+    <div class="grid grid-cols-1 gap-4">
+        {% for task in tasks %}
+        <div class="neo-card p-5 relative group">
+            <div class="flex justify-between items-start">
+                <div>
+                    <h3 class="font-bold text-lg text-gray-800">{{ task.title }}</h3>
+                    <p class="text-gray-500 text-sm mt-1">{{ task.description }}</p>
+                </div>
+                <div class="flex flex-col items-end space-y-2">
+                    <span class="text-xs font-bold uppercase tracking-wider 
+                        {% if task.status == 'done' %}text-green-500
+                        {% elif task.status == 'in-progress' %}text-yellow-500
+                        {% else %}text-red-500{% endif %}">
+                        {{ task.status }}
+                    </span>
+                    
+                    <form action="/employee/tasks/update" method="POST" class="inline-block">
+                        <input type="hidden" name="task_id" value="{{ task.id }}">
+                        <select name="status" onchange="this.form.submit()" 
+                                class="neo-inset px-2 py-1 text-xs outline-none bg-transparent cursor-pointer">
+                            <option value="pending" {% if task.status == 'pending' %}selected{% endif %}>Pending</option>
+                            <option value="in-progress" {% if task.status == 'in-progress' %}selected{% endif %}>In Progress</option>
+                            <option value="done" {% if task.status == 'done' %}selected{% endif %}>Done</option>
+                        </select>
+                    </form>
                 </div>
             </div>
-
-            <form method="post" action="/employee/tasks/update"
-                  class="flex items-center gap-2">
-                <input type="hidden" name="task_id" value="{{ t.id }}"/>
-
-                <select name="status"
-                        class="glass px-2 py-1 rounded text-sm"
-                        onchange="this.form.submit()">
-                    <option value="pending" {% if t.status == 'pending' %}selected{% endif %}>
-                        Pending
-                    </option>
-                    <option value="in-progress" {% if t.status == 'in-progress' %}selected{% endif %}>
-                        In-Progress
-                    </option>
-                    <option value="done" {% if t.status == 'done' %}selected{% endif %}>
-                        Completed
-                    </option>
-                </select>
-
-                <button formaction="/employee/tasks/delete"
-                        class="text-red-500"
-                        onclick="return confirm('Delete this task?');">
-                    🗑
+            
+            <form action="/employee/tasks/delete" method="POST" class="absolute bottom-4 right-4">
+                <input type="hidden" name="task_id" value="{{ task.id }}">
+                <button type="submit" class="text-gray-400 hover:text-red-500 transition">
+                    <i class="fas fa-trash"></i>
                 </button>
             </form>
-
         </div>
-        {% else %}
-            <p class="muted text-center">No tasks available</p>
         {% endfor %}
     </div>
 
+    <div id="taskModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-20 backdrop-blur-sm">
+        <div class="neo-card w-full max-w-lg p-8 mx-4">
+            <h3 class="text-xl font-bold mb-6">Add New Task</h3>
+            <form action="/employee/tasks/add" method="POST" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-bold ml-2 mb-1">Title</label>
+                    <input type="text" name="title" required class="neo-inset w-full px-4 py-3 outline-none">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold ml-2 mb-1">Description</label>
+                    <textarea name="description" rows="3" class="neo-inset w-full px-4 py-3 outline-none"></textarea>
+                </div>
+                <div class="flex justify-end space-x-4 mt-6">
+                    <button type="button" onclick="document.getElementById('taskModal').classList.add('hidden')" 
+                            class="px-6 py-2 text-gray-500 font-bold">Cancel</button>
+                    <button type="submit" class="neo-btn px-8 py-2 text-blue-600">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
 </div>
-
-<!-- CHART SCRIPT -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script>
-    const pending = {{ pending }};
-    const inProgress = {{ in_progress }};
-    const done = {{ done }};
-
-    new Chart(document.getElementById('taskChart'), {
-        type: 'pie',
-        data: {
-            labels: ['Pending', 'In-Progress', 'Completed'],
-            datasets: [{
-                data: [pending, inProgress, done],
-                radius: '65%'
-            }]
-        },
-        options: {
-            responsive: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        boxWidth: 10,
-                        font: { size: 11 }
-                    }
-                }
-            }
-        }
-    });
-</script>
 {% endblock %}

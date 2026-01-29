@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamSync - {% block title %}Portal{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
+    
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+
+    <style>
+        /* --- DYNAMIC THEME VARIABLES --- */
+        :root {
+            /* LIGHT THEME */
+            --bg-color: #e0e5ec;
+            --text-main: #4a5568;  /* Dark Gray */
+            --text-muted: #a0aec0; /* Lighter Gray */
+            
+            --shadow-light: #ffffff;
+            --shadow-dark: #a3b1c6;
+            --border-opacity: rgba(255,255,255,0.4);
+        }
+
+        /* DARK THEME */
+        html.dark {
+            --bg-color: #2d3748;   /* Dark Blue-Gray */
+            --text-main: #e2e8f0;  /* Very Light Gray (almost white) */
+            --text-muted: #a0aec0;
+            
+            --shadow-light: #3a475c; 
+            --shadow-dark: #1a202c;
+            --border-opacity: rgba(255,255,255,0.05);
+        }
+
+        /* --- FORCE TEXT COLOR OVERRIDES --- */
+        /* This fixes the issue where 'text-gray-700' stays dark in dark mode */
+        html.dark .text-gray-900,
+        html.dark .text-gray-800,
+        html.dark .text-gray-700,
+        html.dark .text-gray-600 {
+            color: var(--text-main) !important;
+        }
+
+        html.dark .text-gray-500,
+        html.dark .text-gray-400 {
+            color: var(--text-muted) !important;
+        }
+        
+        /* Ensure Inputs text is visible */
+        html.dark input, 
+        html.dark select, 
+        html.dark textarea {
+            color: #ffffff !important;
+        }
+        
+        html.dark input::placeholder {
+            color: #718096 !important;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', sans-serif;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        /* --- NEOMORPHISM CLASSES --- */
+        .neo-card {
+            background: var(--bg-color);
+            box-shadow: 8px 8px 16px var(--shadow-dark), 
+                       -8px -8px 16px var(--shadow-light);
+            border-radius: 20px;
+            border: 1px solid var(--border-opacity);
+            transition: all 0.3s ease;
+        }
+
+        .neo-inset {
+            background: var(--bg-color);
+            box-shadow: inset 5px 5px 10px var(--shadow-dark), 
+                       inset -5px -5px 10px var(--shadow-light);
+            border-radius: 12px;
+            border: none;
+            transition: all 0.3s ease;
+        }
+
+        .neo-btn {
+            background: var(--bg-color);
+            box-shadow: 6px 6px 10px var(--shadow-dark), 
+                       -6px -6px 10px var(--shadow-light);
+            border-radius: 12px;
+            color: var(--text-main);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+
+        .neo-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 8px 8px 14px var(--shadow-dark), 
+                       -8px -8px 14px var(--shadow-light);
+            color: #4299e1; /* Blue stays Blue */
+        }
+
+        .neo-btn:active {
+            transform: translateY(0);
+            box-shadow: inset 3px 3px 6px var(--shadow-dark), 
+                       inset -3px -3px 6px var(--shadow-light);
+        }
+        
+        /* Table Styles */
+        .neo-table-row {
+            transition: 0.2s;
+            border-bottom: 1px solid var(--border-opacity);
+        }
+
+        /* Sidebar Active Link */
+        .nav-link.active-link {
+            box-shadow: inset 4px 4px 8px var(--shadow-dark), 
+                       inset -4px -4px 8px var(--shadow-light);
+            color: #4299e1;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex overflow-hidden">
+
+    <div class="fixed w-full z-50 flex md:hidden justify-between items-center p-4 neo-card rounded-none">
+        <div class="text-xl font-bold tracking-wider">TeamSync</div>
+        <button onclick="toggleSidebar()" class="neo-btn w-10 h-10 rounded-full">
+            <i class="fas fa-bars"></i>
+        </button>
+    </div>
+
+    <aside id="sidebar" class="fixed inset-y-0 left-0 z-40 w-72 transform -translate-x-full md:relative md:translate-x-0 transition-transform duration-300 ease-in-out neo-card rounded-none md:rounded-r-3xl flex flex-col py-6 px-4 mt-16 md:mt-0 overflow-y-auto">
+        
+        <div class="hidden md:flex flex-col items-center justify-center mb-8">
+            <h1 class="text-2xl font-bold tracking-wider">TeamSync</h1>
+            <div class="text-xs opacity-60 tracking-widest mt-1">HR & OPS PORTAL</div>
+        </div>
+
+        <div class="flex flex-col items-center mb-6 p-4 neo-inset">
+            <div class="w-16 h-16 rounded-full neo-card flex items-center justify-center mb-3 text-xl text-blue-500">
+                <i class="fas fa-user-circle"></i>
+            </div>
+            <h3 class="font-bold">{{ user.name }}</h3>
+            <span class="text-xs font-semibold text-blue-500 uppercase tracking-wide">{{ user.role }}</span>
+        </div>
+        
+        <div class="mb-6 px-2">
+            <button onclick="toggleTheme()" class="neo-btn w-full py-2 text-sm">
+                <span id="theme-icon"><i class="fas fa-moon mr-2"></i></span>
+                <span id="theme-text">Switch to Dark</span>
+            </button>
+        </div>
+
+        <nav class="flex-1 space-y-3">
+            {% if user.role == 'admin' %}
+                <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2">Administration</p>
+                <a href="/admin/select_dashboard" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-th-large w-8 text-center"></i> Hub</a>
+                <a href="/admin" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-chart-line w-8 text-center"></i> Dashboard</a>
+                <a href="/admin/manage_teams" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-network-wired w-8 text-center"></i> Teams</a>
+                <a href="/admin/manage_employees" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-users w-8 text-center"></i> Employees</a>
+                <a href="/admin/settings" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-cogs w-8 text-center"></i> Settings</a>
+                <a href="/admin/attendance" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-clock w-8 text-center"></i> Attendance</a>
+                <a href="/admin/payroll" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-file-invoice-dollar w-8 text-center"></i> Payroll</a>
+                <a href="/admin/unknown_rfid" class="neo-btn py-3 px-4 justify-start nav-link text-red-500"><i class="fas fa-shield-alt w-8 text-center"></i> Security</a>
+            {% else %}
+                <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2">My Workspace</p>
+                <a href="/employee" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-home w-8 text-center"></i> Dashboard</a>
+                <a href="/employee/team" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-users w-8 text-center"></i> My Team</a>
+                <a href="/employee/tasks" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-clipboard-list w-8 text-center"></i> Tasks</a>
+                <a href="/employee/attendance" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-history w-8 text-center"></i> Logs</a>
+                <a href="/employee/leave" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-plane w-8 text-center"></i> Leave</a>
+                <a href="/employee/payslips" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-money-check-alt w-8 text-center"></i> Payslips</a>
+                <a href="/employee/profile" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-id-card w-8 text-center"></i> Profile</a>
+            {% endif %}
+        </nav>
+
+        <div class="mt-6 pt-6 border-t border-gray-500/20">
+             <a href="/logout" class="neo-btn py-3 px-4 justify-start text-red-500 hover:text-red-600">
+                <i class="fas fa-sign-out-alt w-8 text-center"></i> Logout
+            </a>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-6 md:p-10 overflow-y-auto mt-16 md:mt-0 h-screen relative">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('-translate-x-full');
+        }
+
+        // --- THEME LOGIC ---
+        const htmlEl = document.documentElement;
+        const themeText = document.getElementById('theme-text');
+        const themeIcon = document.getElementById('theme-icon');
+
+        // Check Local Storage on load
+        if (localStorage.getItem('theme') === 'dark') {
+            htmlEl.classList.add('dark');
+            updateThemeUI(true);
+        }
+
+        function toggleTheme() {
+            if (htmlEl.classList.contains('dark')) {
+                htmlEl.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                updateThemeUI(false);
+            } else {
+                htmlEl.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                updateThemeUI(true);
+            }
+        }
+
+        function updateThemeUI(isDark) {
+            if(themeText && themeIcon) {
+                if(isDark){
+                    themeText.textContent = "Switch to Light";
+                    themeIcon.innerHTML = '<i class="fas fa-sun mr-2 text-yellow-400"></i>';
+                } else {
+                    themeText.textContent = "Switch to Dark";
+                    themeIcon.innerHTML = '<i class="fas fa-moon mr-2 text-gray-600"></i>';
+                }
+            }
+        }
+
+        // Active Link Highlight
+        document.addEventListener("DOMContentLoaded", function() {
+            const currentPath = window.location.pathname;
+            document.querySelectorAll('.nav-link').forEach(link => {
+                if (link.getAttribute('href') === currentPath) link.classList.add('active-link');
+            });
+            
+            // Re-run UI update to catch elements if they were hidden/loaded late
+            if (localStorage.getItem('theme') === 'dark') {
+                updateThemeUI(true);
+            }
+        });
+    </script>
+</body>
+</html>
