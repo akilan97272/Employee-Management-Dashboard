@@ -143,3 +143,74 @@ class Team(Base):
         back_populates="team",
         foreign_keys="User.current_team_id"
     )
+
+class Project(Base):
+    __tablename__ = "projects"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(200), nullable=False)
+    description = Column(Text)
+    start_date = Column(DateTime)
+    deadline = Column(DateTime)
+    status = Column(String(20), default="active") # active, completed, on-hold
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # Relationships
+    assignments = relationship("ProjectAssignment", back_populates="project")
+    tasks = relationship("ProjectTask", back_populates="project")
+
+class ProjectAssignment(Base):
+    __tablename__ = "project_assignments"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False)
+
+    # Relationships
+    project = relationship("Project", back_populates="assignments")
+    employee = relationship("User") # Link to User model
+
+class ProjectTask(Base):
+    __tablename__ = "project_tasks"
+
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    description = Column(Text)
+    status = Column(String(20), default="pending") # pending, in-progress, completed
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    # Relationships
+    project = relationship("Project", back_populates="tasks")
+    assignees = relationship("ProjectTaskAssignee", back_populates="task")
+
+class ProjectTaskAssignee(Base):
+    __tablename__ = "project_task_assignees"
+
+    id = Column(Integer, primary_key=True, index=True)
+    task_id = Column(Integer, ForeignKey("project_tasks.id"), nullable=False)
+    employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False)
+
+    # Relationships
+    task = relationship("ProjectTask", back_populates="assignees")
+    employee = relationship("User")
+
+
+class AttendanceDaily(Base):
+    __tablename__ = "attendance_daily"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False) 
+    date = Column(Date, nullable=False)
+    status = Column(String(20))
+    check_in_time = Column(DateTime, nullable=True) 
+
+class AttendanceLog(Base):
+    __tablename__ = "attendance_logs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, nullable=False)
+    entry_time = Column(DateTime, nullable=False)
+    exit_time = Column(DateTime, nullable=True)
+    location_name = Column(String(255))
+    room_no = Column(String(50))
