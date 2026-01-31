@@ -1,7 +1,7 @@
 from datetime import datetime, time, date, timedelta
 from sqlalchemy.orm import Session
-from database import SessionLocal
-from models import Team, User, LeaveRequest, Attendance
+from app.database import SessionLocal
+from app.models import Team, User, LeaveRequest, Attendance
 
 
 GRACE_TIME = time(9, 30)

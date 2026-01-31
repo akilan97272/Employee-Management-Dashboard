@@ -3,19 +3,19 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from database import SessionLocal, get_db, engine, Base
-from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest
-from auth import authenticate_user, hash_password
+from app.database import SessionLocal, get_db, engine, Base
+from app.models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest
+from app.auth import authenticate_user, hash_password
 from sqlalchemy import func
 import random
 import string
 import datetime
 from typing import Optional
 from calendar import monthrange
-from team_scheduler import auto_assign_leaders
+from app.team_scheduler import auto_assign_leaders
 from threading import Thread
 import time
-from database import get_team_info
+from app.database import get_team_info
 from apscheduler.schedulers.background import BackgroundScheduler
 
 scheduler = BackgroundScheduler()
@@ -52,14 +52,14 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
 
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
-    return templates.TemplateResponse("login.html", {"request": request})
+    return templates.TemplateResponse("auth/login.html", {"request": request})
 
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     user = authenticate_user(db, username, password)
     
     if not user:
-        return templates.TemplateResponse("login.html", {"request": request, "error": "Invalid credentials"})
+        return templates.TemplateResponse("auth/login.html", {"request": request, "error": "Invalid credentials"})
     
     # Secure the session
     request.session["user_id"] = user.id
@@ -95,7 +95,7 @@ async def add_no_cache_headers(request: Request, call_next):
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
-        return templates.TemplateResponse("401.html", {"request": request}, status_code=401)
+        return templates.TemplateResponse("auth/401.html", {"request": request}, status_code=401)
     # Handle other errors normally
     return await request.app.default_exception_handler(request, exc)
 
@@ -105,7 +105,7 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 
 @app.get("/admin/select_dashboard", response_class=HTMLResponse)
 async def admin_choice(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse("admin_select_dashboard.html", {"request": request, "user": user})
+    return templates.TemplateResponse("admin/admin_select_dashboard.html", {"request": request, "user": user})
 
 #----------------------------------------
 # ADMIN DASHBOARD ROUTE
@@ -131,7 +131,7 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
     unknown_rfids = db.query(UnknownRFID).all()
     admins = db.query(User).filter(User.role == "admin").all()  # For listing admins
     removed_employees = db.query(RemovedEmployee).all()  # For verification
-    return templates.TemplateResponse("admin_dashboard.html", {
+    return templates.TemplateResponse("admin/admin_dashboard.html", {
         "request": request, "user": user, "blocks": blocks_data, "employees": employees, "unknown_rfids": unknown_rfids,
         "admins": admins, "removed_employees": removed_employees
     })
@@ -205,7 +205,7 @@ async def admin_manage_employees(request: Request,
     if department:
         query = query.filter(User.department == department)
     employees = query.all()
-    return templates.TemplateResponse("admin_manage.html",{
+    return templates.TemplateResponse("admin/admin_manage.html",{
         "request": request,
         "user": user,
         "employees": employees,
@@ -256,12 +256,12 @@ async def employee_details(request: Request, employee_id: Optional[str] = None, 
         query = query.filter(User.name.ilike(f"%{name}%"))
     emp = query.first()
     if not emp:
-        return templates.TemplateResponse("employee_details.html", {"request": request, "error": "Employee not found"})
+        return templates.TemplateResponse("admin/employee_details.html", {"request": request, "error": "Employee not found"})
     # Calculate total time (sum durations)
     total_time = db.query(Attendance).filter(Attendance.employee_id == emp.employee_id).with_entities(
         Attendance.duration).all()
     total_hours = sum(d[0] for d in total_time if d[0])
-    return templates.TemplateResponse("employee_details.html",
+    return templates.TemplateResponse("admin/employee_details.html",
                                       {"request": request, "employee": emp, "total_hours": total_hours})
 
 #-----------------------------------------
@@ -359,7 +359,7 @@ async def admin_payroll(
     max_salary = max((p["salary"] for p in payroll_data), default=0)
 
     return templates.TemplateResponse(
-        "payroll.html",
+        "admin/admin_payroll.html",
         {
             "request": request,
             "user": user,
@@ -408,7 +408,7 @@ async def admin_attendance(
         UnknownRFID.id.desc()
     ).limit(20).all()
     return templates.TemplateResponse(
-        "admin_attendance.html",
+        "admin/admin_attendance.html",
         {
             "request": request,
             "user": user,
@@ -440,7 +440,7 @@ async def admin_unknown_rfid(
         )
     unknown_rfids = query.order_by(UnknownRFID.timestamp.desc()).all()
     return templates.TemplateResponse(
-        "admin_unknown.html",
+        "admin/admin_unknown.html",
         {
             "request": request,
             "user": user,
@@ -469,7 +469,7 @@ async def admin_leave_page(request: Request, user: User = Depends(get_current_us
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
     pending = db.query(LeaveRequest).order_by(LeaveRequest.id.desc()).all()
-    return templates.TemplateResponse("admin_leave_requests.html",
+    return templates.TemplateResponse("admin/admin_leave_requests.html",
                                       {"request": request, "user": user, "pending": pending,
                                        "current_year": datetime.datetime.utcnow().year})
 
@@ -502,7 +502,7 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
         ).scalar() or 0
     tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
     return templates.TemplateResponse(
-        "employee_dashboard.html",
+        "employee/employee_dashboard.html",
         {
             "request": request,
             "user": user,
@@ -534,7 +534,7 @@ async def employee_team(
             members = team.members
 
     return templates.TemplateResponse(
-        "employee_team.html",
+        "employee/employee_team.html",
         {
             "request": request,
             "user": user,
@@ -553,7 +553,7 @@ async def employee_attendance_page(request: Request, user: User = Depends(get_cu
     logs = db.query(Attendance).filter(
         Attendance.employee_id == user.employee_id
             ).order_by(Attendance.date.desc()).all()
-    return templates.TemplateResponse("employee_attendance.html",
+    return templates.TemplateResponse("employee/employee_attendance.html",
                                       {"request": request, "user": user, "logs": logs,
                                        "current_year": datetime.datetime.utcnow().year})
 
@@ -573,7 +573,7 @@ async def employee_tasks_page(request: Request,
     pending = db.query(Task).filter(Task.user_id == user.employee_id, Task.status == "pending").count()
     in_progress = db.query(Task).filter(Task.user_id == user.employee_id, Task.status == "in-progress").count()
     done = db.query(Task).filter(Task.user_id == user.employee_id, Task.status == "done").count()
-    return templates.TemplateResponse("employee_tasks.html",
+    return templates.TemplateResponse("employee/employee_tasks.html",
                                       {"request": request, "user": user,
                                        "tasks": tasks,
                                        "pending": pending,
@@ -617,7 +617,7 @@ async def delete_task(task_id: int = Form(...),
 @app.get("/employee/leave", response_class=HTMLResponse)
 async def employee_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     leaves = db.query(LeaveRequest).filter(LeaveRequest.employee_id == user.employee_id).order_by(LeaveRequest.id.desc()).all()
-    return templates.TemplateResponse("employee_leave.html",
+    return templates.TemplateResponse("employee/employee_leave.html",
                                       {"request": request, "user": user,
                                        "leaves": leaves,
                                        "current_year": datetime.datetime.utcnow().year})
@@ -644,7 +644,7 @@ async def apply_leave(request: Request,
 
 @app.get("/employee/profile", response_class=HTMLResponse)
 async def employee_profile(request: Request, user: User = Depends(get_current_user)):
-    return templates.TemplateResponse("employee_profile.html",
+    return templates.TemplateResponse("employee/employee_profile.html",
                                       {"request": request, "user": user,
                                        "current_year": datetime.datetime.utcnow().year})
 
@@ -674,7 +674,7 @@ async def employee_payslips_page(request: Request,
                                  db: Session = Depends(get_db)):
     current_year = datetime.datetime.utcnow().year
     if not month or not year:
-        return templates.TemplateResponse("employee_payslips.html",
+        return templates.TemplateResponse("employee/employee_payslips.html",
                                           {"request": request, "user": user,
                                            "computed": False,
                                            "current_year": current_year,
@@ -698,7 +698,7 @@ async def employee_payslips_page(request: Request,
     leave_deduction = round(leave_count * 500, 2)   # ₹500 fine per leave
     tax_deduction = round(gross_salary * 0.10, 2)
     net_salary = round(gross_salary - leave_deduction - tax_deduction, 2)
-    return templates.TemplateResponse("employee_payslips.html",
+    return templates.TemplateResponse("employee/employee_payslips.html",
                                       {"request": request, "user": user,
                                        "computed": True,
                                        "total_hours": total_hours,
