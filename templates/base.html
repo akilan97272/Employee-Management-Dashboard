@@ -36,7 +36,6 @@
         }
 
         /* --- FORCE TEXT COLOR OVERRIDES --- */
-        /* This fixes the issue where 'text-gray-700' stays dark in dark mode */
         html.dark .text-gray-900,
         html.dark .text-gray-800,
         html.dark .text-gray-700,
@@ -49,7 +48,6 @@
             color: var(--text-muted) !important;
         }
         
-        /* Ensure Inputs text is visible */
         html.dark input, 
         html.dark select, 
         html.dark textarea {
@@ -112,13 +110,11 @@
                        inset -3px -3px 6px var(--shadow-light);
         }
         
-        /* Table Styles */
         .neo-table-row {
             transition: 0.2s;
             border-bottom: 1px solid var(--border-opacity);
         }
 
-        /* Sidebar Active Link */
         .nav-link.active-link {
             box-shadow: inset 4px 4px 8px var(--shadow-dark), 
                        inset -4px -4px 8px var(--shadow-light);
@@ -158,6 +154,7 @@
         </div>
 
         <nav class="flex-1 space-y-3">
+            
             {% if user.role == 'admin' %}
                 <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2">Administration</p>
                 <a href="/admin/select_dashboard" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-th-large w-8 text-center"></i> Hub</a>
@@ -168,6 +165,29 @@
                 <a href="/admin/attendance" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-clock w-8 text-center"></i> Attendance</a>
                 <a href="/admin/payroll" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-file-invoice-dollar w-8 text-center"></i> Payroll</a>
                 <a href="/admin/unknown_rfid" class="neo-btn py-3 px-4 justify-start nav-link text-red-500"><i class="fas fa-shield-alt w-8 text-center"></i> Security</a>
+
+            {% elif user.role == 'manager' %}
+                <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2 text-blue-500">Management</p>
+                <a href="/manager/dashboard" class="neo-btn py-3 px-4 justify-start nav-link text-blue-600"><i class="fas fa-briefcase w-8 text-center"></i> Manager Hub</a>
+                
+                <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2 mt-6">My Workspace</p>
+                <a href="/employee/attendance" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-history w-8 text-center"></i> Logs</a>
+                <a href="/employee/leave" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-plane w-8 text-center"></i> Apply Leave</a>
+                <a href="/employee/payslips" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-money-check-alt w-8 text-center"></i> Payslips</a>
+                <a href="/employee/profile" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-id-card w-8 text-center"></i> Profile</a>
+
+            {% elif user.role == 'team_lead' %}
+                <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2 text-purple-500">Leadership</p>
+                <a href="/leader/dashboard" class="neo-btn py-3 px-4 justify-start nav-link text-purple-600"><i class="fas fa-tasks w-8 text-center"></i> Task Board</a>
+                
+                <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2 mt-6">My Workspace</p>
+                <a href="/employee" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-home w-8 text-center"></i> Dashboard</a>
+                <a href="/employee/team" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-users w-8 text-center"></i> My Team</a>
+                <a href="/employee/attendance" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-history w-8 text-center"></i> Logs</a>
+                <a href="/employee/leave" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-plane w-8 text-center"></i> Apply Leave</a>
+                <a href="/employee/payslips" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-money-check-alt w-8 text-center"></i> Payslips</a>
+                <a href="/employee/profile" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-id-card w-8 text-center"></i> Profile</a>
+
             {% else %}
                 <p class="text-xs font-bold opacity-50 uppercase ml-2 mb-2">My Workspace</p>
                 <a href="/employee" class="neo-btn py-3 px-4 justify-start nav-link"><i class="fas fa-home w-8 text-center"></i> Dashboard</a>

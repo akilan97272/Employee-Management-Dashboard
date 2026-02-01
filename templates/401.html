@@ -3,29 +3,271 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unauthorized</title>
+    <title>401 - The Password Eater</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        body { background-color: #e0e5ec; color: #4a5568; }
-        .neo-card {
-            background: #e0e5ec;
-            box-shadow: 9px 9px 16px #a3b1c6, -9px -9px 16px #ffffff;
-            border-radius: 20px;
+        body { 
+            background-color: #e0e5ec; 
+            color: #4a5568;
+            font-family: 'Nunito', sans-serif; /* Soft, rounded font */
+            overflow: hidden;
         }
-        .neo-btn {
+
+        /* --- Neumorphic Shapes --- */
+
+        /* The Head */
+        .monster-card {
             background: #e0e5ec;
-            box-shadow: 6px 6px 10px #a3b1c6, -6px -6px 10px #ffffff;
+            box-shadow: 20px 20px 60px #bebebe, -20px -20px 60px #ffffff;
             border-radius: 50px;
+            transition: transform 0.2s;
+        }
+
+        /* The Eyes (Convex) */
+        .eye {
+            width: 60px;
+            height: 60px;
+            background: #e0e5ec;
+            border-radius: 50%;
+            box-shadow: 5px 5px 10px #bebebe, -5px -5px 10px #ffffff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* The Pupil (Inset) */
+        .pupil {
+            width: 20px;
+            height: 20px;
+            background: #4a5568;
+            border-radius: 50%;
+            transition: all 0.2s ease-out;
+        }
+
+        /* The Mouth / Input (Concave) */
+        .mouth-container {
+            position: relative;
+            width: 100%;
+            transition: all 0.2s;
+        }
+
+        .mouth-input {
+            width: 100%;
+            height: 60px;
+            background: #e0e5ec;
+            box-shadow: inset 5px 5px 10px #bebebe, inset -5px -5px 10px #ffffff;
+            border-radius: 30px;
+            border: none;
+            padding: 0 20px;
+            text-align: center;
+            font-size: 1.2rem;
+            color: #4a5568;
+            outline: none;
+            transition: all 0.3s;
+        }
+
+        .mouth-input:focus {
+            box-shadow: inset 8px 8px 15px #bebebe, inset -8px -8px 15px #ffffff;
+            transform: scale(0.98);
+        }
+
+        /* Teeth (Decoration) */
+        .tooth {
+            position: absolute;
+            background: #fff;
+            width: 15px;
+            height: 15px;
+            border-radius: 4px;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+        }
+        .tooth-top-left { top: 5px; left: 40px; }
+        .tooth-top-right { top: 5px; right: 40px; }
+        .tooth-bottom-left { bottom: 5px; left: 60px; }
+        .tooth-bottom-right { bottom: 5px; right: 60px; }
+
+        /* Button (The "Feed" Button) */
+        .feed-btn {
+            background: #e0e5ec;
+            box-shadow: 6px 6px 12px #a3b1c6, -6px -6px 12px #ffffff;
+            border-radius: 50px;
+            font-weight: bold;
+            color: #e53e3e;
             transition: 0.2s;
+        }
+        .feed-btn:active {
+            box-shadow: inset 4px 4px 8px #a3b1c6, inset -4px -4px 8px #ffffff;
+            transform: scale(0.95);
+        }
+
+        /* --- Animations --- */
+
+        /* Chewing Animation */
+        @keyframes chew {
+            0% { transform: scaleY(1); }
+            25% { transform: scaleY(0.7); }
+            50% { transform: scaleY(1.1); }
+            75% { transform: scaleY(0.6); }
+            100% { transform: scaleY(1); }
+        }
+
+        .chewing .mouth-input {
+            animation: chew 0.4s ease-in-out infinite;
+            color: transparent; /* Hide text while chewing */
+        }
+
+        /* Eye Roll Animation */
+        @keyframes eyeRoll {
+            0% { transform: translate(0, 0); }
+            25% { transform: translate(-10px, -5px); }
+            50% { transform: translate(0, -10px); }
+            75% { transform: translate(10px, -5px); }
+            100% { transform: translate(0, 0); }
+        }
+        .rolling .pupil {
+            animation: eyeRoll 1s linear;
+        }
+
+        /* Thought Bubble */
+        .bubble {
+            opacity: 0;
+            transform: translateY(20px) scale(0.8);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .bubble.show {
+            opacity: 1;
+            transform: translateY(0) scale(1);
         }
     </style>
 </head>
 <body class="h-screen flex items-center justify-center">
-    <div class="neo-card p-10 text-center max-w-md">
-        <div class="text-6xl text-red-400 mb-4"><i class="fas fa-lock"></i></div>
-        <h1 class="text-2xl font-bold text-gray-700">Access Denied</h1>
-        <p class="text-gray-500 mt-2 mb-8">You do not have permission to view this page or your session has expired.</p>
-        <a href="/" class="neo-btn px-8 py-3 text-blue-600 font-bold no-underline">Return to Login</a>
+
+    <div class="flex flex-col items-center">
+        
+        <div id="bubble" class="bubble mb-6 bg-white px-6 py-4 rounded-2xl shadow-xl relative max-w-xs text-center">
+            <p id="bubbleText" class="text-gray-600 font-bold text-lg">"Feed me credentials!"</p>
+            <div class="absolute bottom-[-10px] left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[10px] border-l-transparent border-r-[10px] border-r-transparent border-t-[10px] border-t-white"></div>
+        </div>
+
+        <div class="monster-card w-80 p-8 flex flex-col items-center relative">
+            
+            <div class="w-full flex justify-around mb-8">
+                <div class="eye"><div class="pupil"></div></div>
+                <div class="eye"><div class="pupil"></div></div>
+            </div>
+
+            <div class="mouth-container mb-8" id="mouthContainer">
+                <div class="tooth tooth-top-left"></div>
+                <div class="tooth tooth-top-right"></div>
+                <input type="password" 
+                       id="passwordInput" 
+                       class="mouth-input" 
+                       placeholder="Password..."
+                       autocomplete="off">
+                <div class="tooth tooth-bottom-left"></div>
+                <div class="tooth tooth-bottom-right"></div>
+            </div>
+
+            <button id="feedBtn" class="feed-btn w-full py-4 text-lg uppercase tracking-wider">
+                Feed Beast
+            </button>
+
+        </div>
+
+        <a href="/" class="mt-8 text-gray-400 text-sm font-bold hover:text-gray-600 transition-colors no-underline">
+            Run Away (Home)
+        </a>
+
     </div>
+
+    <script>
+        const feedBtn = document.getElementById('feedBtn');
+        const mouthContainer = document.getElementById('mouthContainer');
+        const input = document.getElementById('passwordInput');
+        const bubble = document.getElementById('bubble');
+        const bubbleText = document.getElementById('bubbleText');
+        const pupils = document.querySelectorAll('.pupil');
+
+        // Funny responses based on "taste"
+        const reactions = [
+            "Yuck! Tastes like Guest User.",
+            "Needs more salt (and encryption).",
+            "Too short! I'm still hungry.",
+            "Bleh. Expired credentials.",
+            "Spicy... but Unauthorized.",
+            "Tastes like '123456'. Gross.",
+            "Are you trying to poison me?",
+            "Denied. My stomach hurts.",
+            "My diet is Admin-only."
+        ];
+
+        // Initial Greeting
+        setTimeout(() => bubble.classList.add('show'), 500);
+
+        feedBtn.addEventListener('click', feedTheBeast);
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') feedTheBeast();
+        });
+
+        function feedTheBeast() {
+            if (input.value.length === 0) {
+                updateBubble("It's empty! I can't eat air!");
+                return;
+            }
+
+            // 1. Disable interaction
+            input.disabled = true;
+            feedBtn.disabled = true;
+            updateBubble("*MUNCH* *CRUNCH* *SLURP*");
+
+            // 2. Start Chewing Animation
+            mouthContainer.classList.add('chewing');
+            
+            // 3. Move eyes around crazily
+            pupils.forEach(p => p.parentElement.classList.add('rolling'));
+
+            // 4. Analysis Complete (after 2 seconds)
+            setTimeout(() => {
+                // Stop animations
+                mouthContainer.classList.remove('chewing');
+                pupils.forEach(p => p.parentElement.classList.remove('rolling'));
+                
+                // Clear input (he ate it)
+                input.value = "";
+                input.disabled = false;
+                feedBtn.disabled = false;
+                input.focus();
+
+                // 5. Spit out result
+                const randomReaction = reactions[Math.floor(Math.random() * reactions.length)];
+                updateBubble(randomReaction);
+
+            }, 2000);
+        }
+
+        function updateBubble(text) {
+            bubble.classList.remove('show');
+            setTimeout(() => {
+                bubbleText.innerText = text;
+                bubble.classList.add('show');
+            }, 300);
+        }
+
+        // Simple mouse tracking for eyes (when not eating)
+        document.addEventListener('mousemove', (e) => {
+            if (mouthContainer.classList.contains('chewing')) return;
+
+            const x = e.clientX / window.innerWidth;
+            const y = e.clientY / window.innerHeight;
+
+            pupils.forEach(pupil => {
+                const moveX = (x - 0.5) * 20;
+                const moveY = (y - 0.5) * 20;
+                pupil.style.transform = `translate(${moveX}px, ${moveY}px)`;
+            });
+        });
+    </script>
 </body>
 </html>

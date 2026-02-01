@@ -1,100 +1,89 @@
-from datetime import datetime, time, date, timedelta
+from datetime import datetime, time, date
 from sqlalchemy.orm import Session
 from database import SessionLocal
-from models import Team, User, LeaveRequest, Attendance
-
+from models import Team, User, LeaveRequest, Attendance, TeamMember
 
 GRACE_TIME = time(9, 30)
 
 def auto_assign_leaders():
-    now = datetime.now().time()
-    if now < GRACE_TIME:
+    # Only run logic after grace time
+    if datetime.now().time() < GRACE_TIME:
         return
 
     db: Session = SessionLocal()
-
     try:
         teams = db.query(Team).all()
 
         for team in teams:
-            leader = team.leader
-            if not leader:
+            perm_leader = team.permanent_leader
+            
+            # If no permanent leader defined, skip
+            if not perm_leader:
                 continue
 
-            # 1️⃣ Check leave
+            # 1. Check if Permanent Leader is Present Today
+            is_perm_present = False
+            
+            # Check Leave
             on_leave = db.query(LeaveRequest).filter(
-                LeaveRequest.employee_id == leader.employee_id,
+                LeaveRequest.employee_id == perm_leader.employee_id,
                 LeaveRequest.status == "Approved",
                 LeaveRequest.start_date <= date.today(),
                 LeaveRequest.end_date >= date.today()
             ).first()
 
-            if on_leave:
-                leader_absent = True
+            # Check Attendance
+            has_swiped = db.query(Attendance).filter(
+                Attendance.employee_id == perm_leader.employee_id,
+                Attendance.entry_time >= datetime.combine(date.today(), time(0, 0))
+            ).first()
+
+            if not on_leave and has_swiped:
+                is_perm_present = True
+
+            # --- LOGIC BRANCHING ---
+
+            if is_perm_present:
+                # Restoration: If current active leader is not the permanent one, swap back
+                if team.leader_id != team.permanent_leader_id:
+                    print(f"Original Leader {perm_leader.name} returned. Restoring command.")
+                    team.leader_id = team.permanent_leader_id
+                    db.commit()
+            
             else:
-                # 2️⃣ Check attendance
-                attendance = db.query(Attendance).filter(
-                    Attendance.employee_id == leader.employee_id,
-                    Attendance.entry_time >= datetime.combine(date.today(), time(0, 0))
-                ).first()
-
-                leader_absent = attendance is None
-
-            if not leader_absent:
-                continue
-
-            # 3️⃣ Find eligible replacement
-            candidate = (
-                db.query(User)
-                .filter(
-                    User.department == team.department,
+                # Replacement: If permanent leader is absent, assign temporary
+                print(f"Permanent Leader {perm_leader.name} is absent.")
+                
+                # Find members of THIS team specifically
+                team_memberships = db.query(TeamMember).filter(TeamMember.team_id == team.id).all()
+                member_ids = [tm.user_id for tm in team_memberships]
+                
+                # Fetch User objects who are capable of managing and are PRESENT
+                candidates = db.query(User).filter(
+                    User.id.in_(member_ids),
                     User.can_manage == True,
-                    User.is_active == True
-                )
-                .all()
-            )
+                    User.is_active == True,
+                    User.id != perm_leader.id # Don't pick the absent boss
+                ).all()
 
-            if not candidate:
-                continue
+                present_candidates = []
+                for cand in candidates:
+                    is_here = db.query(Attendance).filter(
+                        Attendance.employee_id == cand.employee_id,
+                        Attendance.entry_time >= datetime.combine(date.today(), time(0, 0))
+                    ).first()
+                    if is_here:
+                        present_candidates.append(cand)
 
-            # Load balancing
-            candidate.sort(
-                key=lambda u: db.query(User)
-                .filter(User.current_team_id == u.current_team_id)
-                .count()
-            )
+                if present_candidates:
+                    # Pick random or logic based (here: random for fairness/simplicity)
+                    new_temp_leader = present_candidates[0]
+                    if team.leader_id != new_temp_leader.id:
+                        team.leader_id = new_temp_leader.id
+                        print(f"Assigned temporary leader: {new_temp_leader.name}")
+                        db.commit()
 
-            new_leader = candidate[0]
-
-            # 4️⃣ Assign new leader
-            team.leader_id = new_leader.id
-            new_leader.active_leader = True
-
-            db.commit()
-
+    except Exception as e:
+        print(f"Scheduler Error: {e}")
     finally:
         db.close()
-
-
-
-# def auto_exit_gate(db: Session):
-#     now = datetime.utcnow().year
-
-#     expired_gates = db.query(Attendance).filter(
-#         Attendance.room_no == "GATE",
-#         Attendance.exit_time == None,
-#         Attendance.entry_time <= now - timedelta(minutes=30)
-#     ).all()
-
-#     for gate in expired_gates:
-#         # Check if user entered any room after gate entry
-#         room_used = db.query(Attendance).filter(
-#             Attendance.employee_id == gate.employee_id,
-#             Attendance.room_no != "GATE",
-#             Attendance.entry_time >= gate.entry_time
-#         ).first()
-
-#         if not room_used:
-#             gate.exit_time = now
-
-#     db.commit()
