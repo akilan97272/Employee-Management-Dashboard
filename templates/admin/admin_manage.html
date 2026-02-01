@@ -1,0 +1,151 @@
+{% extends "common/layout_base.html" %}
+
+{% block title %}Personnel Directory | TeamSync{% endblock %}
+
+{% block page_title %}PERSONNEL_MANAGEMENT{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+
+  <div class="border border-[var(--border)] bg-[var(--panel)] p-6">
+    <form method="get" action="/admin/manage_employees" class="flex flex-wrap md:flex-nowrap gap-4">
+      <div class="flex-1 relative">
+        <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+        <input name="search" placeholder="Search by name or employee ID..."
+               class="w-full pl-11 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600 transition-colors" 
+               value="{{ search or '' }}"/>
+      </div>
+
+      <select name="department" class="px-4 py-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-600">
+        <option value="">All Departments</option>
+        <option value="IT" {% if department == 'IT' %}selected{% endif %}>IT Department</option>
+        <option value="HR" {% if department == 'HR' %}selected{% endif %}>HR Department</option>
+        <option value="Finance" {% if department == 'Finance' %}selected{% endif %}>Finance</option>
+      </select>
+
+      <button class="px-8 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+        Apply Filter
+      </button>
+    </form>
+  </div>
+
+  <div class="border border-[var(--border)] bg-[var(--panel)] p-8">
+    <div class="flex items-center gap-3 mb-8">
+        <div class="h-5 w-1 bg-blue-600"></div>
+        <h3 class="text-xs font-black uppercase tracking-[0.2em]">Active Employee Directory</h3>
+    </div>
+
+    <div class="overflow-x-auto">
+      <table class="w-full text-left">
+        <thead>
+          <tr class="border-b border-[var(--border)] text-[10px] font-black uppercase tracking-widest text-slate-400">
+            <th class="pb-4 px-2">Employee ID</th>
+            <th class="pb-4">Name</th>
+            <th class="pb-4">Department</th>
+            <th class="pb-4">Role</th>
+            <th class="pb-4 text-right">Actions</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-[var(--border)]">
+        {% for emp in employees %}
+          <tr class="hover:bg-slate-50 transition-colors group">
+            <td class="py-4 px-2 executive-mono font-bold text-xs text-blue-600 uppercase">{{ emp.employee_id }}</td>
+            <td class="py-4">
+                <p class="font-bold text-sm">{{ emp.name }}</p>
+                <p class="text-[10px] text-slate-400 font-medium">{{ emp.email }}</p>
+            </td>
+            <td class="py-4 executive-mono text-[10px] font-bold uppercase text-slate-500">{{ emp.department }}</td>
+            <td class="py-4">
+                <span class="px-2 py-1 text-[9px] font-black uppercase tracking-widest border {% if emp.role == 'admin' %}border-blue-600 text-blue-600 bg-blue-50{% else %}border-slate-200 text-slate-500 bg-slate-50{% endif %}">
+                    {{ emp.role }}
+                </span>
+            </td>
+            <td class="py-4 text-right">
+                <div class="flex justify-end gap-2">
+                    <button class="px-3 py-1.5 border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all"
+                            onclick="openEditModal('{{ emp.employee_id }}', '{{ emp.name }}', '{{ emp.email }}', '{{ emp.department }}', '{{ emp.role }}')">
+                       <i class="bi bi-pencil-square"></i>
+                    </button>
+                    <form action="/admin/remove_employee" method="post" onsubmit="return confirm('Confirm removal of this employee record?')">
+                      <input type="hidden" name="employee_id" value="{{ emp.employee_id }}">
+                      <button class="px-3 py-1.5 bg-red-50 text-red-600 border border-red-100 text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all">
+                        <i class="bi bi-trash3"></i>
+                      </button>
+                    </form>
+                </div>
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+
+<div id="editModal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[200]">
+  <div class="bg-[var(--panel)] border border-[var(--border)] p-10 w-full max-w-md relative">
+    <div class="h-1 w-full bg-blue-600 absolute top-0 left-0"></div>
+    <h3 class="text-xs font-black uppercase tracking-[0.2em] mb-8 text-blue-600">Modify Employee Record</h3>
+
+    <form method="post" action="/admin/update_employee" class="space-y-4">
+      <input type="hidden" id="edit_employee_id" name="employee_id"/>
+
+      <div class="space-y-1">
+        <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Full Legal Name</label>
+        <input id="edit_name" name="name" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600"/>
+      </div>
+
+      <div class="space-y-1">
+        <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Work Email</label>
+        <input id="edit_email" name="email" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600"/>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="space-y-1">
+            <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">Department</label>
+            <select id="edit_department" name="department" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase outline-none focus:border-blue-600">
+                <option>IT</option>
+                <option>HR</option>
+                <option>Finance</option>
+            </select>
+        </div>
+        <div class="space-y-1">
+            <label class="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-1">System Role</label>
+            <select id="edit_role" name="role" class="w-full p-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase outline-none focus:border-blue-600">
+                <option value="employee">Employee</option>
+                <option value="admin">Admin</option>
+            </select>
+        </div>
+      </div>
+
+      <div class="flex gap-3 pt-6">
+        <button type="button" onclick="closeModal()" class="flex-1 py-4 bg-slate-100 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">
+            Cancel
+        </button>
+        <button class="flex-1 py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all">
+            Save Changes
+        </button>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+
+<script>
+function openEditModal(id, name, email, dept, role){
+  document.getElementById("edit_employee_id").value = id;
+  document.getElementById("edit_name").value = name;
+  document.getElementById("edit_email").value = email;
+  document.getElementById("edit_department").value = dept;
+  document.getElementById("edit_role").value = role;
+  document.getElementById("editModal").classList.remove("hidden");
+}
+function closeModal(){
+  document.getElementById("editModal").classList.add("hidden");
+}
+</script>
+
+{% endblock %}
