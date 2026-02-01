@@ -1,8 +1,13 @@
 from datetime import datetime, time, date
 from sqlalchemy.orm import Session
+<<<<<<< HEAD:team_scheduler.py
 from database import SessionLocal
 from models import Team, User, LeaveRequest, Attendance
 from sqlalchemy import func
+=======
+from app.database import SessionLocal
+from app.models import Team, User, LeaveRequest, Attendance
+>>>>>>> sethu's-touch:app/team_scheduler.py
 
 # Set the time by which the leader must be present
 GRACE_TIME = time(9, 30)
