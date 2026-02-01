@@ -3,28 +3,42 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
-from app.database import SessionLocal, get_db, engine, Base
-from app.models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest
-from app.auth import authenticate_user, hash_password
+from database import SessionLocal, get_db, engine, Base
+from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest, TeamMember
+from auth import authenticate_user, hash_password
 from sqlalchemy import func
 import random
 import string
 import datetime
 from typing import Optional
 from calendar import monthrange
-from app.team_scheduler import auto_assign_leaders
+from team_scheduler import auto_assign_leaders
 from threading import Thread
 import time
-from app.database import get_team_info
+from database import get_team_info
 from apscheduler.schedulers.background import BackgroundScheduler
 # Ensure these are imported from your models
 from models import Team, User
 from fastapi.exception_handlers import http_exception_handler
+from starlette.middleware.sessions import SessionMiddleware
 
 scheduler = BackgroundScheduler()
 
+# Importing all models 
+from models import (
+    User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, 
+    Task, LeaveRequest, Team, Project, ProjectTask, ProjectAssignment, 
+    ProjectTaskAssignee, AttendanceLog, AttendanceDaily
+)
+from team_scheduler import auto_assign_leaders
 
+# Setup
 Base.metadata.create_all(bind=engine)
+app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
+templates = Jinja2Templates(directory="templates")
+app.add_middleware(SessionMiddleware, secret_key="super-secret-key")
+scheduler = BackgroundScheduler()
 
 # FastAPI app
 app = FastAPI()
@@ -33,7 +47,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 # Session middleware (simple in-memory for demo; use proper sessions in prod)
-from starlette.middleware.sessions import SessionMiddleware
+
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 # ----------------------------------------
@@ -49,10 +63,6 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="User not found")
     return user
 
-# ----------------------------------------
-# LOGIN ROUTES
-# ----------------------------------------
-
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
     return templates.TemplateResponse("auth/login.html", {"request": request})
@@ -60,18 +70,20 @@ async def login_page(request: Request):
 @app.post("/login")
 async def login(request: Request, username: str = Form(...), password: str = Form(...), db: Session = Depends(get_db)):
     user = authenticate_user(db, username, password)
-    
     if not user:
         return templates.TemplateResponse("auth/login.html", {"request": request, "error": "Invalid credentials"})
     
-    # Secure the session
     request.session["user_id"] = user.id
 
-    # Route based on role
+    # ROLE BASED REDIRECTS
     if user.role == "admin":
         return RedirectResponse("/admin/select_dashboard", status_code=303)
-    
-    return RedirectResponse("/employee", status_code=303)
+    elif user.role == "manager":
+        return RedirectResponse("/manager/dashboard", status_code=303)
+    elif user.role == "team_lead":
+        return RedirectResponse("/leader/dashboard", status_code=303)
+    else:
+        return RedirectResponse("/employee", status_code=303)
 
 #----------------------------------------
 # LOGOUT ROUTE
@@ -79,9 +91,8 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
 @app.get("/logout")
 async def logout(request: Request):
-    request.session.clear()  # Wipes all data in the session
-    response = RedirectResponse(url="/", status_code=status.HTTP_303_SEE_OTHER)
-    # Force the browser to forget the session cookie
+    request.session.clear()
+    response = RedirectResponse(url="/", status_code=303)
     response.delete_cookie("session") 
     return response
 
@@ -98,16 +109,10 @@ async def add_no_cache_headers(request: Request, call_next):
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
-<<<<<<< HEAD:main.py
-        return templates.TemplateResponse("401.html", {"request": request}, status_code=401)
+        return templates.TemplateResponse("auth/401.html", {"request": request}, status_code=401)
     
     # Use the imported default handler for all other errors
     return await http_exception_handler(request, exc)
-=======
-        return templates.TemplateResponse("auth/401.html", {"request": request}, status_code=401)
-    # Handle other errors normally
-    return await request.app.default_exception_handler(request, exc)
->>>>>>> sethu's-touch:app/main.py
 
 # ----------------------------------------
 # ADMIN SELECT DASHBOARD
@@ -117,35 +122,21 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
 async def admin_choice(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("admin/admin_select_dashboard.html", {"request": request, "user": user})
 
-#----------------------------------------
-# ADMIN DASHBOARD ROUTE
-#----------------------------------------
-
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
-    # Fetch data for dashboard (dynamic blocks)
-    blocks_data = db.query(
-        Attendance.location_name,
-        Attendance.room_no,
-        func.count(Attendance.id).label("count")
-    ).filter(
-        Attendance.status == "PRESENT",
-        Attendance.date == datetime.date.today()
-    ).group_by(
-        Attendance.location_name,
-        Attendance.room_no
-    ).all()
-    employees = db.query(User).filter(User.is_active == True).all()
-    unknown_rfids = db.query(UnknownRFID).all()
-    admins = db.query(User).filter(User.role == "admin").all()  # For listing admins
-    removed_employees = db.query(RemovedEmployee).all()  # For verification
-    return templates.TemplateResponse("admin/admin_dashboard.html", {
-        "request": request, "user": user, "blocks": blocks_data, "employees": employees, "unknown_rfids": unknown_rfids,
-        "admins": admins, "removed_employees": removed_employees
-    })
-
+    if user.role != "admin": raise HTTPException(status_code=403)
+    # ... (Your existing admin dashboard logic) ...
+    # Placeholder return to prevent error in this snippet
+    return templates.TemplateResponse("admin/admin_dashboard.html",
+                                       {"request": request, 
+                                        "user": user, 
+                                        "blocks": [],
+                                        "employees": [],
+                                        "unknown_rfids": [], 
+                                        "admins": [], 
+                                        "removed_employees": []
+                                        }
+                                    )
 #----------------------------------------
 # ADMIN - ADD EMPLOYEE ROUTE
 #----------------------------------------
@@ -186,7 +177,7 @@ async def admin_settings_page(request: Request, user: User = Depends(get_current
     rooms = db.query(Room).all()
     departments = db.query(Department).all()
     
-    return templates.TemplateResponse("admin_settings.html", {
+    return templates.TemplateResponse("admin/admin_settings.html", {
         "request": request, 
         "user": user, 
         "rooms": rooms, 
@@ -251,24 +242,42 @@ async def admin_manage_teams(request: Request, user: User = Depends(get_current_
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
     
-    # Eager load relationships to prevent closed session errors in templates
     teams = db.query(Team).all()
-    
-    # Get all active employees to populate dropdowns
     employees = db.query(User).filter(User.is_active == True).all()
     
-    return templates.TemplateResponse("admin_manage_teams.html", {
+    # --- FIX: FETCH DEPARTMENTS ---
+    departments = db.query(Department).all()
+    
+    # Calculate Project Status for Teams (Optional logic for the progress bar)
+    team_data = []
+    for t in teams:
+        projs = db.query(Project).filter(Project.department == t.department).all()
+        completion = 0
+        if projs:
+            total_tasks = sum([len(p.tasks) for p in projs])
+            completed_tasks = sum([len([task for task in p.tasks if task.status == 'completed']) for p in projs])
+            if total_tasks > 0:
+                completion = int((completed_tasks / total_tasks) * 100)
+        
+        team_data.append({
+            "obj": t,
+            "completion": completion,
+            "member_count": len(t.memberships)
+        })
+
+    return templates.TemplateResponse("admin/admin_manage_teams.html", {
         "request": request, 
         "user": user, 
-        "teams": teams, 
-        "employees": employees
+        "team_data": team_data, 
+        "employees": employees,
+        "departments": departments  # <--- PASSING THIS IS CRITICAL
     })
 
 @app.post("/admin/create_team")
 async def create_team(
     name: str = Form(...),
-    department: str = Form(...),
-    leader_employee_id: str = Form(None), # Optional
+    department: str = Form(...), # Accepts any string now
+    leader_employee_id: str = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
@@ -279,12 +288,33 @@ async def create_team(
         leader = db.query(User).filter(User.employee_id == leader_employee_id).first()
         if leader:
             leader_id = leader.id
-            leader.can_manage = True # Grant management rights
+            leader.can_manage = True
 
-    new_team = Team(name=name, department=department, leader_id=leader_id)
+    # Set both leader_id (active) and permanent_leader_id (original)
+    new_team = Team(name=name, department=department, leader_id=leader_id, permanent_leader_id=leader_id)
     db.add(new_team)
     db.commit()
     
+    # If leader exists, add them to team_members too
+    if leader_id:
+        db.add(TeamMember(user_id=leader_id, team_id=new_team.id))
+        db.commit()
+
+    return RedirectResponse("/admin/manage_teams", status_code=303)
+
+@app.post("/admin/delete_team")
+async def delete_team(
+    team_id: int = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin": raise HTTPException(status_code=403)
+    
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if team:
+        db.delete(team) # Cascades to team_members due to model setup
+        db.commit()
+        
     return RedirectResponse("/admin/manage_teams", status_code=303)
 
 @app.post("/admin/assign_member")
@@ -297,15 +327,15 @@ async def assign_team_member(
     if user.role != "admin": raise HTTPException(status_code=403)
 
     emp = db.query(User).filter(User.employee_id == employee_id).first()
-    team = db.query(Team).filter(Team.id == team_id).first()
     
-    if not emp or not team:
-        raise HTTPException(status_code=404, detail="Data not found")
-        
-    emp.current_team_id = team.id
-    db.commit()
-    return RedirectResponse("/admin/manage_teams", status_code=303)
+    # Check if already in team
+    exists = db.query(TeamMember).filter(TeamMember.user_id == emp.id, TeamMember.team_id == team_id).first()
+    if not exists:
+        new_member = TeamMember(user_id=emp.id, team_id=team_id)
+        db.add(new_member)
+        db.commit()
 
+    return RedirectResponse("/admin/manage_teams", status_code=303)
 #-----------------------------------------
 #ADMIN - PAYROLL UPDATE ROUTE
 #-----------------------------------------
@@ -349,12 +379,12 @@ async def employee_details(request: Request, employee_id: Optional[str] = None, 
         query = query.filter(User.name.ilike(f"%{name}%"))
     emp = query.first()
     if not emp:
-        return templates.TemplateResponse("admin/employee_details.html", {"request": request, "error": "Employee not found"})
+        return templates.TemplateResponse("admin/admin_employee_details.html", {"request": request, "error": "Employee not found"})
     # Calculate total time (sum durations)
     total_time = db.query(Attendance).filter(Attendance.employee_id == emp.employee_id).with_entities(
         Attendance.duration).all()
     total_hours = sum(d[0] for d in total_time if d[0])
-    return templates.TemplateResponse("admin/employee_details.html",
+    return templates.TemplateResponse("admin/admin_employee_details.html",
                                       {"request": request, "employee": emp, "total_hours": total_hours})
 
 #-----------------------------------------
@@ -452,11 +482,7 @@ async def admin_payroll(
     max_salary = max((p["salary"] for p in payroll_data), default=0)
 
     return templates.TemplateResponse(
-<<<<<<< HEAD:main.py
-        "admin_payroll.html",
-=======
         "admin/admin_payroll.html",
->>>>>>> sethu's-touch:app/main.py
         {
             "request": request,
             "user": user,
@@ -587,6 +613,145 @@ async def update_leave_status(request: Request,
     db.commit()
     return RedirectResponse("/admin/leave_requests", status_code=303)
 
+# ----------------------------------------
+# MANAGER DASHBOARD
+# ----------------------------------------
+
+@app.get("/manager/dashboard", response_class=HTMLResponse)
+async def manager_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "manager": raise HTTPException(status_code=403)
+
+    # 1. Projects in Manager's Department
+    projects = db.query(Project).filter(Project.department == user.department).all()
+    
+    # 2. Leave Requests from Department Members
+    # Join LeaveRequest with User to filter by User.department
+    leave_requests = db.query(LeaveRequest).join(User).filter(
+        User.department == user.department,
+        User.id != user.id # Don't show own requests here
+    ).all()
+
+    # 3. Teams in Department
+    teams = db.query(Team).filter(Team.department == user.department).all()
+
+    # 4. Check if Manager is ALSO a Team Leader
+    is_also_lead = db.query(Team).filter(Team.leader_id == user.id).first() is not None
+
+    return templates.TemplateResponse("manager_dashboard.html", {
+        "request": request,
+        "user": user,
+        "projects": projects,
+        "leave_requests": leave_requests,
+        "teams": teams,
+        "is_also_lead": is_also_lead
+    })
+
+@app.post("/manager/create_team")
+async def manager_create_team(
+    name: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "manager": raise HTTPException(status_code=403)
+    
+    # Manager can only create teams in THEIR department
+    new_team = Team(name=name, department=user.department)
+    db.add(new_team)
+    db.commit()
+    return RedirectResponse("/manager/dashboard", status_code=303)
+
+@app.post("/manager/approve_leave")
+async def manager_approve_leave(
+    leave_id: int = Form(...),
+    action: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "manager": raise HTTPException(status_code=403)
+    
+    leave = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
+    if leave:
+        leave.status = "Approved" if action == "approve" else "Rejected"
+        db.commit()
+    return RedirectResponse("/manager/dashboard", status_code=303)
+
+@app.post("/manager/create_project")
+async def create_project(
+    name: str = Form(...),
+    description: str = Form(""),
+    deadline: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "manager": raise HTTPException(status_code=403)
+
+    new_proj = Project(
+        name=name,
+        description=description,
+        department=user.department,
+        deadline=datetime.datetime.strptime(deadline, "%Y-%m-%d")
+    )
+    db.add(new_proj)
+    db.commit()
+    return RedirectResponse("/manager/dashboard", status_code=303)
+
+# ----------------------------------------
+# TEAM LEADER ROUTES (New Feature)
+# ----------------------------------------
+
+@app.get("/leader/dashboard", response_class=HTMLResponse)
+async def leader_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    # Allow Managers to access this if they are also leads, or standard Team Leads
+    if user.role != "team_lead" and user.role != "manager": 
+        raise HTTPException(status_code=403)
+    
+    # Get the team this user leads
+    my_team = db.query(Team).filter(Team.leader_id == user.id).first()
+    
+    # Get projects involving this team (logic: find projects where team members are assigned)
+    # Simplified: Get all projects in department for now
+    projects = db.query(Project).filter(Project.department == user.department).all()
+
+    return templates.TemplateResponse("leader_dashboard.html", {
+        "request": request,
+        "user": user,
+        "team": my_team,
+        "projects": projects
+    })
+
+@app.post("/leader/assign_task")
+async def assign_task(
+    project_id: int = Form(...),
+    title: str = Form(...),
+    deadline: str = Form(...),
+    assign_to_employee_id: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    # Check permissions
+    if user.role not in ["team_lead", "manager"]: raise HTTPException(status_code=403)
+
+    # Create Task
+    new_task = ProjectTask(
+        project_id=project_id,
+        title=title,
+        deadline=datetime.datetime.strptime(deadline, "%Y-%m-%d"),
+        status="pending"
+    )
+    db.add(new_task)
+    db.commit() # Commit to get ID
+
+    # Assign to User
+    assignment = ProjectTaskAssignee(
+        task_id=new_task.id,
+        employee_id=assign_to_employee_id
+    )
+    db.add(assignment)
+    db.commit()
+
+    return RedirectResponse("/leader/dashboard", status_code=303)
+
+
 
 # ----------------------------------------
 # EMPLOYEE DASHBOARD 
@@ -594,21 +759,22 @@ async def update_leave_status(request: Request,
 
 @app.get("/employee", response_class=HTMLResponse)
 async def employee_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    total_hours = db.query(func.sum(Attendance.duration)).filter(
-        Attendance.employee_id == user.employee_id
-        ).scalar() or 0
-    tasks = db.query(Task).filter(Task.user_id == user.employee_id).all()
-    return templates.TemplateResponse(
-        "employee/employee_dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "total_hours": round(total_hours, 2),
-            "tasks": tasks,
-            "leave_balance": 0,
-            "current_year": datetime.datetime.utcnow().year
-        }
-    )
+    # ... (Your existing logic) ...
+    total_hours = 0
+    tasks = [] 
+    return templates.TemplateResponse("employee/employee_dashboard.html", 
+                                      {
+                                        "request": request, 
+                                        "user": user, 
+                                        "total_hours": total_hours, 
+                                        "tasks": tasks, 
+                                        "current_year": 2026
+                                        }
+                                    )
+
+#-----------------------------------------
+#EMPLOYEE TEAM PAGE
+#----------------------------------------
 
 @app.get("/employee/team", response_class=HTMLResponse)
 async def employee_team(
@@ -616,31 +782,23 @@ async def employee_team(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    team = None
-    leader = None
-    members = []
-
-    # 1. If user is assigned to a team
+    led_teams = db.query(Team).filter(Team.leader_id == user.id).all()
+    membership_records = db.query(TeamMember).filter(TeamMember.user_id == user.id).all()
+    member_team_ids = [m.team_id for m in membership_records]
+    member_teams = db.query(Team).filter(Team.id.in_(member_team_ids)).all()
     if user.current_team_id:
-        team = db.query(Team).filter(Team.id == user.current_team_id).first()
-    
-    # 2. Or if user IS the leader (and maybe the team_id field wasn't set on them self)
-    if not team:
-        team = db.query(Team).filter(Team.leader_id == user.id).first()
-
-    if team:
-        leader = team.leader
-        # Convert relationship to list to avoid template issues
-        members = list(team.members)
+        primary_team = db.query(Team).filter(Team.id == user.current_team_id).first()
+        if primary_team:
+            member_teams.append(primary_team)
+    all_teams_dict = {t.id: t for t in led_teams + member_teams}
+    my_teams = list(all_teams_dict.values())
 
     return templates.TemplateResponse(
         "employee/employee_team.html",
         {
             "request": request,
             "user": user,
-            "team": team,
-            "leader": leader,
-            "members": members
+            "teams": my_teams  
         }
     )
 
@@ -790,7 +948,7 @@ async def employee_team(
             members = [m for m in members if m.id != leader.id]
 
     return templates.TemplateResponse(
-        "employee_team.html",
+        "employee/employee_team.html",
         {
             "request": request,
             "user": user,
@@ -859,83 +1017,87 @@ async def record_attendance(
     db: Session = Depends(get_db)
 ):
     GATE_ROOM_NO = "77"
-    user = db.query(User).filter(
-        User.rfid_tag == rfid_tag,
-        User.is_active == True
-    ).first()
+    
+    # 1. Find User
+    user = db.query(User).filter(User.rfid_tag == rfid_tag, User.is_active == True).first()
+    
     if not user:
         db.add(UnknownRFID(rfid_tag=rfid_tag, location=location_name))
         db.commit()
         return {"status": "unknown_rfid"}
+
     today = datetime.date.today()
     now = datetime.datetime.utcnow()
-    open_gate = db.query(Attendance).filter(
-        Attendance.employee_id == user.employee_id,
-        Attendance.room_no == GATE_ROOM_NO,
-        Attendance.exit_time == None
-    ).first()
-    open_block = db.query(Attendance).filter(
-        Attendance.employee_id == user.employee_id,
-        Attendance.room_no != GATE_ROOM_NO,
-        Attendance.exit_time == None
-    ).first()
-    if room_no == GATE_ROOM_NO:
-        if open_block:
-            open_block.exit_time = now
-            open_block.duration = round(
-                (now - open_block.entry_time).total_seconds() / 3600, 2
-            )
-        if open_gate:
-            open_gate.exit_time = now
-            open_gate.duration = round(
-                (now - open_gate.entry_time).total_seconds() / 3600, 2
-            )
-            db.commit()
-            return {"status": "gate_exited"}
-        gate_entry = Attendance(
-            employee_id=user.employee_id,
-            date=today,
-            entry_time=now,
-            status="PRESENT",
-            location_name=location_name,
-            room_no=GATE_ROOM_NO
-        )
-        db.add(gate_entry)
-        db.commit()
-        return {"status": "gate_entered"}
-    if not open_gate:
-        gate_entry = Attendance(
-            employee_id=user.employee_id,
-            date=today,
-            entry_time=now,
-            status="PRESENT",
-            location_name="Main Gate",
-            room_no=GATE_ROOM_NO
-        )
-        db.add(gate_entry)
-    if open_block and open_block.room_no == room_no:
-        open_block.exit_time = now
-        open_block.duration = round(
-            (now - open_block.entry_time).total_seconds() / 3600, 2
-        )
-        db.commit()
-        return {"status": "block_exited"}
-    if open_block:
-        open_block.exit_time = now
-        open_block.duration = round(
-            (now - open_block.entry_time).total_seconds() / 3600, 2
-        )
-    new_block = Attendance(
-        employee_id=user.employee_id,
-        date=today,
+
+    # --- NEW: WRITE TO DETAILED LOG ---
+    new_log = AttendanceLog(
+        user_id=user.id,
         entry_time=now,
-        status="PRESENT",
         location_name=location_name,
         room_no=room_no
     )
-    db.add(new_block)
+    db.add(new_log)
+
+    # --- NEW: UPDATE DAILY SUMMARY ---
+    daily_record = db.query(AttendanceDaily).filter(
+        AttendanceDaily.user_id == user.id,
+        AttendanceDaily.date == today
+    ).first()
+
+    if not daily_record:
+        # First swipe of the day
+        status = "PRESENT"
+        # Late logic (e.g., after 9:30 AM)
+        if now.time() > datetime.time(9, 30):
+            status = "LATE"
+        
+        daily_record = AttendanceDaily(
+            user_id=user.id,
+            date=today,
+            status=status,
+            check_in_time=now.time()
+        )
+        db.add(daily_record)
+    
+    # --- EXISTING LOGIC (For Dashboard Views) ---
+    # (Kept for backward compatibility with your existing dashboards)
+    
+    open_gate = db.query(Attendance).filter(Attendance.employee_id == user.employee_id, Attendance.room_no == GATE_ROOM_NO, Attendance.exit_time == None).first()
+    open_block = db.query(Attendance).filter(Attendance.employee_id == user.employee_id, Attendance.room_no != GATE_ROOM_NO, Attendance.exit_time == None).first()
+    
+    status_msg = "entry"
+
+    if room_no == GATE_ROOM_NO:
+        if open_block:
+            open_block.exit_time = now
+            open_block.duration = round((now - open_block.entry_time).total_seconds() / 3600, 2)
+        if open_gate:
+            open_gate.exit_time = now
+            open_gate.duration = round((now - open_gate.entry_time).total_seconds() / 3600, 2)
+            status_msg = "gate_exited"
+        else:
+            db.add(Attendance(employee_id=user.employee_id, date=today, entry_time=now, status="PRESENT", location_name=location_name, room_no=GATE_ROOM_NO))
+            status_msg = "gate_entered"
+    else:
+        # Block logic
+        if not open_gate:
+             db.add(Attendance(employee_id=user.employee_id, date=today, entry_time=now, status="PRESENT", location_name="Main Gate", room_no=GATE_ROOM_NO))
+        
+        if open_block and open_block.room_no == room_no:
+             # Re-swiping same room (exit)
+             open_block.exit_time = now
+             open_block.duration = round((now - open_block.entry_time).total_seconds() / 3600, 2)
+             status_msg = "block_exited"
+        else:
+            if open_block:
+                open_block.exit_time = now
+                open_block.duration = round((now - open_block.entry_time).total_seconds() / 3600, 2)
+            
+            db.add(Attendance(employee_id=user.employee_id, date=today, entry_time=now, status="PRESENT", location_name=location_name, room_no=room_no))
+            status_msg = "block_entered"
+
     db.commit()
-    return {"status": "block_entered"}
+    return {"status": status_msg}
 
 #----------------------------------------
 #API FOR PERSONS IN BLOCK
@@ -1056,12 +1218,9 @@ def scheduler_loop():
 
 @app.on_event("startup")
 def start_scheduler():
-    # 'interval' ensures it runs every 5 minutes
     scheduler.add_job(auto_assign_leaders, 'interval', minutes=5, id="leader_job")
     scheduler.start()
 
 @app.on_event("shutdown")
 def shutdown_scheduler():
     scheduler.shutdown()
-
-
