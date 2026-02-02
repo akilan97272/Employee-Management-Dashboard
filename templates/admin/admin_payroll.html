@@ -52,10 +52,10 @@
                     <tr class="border-b border-[var(--border)] text-[10px] font-black uppercase tracking-widest text-slate-400">
                         <th class="pb-4">Personnel</th>
                         <th class="pb-4 text-center">Base</th>
-                        <th class="pb-4 text-center">Allowances</th>
-                        <th class="pb-4 text-center">Deductions</th>
-                        <th class="pb-4 text-right">Net Value</th>
-                        <th class="pb-4 text-right">Action</th>
+                        <th class="pb-4 text-center">Leave Deduction</th>
+                        <th class="pb-4 text-center">Tax</th>
+                        <th class="pb-4 text-right">Net Salary</th>
+                        
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-[var(--border)]">
@@ -66,36 +66,23 @@
                             <p class="executive-mono text-[9px] text-slate-500 uppercase">ID: {{ p.employee_id }}</p>
                         </td>
                         
-                        <form method="post" action="/admin/update_salary" class="contents">
-                            <input type="hidden" name="employee_id" value="{{ p.employee_id }}">
-                            
-                            <td class="py-4 text-center">
-                                <input type="number" step="0.01" name="basic_salary" value="{{ p.basic_salary | default(0) }}" 
-                                       class="w-20 bg-[var(--bg)] border border-[var(--border)] p-1.5 text-xs font-bold text-center outline-none focus:border-blue-600">
-                            </td>
-                            
-                            <td class="py-4 text-center">
-                                <input type="number" step="0.01" name="allowances" value="{{ p.allowances | default(0) }}" 
-                                       class="w-20 bg-[var(--bg)] border border-[var(--border)] p-1.5 text-xs font-bold text-center outline-none focus:border-blue-600">
-                            </td>
-                            
-                            <td class="py-4 text-center">
-                                <input type="number" step="0.01" name="deductions" value="{{ p.deductions | default(0) }}" 
-                                       class="w-20 bg-[var(--bg)] border border-[var(--border)] p-1.5 text-xs font-bold text-center outline-none focus:border-red-600">
-                            </td>
-                            
-                            <td class="py-4 text-right">
-                                <span class="executive-mono font-bold text-blue-600">
-                                    ₹{{ (p.basic_salary | default(0) + p.allowances | default(0) - p.deductions | default(0)) | round(2) }}
-                                </span>
-                            </td>
-                            
-                            <td class="py-4 text-right">
-                                <button type="submit" class="px-3 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
-                                    Update
-                                </button>
-                            </td>
-                        </form>
+                          <td class="py-4 text-center">{{ p.base_salary | round(2) }}</td>
+
+                          <td class="py-4 text-center">-₹{{ p.leave_deduction | round(2) }}</td>
+
+                          <td class="py-4 text-center">-₹{{ p.tax | round(2) }}</td>
+
+                          <td class="py-4 text-right font-bold text-blue-600">₹{{ p.net_salary | round(2) }}</td>
+                    </tr>
+                    <tr>
+                      <td colspan="5" class="py-2">
+                        <div class="mt-4 p-4 bg-slate-50 border">
+                          <h4 class="font-bold text-sm">Salary Explanation</h4>
+                          <p class="text-xs text-slate-600">
+                            Salary reduced by ₹{{ p.leave_deduction | round(2) }} due to {{ p.unpaid_leaves }} unpaid leaves.
+                          </p>
+                        </div>
+                      </td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -107,8 +94,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-const labels = {{ payroll | map(attribute='name') | list | safe if payroll else [] }};
-const values = {{ payroll | map(attribute='salary') | list | safe if payroll else [] }};
+const labels = {{ (payroll | map(attribute='name') | list) | tojson }};
+const values = {{ (payroll | map(attribute='net_salary') | list) | tojson }};
 
 new Chart(document.getElementById('payrollChart'), {
   type: 'bar',

@@ -77,6 +77,13 @@
       <p><strong>Role:</strong> {{ employee.role }}</p>
       <p><strong>Department:</strong> {{ employee.department }}</p>
       <p><strong>Total Time:</strong> <span id="totalHours">—</span></p>
+      <div class="mt-4">
+        <form method="post" action="/admin/set_base_salary" class="flex items-center gap-2">
+          <input type="hidden" name="employee_id" value="{{ employee.employee_id }}">
+          <input type="number" name="base_salary" required class="p-2 border rounded w-36" placeholder="Base salary">
+          <button type="submit" class="px-3 py-2 bg-blue-600 text-white rounded">Save</button>
+        </form>
+      </div>
     </div>
   {% endif %}
 </div>
