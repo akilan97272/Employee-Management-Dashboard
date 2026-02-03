@@ -200,12 +200,36 @@
           </h2>
       </div>
       
-      <div class="flex items-center gap-6">
-        <div id="clock" class="executive-mono text-[var(--text-muted)]">00:00:00</div>
-        <button id="themeToggle" class="theme-btn flex items-center justify-center">
-          <i class="bi bi-moon" id="themeIcon"></i>
-        </button>
-      </div>
+    <div class="flex items-center gap-6">
+
+ <!-- CLOCK -->
+<div id="clock" class="executive-mono text-[var(--text-muted)]">00:00:00</div>
+
+{% if request.path.startswith('/employee') %}
+<!-- CHAT ICON -->
+<a href="/employee/chat"
+   class="relative w-10 h-10 flex items-center justify-center
+          border border-[var(--border)] 
+          hover:bg-[var(--text)] hover:text-[var(--bg)]
+          transition-all"
+   title="Chat">
+  <i class="bi bi-chat-dots"></i>
+
+  <!-- REAL unread badge -->
+  <span id="chatBadge"
+        class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px]
+               font-black px-1.5 py-0.5 rounded-full hidden">
+  </span>
+</a>
+{% endif %}
+
+<!-- THEME TOGGLE -->
+<button id="themeToggle"
+        class="theme-btn flex items-center justify-center">
+  <i class="bi bi-moon" id="themeIcon"></i>
+</button>
+
+
     </header>
 
     <section class="p-8 lg:p-12 flex-1">
@@ -254,6 +278,33 @@
             }
         });
     }
-  </script>
+    
+function updateChatBadge() {
+    fetch("/api/chat/unread-count")
+        .then(res => {
+            if (!res.ok) return;
+            return res.json();
+        })
+        .then(data => {
+            if (!data) return;
+            const badge = document.getElementById("chatBadge");
+            if (!badge) return;
+
+            if (data.count > 0) {
+                badge.textContent = data.count;
+                badge.classList.remove("hidden");
+            } else {
+                badge.classList.add("hidden");
+            }
+        })
+        .catch(() => {});
+}
+
+// poll every 5 seconds
+setInterval(updateChatBadge, 5000);
+updateChatBadge();
+</script>
+
+  
 </body>
 </html>

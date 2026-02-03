@@ -114,6 +114,35 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     # Use the imported default handler for all other errors
     return await http_exception_handler(request, exc)
 
+
+from chat_routes import router as chat_router
+app.include_router(chat_router)
+
+from auth_routes import router as auth_router
+app.include_router(auth_router)
+
+
+@app.get("/employee/chat", response_class=HTMLResponse)
+async def employee_chat(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    members = (
+        db.query(User)
+        .filter(User.id != user.id)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "employee/employee_chat.html",
+        {
+            "request": request,
+            "user": user,
+            "members": members
+        }
+    )
+
 # ----------------------------------------
 # ADMIN SELECT DASHBOARD
 # ----------------------------------------
@@ -771,6 +800,26 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
                                         "current_year": 2026
                                         }
                                     )
+
+
+from fastapi import Request, Depends
+from fastapi.responses import HTMLResponse
+
+@app.get("/employee/chat", response_class=HTMLResponse)
+async def employee_chat(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    return templates.TemplateResponse(
+        "employee/employee_chat.html",
+        {
+            "request": request,
+            "user": user,                 # 🔥 REQUIRED
+            "active_page": "chat",        # optional but safe
+            "chat_title": "HR Team"
+        }
+    )
+
 
 #-----------------------------------------
 #EMPLOYEE TEAM PAGE
