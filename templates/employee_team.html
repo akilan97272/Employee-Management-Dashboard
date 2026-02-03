@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto flex flex-col space-y-8">
+    
+    <div class="flex flex-col md:flex-row justify-between items-end border-b border-gray-500/10 pb-4">
+        <div>
+            <h2 class="text-3xl font-bold">My Squads</h2>
+            <p class="opacity-60 mt-1">You are part of <span class="font-bold text-blue-500">{{ teams|length }}</span> team(s)</p>
+        </div>
+    </div>
+
+    {% if teams %}
+        <div class="grid grid-cols-1 gap-12">
+            {% for team in teams %}
+            
+            <div class="neo-card p-0 overflow-hidden relative">
+                
+                <div class="p-6 bg-blue-50/50 dark:bg-gray-800/50 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
+                    <div>
+                        <h3 class="text-2xl font-bold text-blue-600">{{ team.name }}</h3>
+                        <span class="text-xs font-bold px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded uppercase tracking-wider">
+                            {{ team.department }}
+                        </span>
+                    </div>
+                    {% if team.leader_id == user.id %}
+                        <div class="neo-inset px-4 py-2 text-xs font-bold text-green-600 border border-green-200">
+                            <i class="fas fa-crown mr-1"></i> YOU ARE LEADER
+                        </div>
+                    {% else %}
+                        <div class="text-right">
+                            <div class="text-[10px] uppercase opacity-50 font-bold">Team Lead</div>
+                            <div class="font-bold text-sm">{{ team.leader.name if team.leader else "Unassigned" }}</div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <div class="p-6">
+                    <h4 class="text-sm font-bold opacity-60 uppercase mb-4">Team Roster</h4>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        
+                        {% set legacy_members = team.members %}
+                        {% set new_members = team.team_assignments %}
+                        
+                        {% set displayed_ids = [] %}
+
+                        {% if team.leader %}
+                        <div class="neo-inset p-3 flex items-center space-x-3 border-l-4 border-yellow-400">
+                            <div class="w-10 h-10 rounded-full bg-yellow-100 text-yellow-600 flex items-center justify-center">
+                                <i class="fas fa-user-tie"></i>
+                            </div>
+                            <div class="overflow-hidden">
+                                <div class="font-bold text-sm truncate">{{ team.leader.name }}</div>
+                                <div class="text-[10px] opacity-50">Team Lead</div>
+                            </div>
+                        </div>
+                        {% set _ = displayed_ids.append(team.leader.id) %}
+                        {% endif %}
+
+                        {% for member in legacy_members %}
+                            {% if member.id not in displayed_ids %}
+                                <div class="neo-inset p-3 flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center opacity-50">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="overflow-hidden">
+                                        <div class="font-bold text-sm truncate">{{ member.name }}</div>
+                                        <div class="text-[10px] opacity-50">{{ member.role }}</div>
+                                    </div>
+                                </div>
+                                {% set _ = displayed_ids.append(member.id) %}
+                            {% endif %}
+                        {% endfor %}
+
+                        {% for assignment in new_members %}
+                            {% if assignment.user.id not in displayed_ids %}
+                                <div class="neo-inset p-3 flex items-center space-x-3">
+                                    <div class="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center opacity-50">
+                                        <i class="fas fa-user"></i>
+                                    </div>
+                                    <div class="overflow-hidden">
+                                        <div class="font-bold text-sm truncate">{{ assignment.user.name }}</div>
+                                        <div class="text-[10px] opacity-50">{{ assignment.user.role }}</div>
+                                    </div>
+                                </div>
+                                {% set _ = displayed_ids.append(assignment.user.id) %}
+                            {% endif %}
+                        {% endfor %}
+
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="neo-card p-12 text-center flex flex-col items-center justify-center space-y-4">
+            <div class="text-6xl text-gray-300 dark:text-gray-700">
+                <i class="fas fa-users-slash"></i>
+            </div>
+            <h3 class="text-xl font-bold">No Active Teams</h3>
+            <p class="opacity-60 max-w-md">You are not currently assigned to any squads.</p>
+        </div>
+    {% endif %}
+
+</div>
+{% endblock %}

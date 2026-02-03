@@ -77,7 +77,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
 
     # ROLE BASED REDIRECTS
     if user.role == "admin":
-        return RedirectResponse("/admin/select_dashboard", status_code=303)
+        return RedirectResponse("/admin", status_code=303)
     elif user.role == "manager":
         return RedirectResponse("/manager/dashboard", status_code=303)
     elif user.role == "team_lead":
