@@ -184,7 +184,7 @@ async def login(request: Request, username: str = Form(...), password: str = For
     if user.role == "admin":
         return RedirectResponse("/admin/select_dashboard", status_code=303)
     elif user.role == "manager":
-        return RedirectResponse("/manager/dashboard", status_code=303)
+        return RedirectResponse("/employee", status_code=303)
     elif user.role == "team_lead":
         return RedirectResponse("/leader/dashboard", status_code=303)
     else:
@@ -218,6 +218,35 @@ async def custom_http_exception_handler(request: Request, exc: HTTPException):
     
     # Use the imported default handler for all other errors
     return await http_exception_handler(request, exc)
+
+
+from chat_routes import router as chat_router
+app.include_router(chat_router)
+
+from auth_routes import router as auth_router
+app.include_router(auth_router)
+
+
+@app.get("/employee/chat", response_class=HTMLResponse)
+async def employee_chat(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    members = (
+        db.query(User)
+        .filter(User.id != user.id)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "employee/employee_chat.html",
+        {
+            "request": request,
+            "user": user,
+            "members": members
+        }
+    )
 
 # ----------------------------------------
 # ADMIN SELECT DASHBOARD
@@ -784,7 +813,7 @@ async def manager_dashboard(request: Request, user: User = Depends(get_current_u
     # 4. Check if Manager is ALSO a Team Leader
     is_also_lead = db.query(Team).filter(Team.leader_id == user.id).first() is not None
 
-    return templates.TemplateResponse("manager_dashboard.html", {
+    return templates.TemplateResponse("/employee/employee_manager_dashboard.html", {
         "request": request,
         "user": user,
         "projects": projects,
@@ -859,7 +888,7 @@ async def leader_dashboard(request: Request, user: User = Depends(get_current_us
     # Simplified: Get all projects in department for now
     projects = db.query(Project).filter(Project.department == user.department).all()
 
-    return templates.TemplateResponse("leader_dashboard.html", {
+    return templates.TemplateResponse("employee/employee_leader_dashboard.html", {
         "request": request,
         "user": user,
         "team": my_team,
@@ -918,6 +947,26 @@ async def employee_dashboard(request: Request, user: User = Depends(get_current_
                                         "current_year": 2026
                                         }
                                     )
+
+
+from fastapi import Request, Depends
+from fastapi.responses import HTMLResponse
+
+@app.get("/employee/chat", response_class=HTMLResponse)
+async def employee_chat(
+    request: Request,
+    user: User = Depends(get_current_user)
+):
+    return templates.TemplateResponse(
+        "employee/employee_chat.html",
+        {
+            "request": request,
+            "user": user,                 # 🔥 REQUIRED
+            "active_page": "chat",        # optional but safe
+            "chat_title": "HR Team"
+        }
+    )
+
 
 #-----------------------------------------
 #EMPLOYEE TEAM PAGE

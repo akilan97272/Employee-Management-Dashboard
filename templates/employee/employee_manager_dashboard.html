@@ -1,0 +1,348 @@
+{% extends "common/layout_base.html" %}
+
+{% block page_title %}Operations Overview{% endblock %}
+
+{% block content %}
+<style>
+:root {
+  --primary: #0f172a;
+  --accent: #2563eb;
+  --glass-bg: rgba(255,255,255,0.6);
+  --glass-border: rgba(255,255,255,0.45);
+  --glass-stroke: rgba(255,255,255,0.8);
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+}
+
+/* BACKGROUND */
+body {
+  background:
+    radial-gradient(600px 400px at 10% 10%, rgba(255,255,255,.08), transparent),
+    radial-gradient(600px 400px at 90% 90%, rgba(255,255,255,.05), transparent),
+    #ffffff;
+  background-attachment: fixed;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: var(--text-main);
+}
+
+/* GLASS CARD */
+.ui-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(14px) saturate(180%);
+  -webkit-backdrop-filter: blur(14px) saturate(180%);
+  border: 1px solid var(--glass-border);
+  border-top: 1px solid var(--glass-stroke);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.4),
+    0 10px 30px rgba(0,0,0,.08);
+  transition: transform .35s cubic-bezier(.16,1,.3,1),
+              box-shadow .35s ease,
+              background .35s ease;
+}
+
+.ui-card:hover {
+  transform: translateY(-4px);
+  background: rgba(255,255,255,.72);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.6),
+    0 20px 50px rgba(0,0,0,.15);
+}
+
+/* HEADINGS */
+.heading-display {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  background: linear-gradient(135deg,#0f172a,#334155);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* LABEL */
+.label-caps {
+  font-size: .68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .12em;
+  color: var(--text-muted);
+}
+
+/* PRIMARY BUTTON */
+.btn-action {
+  background: linear-gradient(135deg,#2563eb,#1d4ed8);
+  color: #fff;
+  padding: .65rem 1.4rem;
+  border-radius: 12px;
+  font-weight: 600;
+  font-size: .875rem;
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  border: 1px solid rgba(255,255,255,.25);
+  transition: all .25s ease;
+}
+
+.btn-action:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 30px rgba(37,99,235,.4);
+}
+
+/* ACTION BUTTONS */
+.action-btn {
+  width: 46px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all .2s ease;
+  cursor: pointer;
+}
+
+.approve-btn {
+  background: linear-gradient(135deg,#2563eb,#1d4ed8);
+  color: white;
+  border: none;
+  box-shadow: 0 6px 16px rgba(37,99,235,.35);
+}
+
+.approve-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(37,99,235,.45);
+}
+
+.decline-btn {
+  background: rgba(239,68,68,.08);
+  color: #b91c1c;
+  border: 1.5px solid rgba(239,68,68,.55);
+}
+
+.decline-btn:hover {
+  background: rgba(239,68,68,.15);
+  border-color: #ef4444;
+}
+
+/* STATUS */
+.status-pill {
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: .65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.status-online {
+  background: rgba(34,197,94,.15);
+  color: #166534;
+  border: 1px solid rgba(34,197,94,.3);
+}
+
+/* PROGRESS */
+.progress-container {
+  height: 8px;
+  background: rgba(0,0,0,.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg,#3b82f6,#2563eb);
+  border-radius: 999px;
+  animation: progressGrow 1.2s cubic-bezier(.16,1,.3,1);
+}
+
+@keyframes progressGrow { from { width: 0; } }
+
+/* REVEAL */
+.reveal {
+  animation: revealUp .7s cubic-bezier(.16,1,.3,1) both;
+}
+
+@keyframes revealUp {
+  from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+</style>
+
+<div class="max-w-7xl mx-auto px-6 py-8 space-y-8">
+
+  <!-- HEADER -->
+  <header class="flex justify-between items-center reveal">
+    <h1 class="heading-display">Operations Overview</h1>
+    <button onclick="document.getElementById('createProjectModal').classList.remove('hidden')"
+            class="btn-action">
+      New Project
+    </button>
+  </header>
+
+  <!-- STATS -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-4 reveal">
+    <div class="ui-card p-5">
+      <p class="label-caps">Pending Approvals</p>
+      <p class="text-3xl font-black mt-2">
+        {{ leave_requests|selectattr("status","equalto","Pending")|list|length }}
+      </p>
+    </div>
+    <div class="ui-card p-5">
+      <p class="label-caps">Active Projects</p>
+      <p class="text-3xl font-black mt-2">{{ projects|length }}</p>
+    </div>
+    <div class="ui-card p-5">
+      <p class="label-caps">Assigned Teams</p>
+      <p class="text-3xl font-black mt-2">{{ teams|length }}</p>
+    </div>
+  </section>
+
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+
+    <!-- REVIEW QUEUE -->
+    <aside class="lg:col-span-4 reveal">
+      <div class="ui-card overflow-hidden">
+        <div class="p-4 border-b bg-white/20">
+          <h3 class="text-sm font-bold uppercase tracking-widest">Review Queue</h3>
+        </div>
+
+        <div class="divide-y max-h-[520px] overflow-y-auto">
+          {% for req in leave_requests if req.status == 'Pending' %}
+          <div class="p-4 hover:bg-white/40 transition">
+            <div class="flex justify-between mb-2">
+              <span class="font-bold text-sm">{{ req.user.name }}</span>
+              <span class="text-[10px] font-mono bg-white/50 px-2 py-0.5 rounded-full">
+                {{ req.start_date }}
+              </span>
+            </div>
+
+            <p class="text-xs italic text-slate-600 mb-4">"{{ req.reason }}"</p>
+
+            <form action="/manager/approve_leave"
+                  method="POST"
+                  class="flex gap-2 justify-end">
+              <input type="hidden" name="leave_id" value="{{ req.id }}">
+              <button name="action" value="approve" class="action-btn approve-btn">✓</button>
+              <button name="action" value="reject" class="action-btn decline-btn">✕</button>
+            </form>
+          </div>
+          {% else %}
+          <div class="py-16 text-center text-slate-400 text-xs">
+            No pending action items
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="lg:col-span-8 space-y-6 reveal">
+
+      <!-- PROJECTS -->
+      <div class="ui-card p-6">
+        <h3 class="text-lg font-bold mb-6">Active Portfolio</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {% for project in projects %}
+          {% set completed = project.tasks|selectattr("status","equalto","completed")|list|length %}
+          {% set total = project.tasks|length %}
+          {% set percent = (completed / total * 100)|int if total > 0 else 0 %}
+          <div class="p-4 bg-white/30 rounded-xl hover:bg-white/50 transition">
+            <div class="flex justify-between mb-3">
+              <span class="font-bold text-sm">{{ project.name }}</span>
+              <span class="text-xs font-bold text-blue-600">{{ percent }}%</span>
+            </div>
+            <div class="progress-container">
+              <div class="progress-fill" style="width: {{ percent }}%"></div>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <!-- TEAMS -->
+      <div class="ui-card overflow-hidden">
+        <div class="p-6 border-b bg-white/20 flex justify-between items-center">
+          <h3 class="text-lg font-bold">Resource Allocation</h3>
+          <span class="text-xs text-slate-500 font-semibold">Active Teams</span>
+        </div>
+
+<div class="px-6 py-3 grid grid-cols-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-400 border-b">
+
+  <!-- TEAM HEADER (offset for avatar width) -->
+  <div class="flex items-center gap-4">
+    <div class="opacity-0"></div> <!-- spacer for avatar -->
+    <span>Team</span>
+  </div>
+
+  <!-- LEAD HEADER (offset for avatar) -->
+  <div class="flex items-center gap-3">
+    <div class="opacity-0"></div> <!-- spacer for avatar -->
+    <span>Lead</span>
+  </div>
+
+  <!-- STATUS HEADER -->
+  <div class="flex justify-end ">
+    <span>Status</span>
+  </div>
+
+</div>
+
+
+
+        <div class="divide-y">
+          {% for team in teams %}
+          <div class="grid grid-cols-3 items-center px-6 py-5 hover:bg-white/40 transition">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center">
+                {{ team.name[0] }}
+              </div>
+              <div>
+                <p class="font-bold">{{ team.name }}</p>
+                <p class="text-xs text-slate-500">Team Unit</p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-slate-200 text-xs font-bold flex items-center justify-center">
+                {{ team.leader.name[0] if team.leader else "?" }}
+              </div>
+              <span class="text-sm">{{ team.leader.name if team.leader else "Unassigned" }}</span>
+            </div>
+
+            <div class="text-right">
+              <span class="status-pill status-online">Operational</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<!-- CREATE PROJECT MODAL (OUTSIDE MAIN – CORRECT) -->
+<div id="createProjectModal"
+     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+
+  <div class="ui-card w-full max-w-lg p-8 mx-4 reveal">
+    <h3 class="text-xl font-bold mb-6">Initiate New Project</h3>
+
+    <form action="/manager/create_project" method="POST" class="space-y-4">
+      <input type="text" name="name" placeholder="Project Name" required class="w-full px-4 py-3 rounded-xl border">
+      <textarea name="description" rows="3" placeholder="Description" class="w-full px-4 py-3 rounded-xl border"></textarea>
+      <input type="date" name="deadline" required class="w-full px-4 py-3 rounded-xl border">
+
+      <div class="flex justify-end gap-4 pt-6">
+        <button type="button"
+                onclick="document.getElementById('createProjectModal').classList.add('hidden')"
+                class="text-sm font-bold text-slate-500">
+          Cancel
+        </button>
+        <button type="submit" class="btn-action">Create Project</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
