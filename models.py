@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Date, ForeignKey, Time, Enum
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Date, ForeignKey, Time, Enum, UniqueConstraint
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -20,10 +20,13 @@ class User(Base):
     password_hash = Column(String(200), nullable=False)
     is_active = Column(Boolean, default=True)
 
-    # Payroll
+    # Payroll (industry-grade)
     hourly_rate = Column(Float, default=200.0)
+    base_salary = Column(Float, default=30000.0)
+    paid_leaves_allowed = Column(Integer, default=2)
     allowances = Column(Float, default=0.0)
     deductions = Column(Float, default=0.0)
+    tax_percentage = Column(Float, default=10.0)
 
     # Leadership Flags
     can_manage = Column(Boolean, default=False)
@@ -221,3 +224,27 @@ class Task(Base):
 
     # Relationship to access the user object
     user = relationship("User", back_populates="personal_tasks")
+
+
+class Payroll(Base):
+    __tablename__ = "payrolls"
+    id = Column(Integer, primary_key=True, index=True)
+    employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False, index=True)
+    month = Column(Integer, nullable=False)
+    year = Column(Integer, nullable=False)
+    present_days = Column(Integer, default=0)
+    leave_days = Column(Integer, default=0)
+    unpaid_leaves = Column(Integer, default=0)
+    base_salary = Column(Float, default=0.0)
+    leave_deduction = Column(Float, default=0.0)
+    tax = Column(Float, default=0.0)
+    allowances = Column(Float, default=0.0)
+    deductions = Column(Float, default=0.0)
+    net_salary = Column(Float, default=0.0)
+    explanation = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    locked = Column(Boolean, default=True)
+
+    __table_args__ = (
+        UniqueConstraint('employee_id', 'month', 'year', name='uix_employee_month_year'),
+    )

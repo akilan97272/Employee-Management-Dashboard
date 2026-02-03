@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from database import SessionLocal, get_db, engine, Base
 from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest, TeamMember
 from auth import authenticate_user, hash_password
-from sqlalchemy import func
+from sqlalchemy import func, extract
 import random
 import string
 import datetime
@@ -28,7 +28,7 @@ scheduler = BackgroundScheduler()
 from models import (
     User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, 
     Task, LeaveRequest, Team, Project, ProjectTask, ProjectAssignment, 
-    ProjectTaskAssignee, AttendanceLog, AttendanceDaily
+    ProjectTaskAssignee, AttendanceLog, AttendanceDaily, Payroll
 )
 from team_scheduler import auto_assign_leaders
 
@@ -62,6 +62,111 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+
+def calculate_monthly_payroll(db, emp, month, year):
+    # First, check for an existing persisted payroll for this employee/month/year
+    try:
+        existing = db.query(Payroll).filter(
+            Payroll.employee_id == emp.employee_id,
+            Payroll.month == month,
+            Payroll.year == year
+        ).first()
+    except Exception:
+        existing = None
+
+    if existing:
+        return {
+            "present_days": existing.present_days,
+            "leave_days": existing.leave_days,
+            "unpaid_leaves": existing.unpaid_leaves,
+            "base_salary": round(existing.base_salary, 2),
+            "leave_deduction": round(existing.leave_deduction, 2),
+            "tax": round(existing.tax, 2),
+            "net_salary": round(existing.net_salary, 2),
+            "explanation": existing.explanation,
+            "locked": bool(existing.locked),
+            "generated_at": existing.created_at
+        }
+
+    # 1️⃣ Present days (from AttendanceDaily)
+    present_days = db.query(func.count()).filter(
+        AttendanceDaily.user_id == emp.id,
+        AttendanceDaily.status.in_("PRESENT", "LATE") if False else AttendanceDaily.status.in_(["PRESENT", "LATE"]),
+        extract("month", AttendanceDaily.date) == month,
+        extract("year", AttendanceDaily.date) == year
+    ).scalar() or 0
+
+    # 2️⃣ Approved leaves
+    leave_days = db.query(func.count()).filter(
+        LeaveRequest.employee_id == emp.employee_id,
+        LeaveRequest.status == "Approved",
+        extract("month", LeaveRequest.start_date) == month,
+        extract("year", LeaveRequest.start_date) == year
+    ).scalar() or 0
+
+    # 3️⃣ Salary rules
+    WORKING_DAYS = 22
+    per_day_salary = (emp.base_salary or 0.0) / WORKING_DAYS if WORKING_DAYS else 0.0
+
+    unpaid_leaves = max(0, (leave_days or 0) - (emp.paid_leaves_allowed or 0))
+    leave_deduction = unpaid_leaves * per_day_salary
+
+    gross_salary = (emp.base_salary or 0.0) - leave_deduction
+    tax = gross_salary * ((emp.tax_percentage or 0.0) / 100.0)
+    allowances = getattr(emp, 'allowances', 0) or 0
+    deductions = getattr(emp, 'deductions', 0) or 0
+    net_salary = gross_salary - tax + allowances - deductions
+
+    # Explanation text for UI
+    base_salary_val = round(emp.base_salary or 0.0, 2)
+    leave_deduction_val = round(leave_deduction, 2)
+    tax_val = round(tax, 2)
+    tax_percentage = emp.tax_percentage or 0.0
+
+    explanation = f"""
+Base Salary: ₹{base_salary_val}
+Unpaid Leaves: {unpaid_leaves}
+Leave Deduction: ₹{leave_deduction_val}
+Tax ({tax_percentage}%): ₹{tax_val}
+"""
+
+    # Persist the generated payroll record so it's locked for future reads
+    payroll_rec = Payroll(
+        employee_id=emp.employee_id,
+        month=month,
+        year=year,
+        present_days=present_days,
+        leave_days=leave_days,
+        unpaid_leaves=unpaid_leaves,
+        base_salary=emp.base_salary or 0.0,
+        leave_deduction=leave_deduction,
+        tax=tax,
+        allowances=allowances,
+        deductions=deductions,
+        net_salary=round(net_salary, 2),
+        explanation=explanation,
+        locked=True
+    )
+    try:
+        db.add(payroll_rec)
+        db.commit()
+        db.refresh(payroll_rec)
+    except Exception:
+        db.rollback()
+
+    return {
+        "present_days": present_days,
+        "leave_days": leave_days,
+        "unpaid_leaves": unpaid_leaves,
+        "base_salary": base_salary_val,
+        "leave_deduction": leave_deduction_val,
+        "tax": tax_val,
+        "net_salary": round(net_salary, 2),
+        "explanation": explanation,
+        "locked": True,
+        "generated_at": payroll_rec.created_at if hasattr(payroll_rec, 'created_at') else None
+    }
 
 @app.get("/", response_class=HTMLResponse)
 async def login_page(request: Request):
@@ -233,6 +338,26 @@ async def remove_employee(request: Request, employee_id: str = Form(...), user: 
     db.commit()
     return {"status": "removed", "message": "Employee removed"}
 
+
+@app.post("/admin/set_base_salary")
+async def set_base_salary(
+    employee_id: str = Form(...),
+    base_salary: float = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403)
+
+    emp = db.query(User).filter(User.employee_id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    emp.base_salary = base_salary
+    db.commit()
+
+    return RedirectResponse("/admin/manage_employees", status_code=303)
+
 #-----------------------------------------
 #ADMIN - MANAGE EMPLOYEE ROUTE
 #-----------------------------------------
@@ -261,6 +386,57 @@ async def admin_manage_employees(request: Request,
         "search": search,
         "current_year": datetime.datetime.utcnow().year
         })
+
+@app.post("/admin/update_employee")
+async def admin_update_employee(request: Request,
+                                 employee_id: str = Form(...),
+                                 name: Optional[str] = Form(None),
+                                 email: Optional[str] = Form(None),
+                                 department: Optional[str] = Form(None),
+                                 role: Optional[str] = Form(None),
+                                 base_salary: Optional[float] = Form(None),
+                                 paid_leaves_allowed: Optional[int] = Form(None),
+                                 tax_percentage: Optional[float] = Form(None),
+                                 user: User = Depends(get_current_user),
+                                 db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    emp = db.query(User).filter(User.employee_id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    # Update editable fields if provided
+    if name is not None:
+        emp.name = name
+    if email is not None:
+        emp.email = email
+    if department is not None:
+        emp.department = department
+    if role is not None:
+        emp.role = role
+
+    # Payroll related fields
+    try:
+        if base_salary is not None:
+            emp.base_salary = float(base_salary)
+    except Exception:
+        pass
+
+    try:
+        if paid_leaves_allowed is not None:
+            emp.paid_leaves_allowed = int(paid_leaves_allowed)
+    except Exception:
+        pass
+
+    try:
+        if tax_percentage is not None:
+            emp.tax_percentage = float(tax_percentage)
+    except Exception:
+        pass
+
+    db.commit()
+    return RedirectResponse(url="/admin/manage_employees", status_code=303)
 
 # ----------------------------------------
 # ADMIN TEAM MANAGEMENT ROUTES
@@ -365,32 +541,7 @@ async def assign_team_member(
         db.commit()
 
     return RedirectResponse("/admin/manage_teams", status_code=303)
-#-----------------------------------------
-#ADMIN - PAYROLL UPDATE ROUTE
-#-----------------------------------------
-
-@app.post("/admin/update_salary")
-async def update_salary(
-    employee_id: str = Form(...),
-    basic_salary: float = Form(...),
-    allowances: float = Form(...),
-    deductions: float = Form(...),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
-    
-    emp = db.query(User).filter(User.employee_id == employee_id).first()
-    if not emp:
-        raise HTTPException(status_code=404, detail="Employee not found")
-    
-    emp.basic_salary = basic_salary
-    emp.allowances = allowances
-    emp.deductions = deductions
-    db.commit()
-    
-    return RedirectResponse("/admin/payroll", status_code=303)
+# (Payroll update route removed)
 
 #-----------------------------------------
 #ADMIN - EMPLOYEE DETAILS ROUTE
@@ -483,43 +634,39 @@ async def remove_room(request: Request, room_id: str = Form(...), user: User = D
 @app.get("/admin/payroll", response_class=HTMLResponse)
 async def admin_payroll(
     request: Request,
+    month: int = datetime.date.today().month,
+    year: int = datetime.date.today().year,
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     if user.role != "admin":
-        raise HTTPException(status_code=403, detail="Access denied")
+        raise HTTPException(status_code=403)
 
     employees = db.query(User).filter(User.is_active == True).all()
-    payroll_data = []
+    payroll = []
 
     for emp in employees:
-        total_hours = db.query(func.sum(Attendance.duration)).filter(
-            Attendance.employee_id == emp.employee_id
-        ).scalar() or 0
-
-        salary = total_hours * 200  # ₹200/hour
-
-        payroll_data.append({
+        data = calculate_monthly_payroll(db, emp, month, year)
+        payroll.append({
             "name": emp.name,
             "employee_id": emp.employee_id,
-            "total_hours": round(total_hours, 2),
-            "salary": round(salary, 2)
+            **data
         })
 
-    total_salary = sum(p["salary"] for p in payroll_data)
-    avg_salary = round(total_salary / len(payroll_data), 2) if payroll_data else 0
-    max_salary = max((p["salary"] for p in payroll_data), default=0)
+    total_salary = sum(p["net_salary"] for p in payroll)
+    avg_salary = round(total_salary / len(payroll), 2) if payroll else 0
+    max_salary = max((p["net_salary"] for p in payroll), default=0)
 
     return templates.TemplateResponse(
         "admin/admin_payroll.html",
         {
             "request": request,
             "user": user,
-            "payroll": payroll_data,
-            "total_salary": total_salary,
+            "payroll": payroll,
+            "total_salary": round(total_salary, 2),
             "avg_salary": avg_salary,
             "max_salary": max_salary,
-            "current_year": datetime.datetime.utcnow().year
+            "current_year": year
         }
     )
 
@@ -1024,6 +1171,10 @@ async def employee_payslips_page(request: Request,
                                            "current_year": current_year,
                                            "month": current_year,
                                            "year": current_year})
+    # Use the shared payroll engine
+    payroll = calculate_monthly_payroll(db, user, month, year)
+
+    # Keep total_hours for compatibility/diagnostics
     start_date = datetime.datetime(year, month, 1)
     end_date = datetime.datetime(year, month, monthrange(year, month)[1], 23, 59, 59)
     total_hours = db.query(func.sum(Attendance.duration)).filter(
@@ -1031,17 +1182,13 @@ async def employee_payslips_page(request: Request,
         Attendance.entry_time >= start_date,
         Attendance.entry_time <= end_date
     ).scalar() or 0
-    gross_salary = round(total_hours * 200, 2)
-    # Leave count
-    leave_count = db.query(func.count(LeaveRequest.id)).filter(
-        LeaveRequest.employee_id == user.employee_id,
-        LeaveRequest.status == "approved",
-        LeaveRequest.start_date >= start_date,
-        LeaveRequest.end_date <= end_date
-    ).scalar() or 0
-    leave_deduction = round(leave_count * 500, 2)   # ₹500 fine per leave
-    tax_deduction = round(gross_salary * 0.10, 2)
-    net_salary = round(gross_salary - leave_deduction - tax_deduction, 2)
+
+    # Map payroll values for the template (backwards-compatible keys)
+    gross_salary = payroll.get("base_salary")
+    leave_deduction = payroll.get("leave_deduction")
+    tax_deduction = payroll.get("tax")
+    net_salary = payroll.get("net_salary")
+
     return templates.TemplateResponse("employee/employee_payslips.html",
                                       {"request": request, "user": user,
                                        "computed": True,
@@ -1050,6 +1197,7 @@ async def employee_payslips_page(request: Request,
                                        "tax_deduction": tax_deduction,
                                        "leave_deduction": leave_deduction,
                                        "net_salary": net_salary,
+                                       "payroll": payroll,
                                        "current_year": current_year,
                                        "month": month,
                                        "year": year})
@@ -1260,6 +1408,45 @@ async def month_hours(user: User = Depends(get_current_user), db: Session = Depe
 # SCHEDULER SETUP
 # ----------------------------------------
 
+
+def mark_absent():
+    """Mark users with no AttendanceDaily record today as ABSENT.
+
+    This runs as a scheduled job (23:59 daily).
+    """
+    db = SessionLocal()
+    try:
+        today = datetime.date.today()
+
+        all_users = db.query(User).filter(User.is_active == True).all()
+        present_rows = db.query(AttendanceDaily.user_id).filter(
+            AttendanceDaily.date == today
+        ).all()
+
+        present_ids = {p[0] for p in present_rows}
+
+        for u in all_users:
+            if u.id not in present_ids:
+                # Ensure we don't duplicate if another process added it concurrently
+                exists = db.query(AttendanceDaily).filter(
+                    AttendanceDaily.user_id == u.id,
+                    AttendanceDaily.date == today
+                ).first()
+                if not exists:
+                    db.add(AttendanceDaily(
+                        user_id=u.id,
+                        date=today,
+                        status="ABSENT"
+                    ))
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
 def scheduler_loop():
     while True:
         auto_assign_leaders()
@@ -1268,6 +1455,8 @@ def scheduler_loop():
 @app.on_event("startup")
 def start_scheduler():
     scheduler.add_job(auto_assign_leaders, 'interval', minutes=5, id="leader_job")
+    # Schedule daily absent marking at 23:59
+    scheduler.add_job(mark_absent, 'cron', hour=23, minute=59, id="mark_absent_job")
     scheduler.start()
 
 @app.on_event("shutdown")
