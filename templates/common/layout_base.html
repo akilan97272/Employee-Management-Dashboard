@@ -120,7 +120,10 @@
         </a>
         <div class="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-4 mt-8 mb-2">Management</div>
         <a href="/admin/manage_employees" class="nav-link">
-          <i class="bi bi-people"></i> Manage Employees
+          <i class="bi bi-person"></i> Manage Employees
+        </a>
+         <a href="/admin/manage_teams" class="nav-link">
+          <i class="bi bi-people"></i> Manage Teams
         </a>
         <a href="/admin/leave_requests" class="nav-link justify-between">
           <div class="flex items-center gap-3"><i class="bi bi-calendar-check"></i> <span>Leave Approvals</span></div>
@@ -138,6 +141,11 @@
         <a href="/employee" class="nav-link {% if active_page == 'dashboard' %}active{% endif %}">
           <i class="bi bi-grid-1x2"></i> Dashboard
         </a>
+        {% if user.role == 'manager' %}
+         <a href="/manager/dashboard" class="nav-link">
+          <i class="bi bi-globe2"></i> Operations
+        </a>
+        {% endif %}
         <a href="/employee/attendance" class="nav-link">
           <i class="bi bi-stopwatch"></i> Attendance
         </a>
@@ -220,6 +228,18 @@
         class="absolute -top-1 -right-1 bg-red-500 text-white text-[9px]
                font-black px-1.5 py-0.5 rounded-full hidden">
   </span>
+</a>
+{% endif %}
+{% if request.path.startswith('/admin') %}
+<!-- CHAT ICON -->
+<a href="/admin/settings"
+   class="relative w-10 h-10 flex items-center justify-center
+          border border-[var(--border)] 
+          hover:bg-[var(--text)] hover:text-[var(--bg)]
+          transition-all"
+   title="Settings">
+  <i class="bi bi-gear"></i>
+
 </a>
 {% endif %}
 
