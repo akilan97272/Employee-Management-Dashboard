@@ -1,0 +1,65 @@
+{% extends "admin/admin_base.html" %}
+{% block content %}
+
+<h2>Performance Matrix</h2>
+
+/admin/performance/add" method="post">
+
+    <label>Employee ID</label>
+    <input type="text" name="employee_id" required>
+
+    <label>Overall Rating (1-5)</label>
+    <input type="number" name="rating" min="1" max="5" step="0.1">
+
+    <label>Communication</label>
+    <input type="number" name="communication" min="1" max="5" step="0.1">
+
+    <label>Teamwork</label>
+    <input type="number" name="teamwork" min="1" max="5" step="0.1">
+
+    <label>Productivity</label>
+    <input type="number" name="productivity" min="1" max="5" step="0.1">
+
+    <label>Punctuality</label>
+    <input type="number" name="punctuality" min="1" max="5" step="0.1">
+
+    <label>Review Period (e.g. 2024-Q1)</label>
+    <input type="text" name="review_period">
+
+    <label>Remarks</label>
+    <textarea name="remarks"></textarea>
+
+    <button type="submit">Submit</button>
+</form>
+
+<hr>
+
+<h3>Previous Performance Records</h3>
+
+<table border="1" width="100%">
+    <tr>
+        <th>Employee</th>
+        <th>Rating</th>
+        <th>Communication</th>
+        <th>Teamwork</th>
+        <th>Productivity</th>
+        <th>Punctuality</th>
+        <th>Period</th>
+        <th>Date</th>
+    </tr>
+
+    {% for r in records %}
+    <tr>
+        <td>{{ r.employee_id }}</td>
+        <td>{{ r.rating }}</td>
+        <td>{{ r.communication }}</td>
+        <td>{{ r.teamwork }}</td>
+        <td>{{ r.productivity }}</td>
+        <td>{{ r.punctuality }}</td>
+        <td>{{ r.review_period }}</td>
+        <td>{{ r.created_at }}</td>
+    </tr>
+    {% endfor %}
+</table>
+
+{% endblock %}
