@@ -70,7 +70,7 @@
             <td class="py-5 text-right">
               <form method="post" action="/admin/resolve_rfid"
                     class="inline-block"
-                    onsubmit="return confirm('Archive this alert as resolved?')">
+                    data-confirm="Archive this alert as resolved?">
                 <input type="hidden" name="rfid_tag" value="{{ r.rfid_tag }}">
                 <button class="px-5 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all">
                   Resolve

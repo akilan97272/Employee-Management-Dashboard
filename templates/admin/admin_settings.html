@@ -14,6 +14,7 @@
             </div>
         </div>
         <div class="flex items-center gap-6 mt-6 md:mt-0">
+            <a href="/admin/email_settings" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest">Email Settings</a>
             <div class="text-right border-r border-slate-700 pr-6">
                 <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Global Index</p>
                 <p class="text-xl font-black text-white">{{ departments|length + rooms|length }} Total Entities</p>
@@ -100,7 +101,7 @@
                             <div class="w-12 h-12 bg-slate-900 text-white flex items-center justify-center font-black text-xs mb-4">
                                 {{ room.room_no }}
                             </div>
-                            <form action="/admin/remove_room" method="POST" onsubmit="return confirm('Decommission asset?');">
+                            <form action="/admin/remove_room" method="POST" data-confirm="Decommission asset?">
                                 <input type="hidden" name="room_id" value="{{ room.room_id }}">
                                 <button type="submit" class="text-slate-200 hover:text-red-600 transition-colors">
                                     <i class="bi bi-trash3-fill text-lg"></i>

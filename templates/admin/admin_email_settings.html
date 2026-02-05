@@ -1,0 +1,42 @@
+{% extends "common/layout_base.html" %}
+
+{% block title %}Email Settings | TeamSync{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto space-y-6">
+  <div class="bg-slate-900 p-6 rounded-2xl text-white">
+    <h1 class="text-2xl font-black uppercase tracking-widest">Email Settings</h1>
+    <p class="text-xs text-slate-300 mt-2">Configure Gmail SMTP. Typical limit: ~120–150 emails/day.</p>
+  </div>
+
+  <form action="/admin/email_settings" method="POST" class="bg-white border border-slate-200 rounded-2xl p-6 space-y-4">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">SMTP User</label>
+        <input name="smtp_user" value="{{ smtp_user }}" class="w-full mt-2 border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="your@gmail.com">
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">SMTP From</label>
+        <input name="smtp_from" value="{{ smtp_from }}" class="w-full mt-2 border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="your@gmail.com">
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">SMTP Password (App Password)</label>
+        <input type="password" name="smtp_pass" class="w-full mt-2 border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="Leave blank to keep current">
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">SMTP Host</label>
+        <input name="smtp_host" value="{{ smtp_host }}" class="w-full mt-2 border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="smtp.gmail.com">
+      </div>
+      <div>
+        <label class="text-[10px] font-black uppercase tracking-widest text-slate-500">SMTP Port</label>
+        <input name="smtp_port" value="{{ smtp_port }}" class="w-full mt-2 border border-slate-200 rounded-lg px-3 py-2 text-sm" placeholder="465">
+      </div>
+    </div>
+
+    <div class="flex justify-end gap-2 pt-4">
+      <a href="/admin/settings" class="px-4 py-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-sm font-semibold">Back</a>
+      <button type="submit" class="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold">Save</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
