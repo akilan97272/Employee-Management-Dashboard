@@ -5,18 +5,29 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from database import SessionLocal, get_db, engine, Base
 from models import User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, Task, LeaveRequest, TeamMember
+from email_service import (
+    send_welcome_email,
+    send_leave_requested_email,
+    send_leave_status_email,
+    send_bulk_meeting_invites
+)
 from auth import authenticate_user, hash_password
-from sqlalchemy import func, extract
+from sqlalchemy import func, extract, or_
 import random
 import string
 import datetime
-from typing import Optional
+import hashlib
+import secrets
+import os
+from pathlib import Path
+from typing import Optional, List
 from calendar import monthrange
 from team_scheduler import auto_assign_leaders
 from threading import Thread
 import time
 from database import get_team_info
 from apscheduler.schedulers.background import BackgroundScheduler
+import chat_store
 # Ensure these are imported from your models
 from models import Team, User
 from fastapi.exception_handlers import http_exception_handler
@@ -28,9 +39,10 @@ scheduler = BackgroundScheduler()
 from models import (
     User, Attendance, RemovedEmployee, UnknownRFID, Room, Department, 
     Task, LeaveRequest, Team, Project, ProjectTask, ProjectAssignment, 
-    ProjectTaskAssignee, AttendanceLog, AttendanceDaily, Payroll
+    ProjectTaskAssignee, AttendanceLog, AttendanceDaily, Payroll, OfficeHoliday, Meeting, ProjectMeetingAssignee, MeetingAttendance, CalendarEvent
 )
 from team_scheduler import auto_assign_leaders
+from calendar_routes import register_calendar_routes
 
 # Setup
 Base.metadata.create_all(bind=engine)
@@ -44,7 +56,6 @@ scheduler = BackgroundScheduler()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
-
 
 # Session middleware (simple in-memory for demo; use proper sessions in prod)
 
@@ -62,6 +73,50 @@ def get_current_user(request: Request, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
     return user
+
+# Register calendar routes (after get_current_user is defined)
+register_calendar_routes(app, templates, get_current_user)
+
+
+ENV_PATH = Path(".env")
+
+
+def load_env_file(path: Path) -> dict:
+    data = {}
+    if not path.exists():
+        return data
+    for line in path.read_text(encoding="utf-8").splitlines():
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        data[key.strip()] = value.strip().strip('"')
+    return data
+
+
+def update_env_file(path: Path, updates: dict) -> None:
+    lines = path.read_text(encoding="utf-8").splitlines() if path.exists() else []
+    updated_keys = set()
+    new_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        if not stripped or stripped.startswith("#") or "=" not in line:
+            new_lines.append(line)
+            continue
+        key, _ = line.split("=", 1)
+        key = key.strip()
+        if key in updates:
+            new_lines.append(f"{key}={updates[key]}")
+            updated_keys.add(key)
+        else:
+            new_lines.append(line)
+
+    for key, value in updates.items():
+        if key not in updated_keys:
+            new_lines.append(f"{key}={value}")
+
+    path.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
 def calculate_monthly_payroll(db, emp, month, year):
@@ -204,8 +259,13 @@ async def logout(request: Request):
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
-    # Only apply to protected routes (admin and employee)
-    if request.url.path.startswith("/admin") or request.url.path.startswith("/employee"):
+    path = request.url.path
+    # Avoid caching for all protected app pages
+    if not (
+        path == "/" or
+        path.startswith("/static") or
+        path.startswith("/auth")
+    ):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"
         response.headers["Expires"] = "0"
@@ -279,6 +339,21 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
 async def add_employee(request: Request, name: str = Form(...), email: str = Form(...), rfid_tag: str = Form(...),
                        role: str = Form(...), department: str = Form(...), user: User = Depends(get_current_user),
                        db: Session = Depends(get_db)):
+    # Check if name already exists
+    existing_name = db.query(User).filter(User.name == name).first()
+    if existing_name:
+        raise HTTPException(status_code=400, detail=f"Name '{name}' already exists in the system")
+    
+    # Check if email already exists
+    existing_email = db.query(User).filter(User.email == email).first()
+    if existing_email:
+        raise HTTPException(status_code=400, detail=f"Email '{email}' already exists in the system")
+    
+    # Check if RFID tag already exists
+    existing_rfid = db.query(User).filter(User.rfid_tag == rfid_tag).first()
+    if existing_rfid:
+        raise HTTPException(status_code=400, detail=f"RFID tag '{rfid_tag}' is already assigned to another employee")
+    
     prefix = {"IT": "2261", "HR": "2262", "Finance": "2263"}.get(department, "2260")   # to create a defined id instead of manual entry
     max_emp = db.query(User).filter(User.employee_id.like(f"{prefix}%")).order_by(User.employee_id.desc()).first()
     if max_emp and len(max_emp.employee_id) > 4:
@@ -297,6 +372,7 @@ async def add_employee(request: Request, name: str = Form(...), email: str = For
                     department=department, password_hash=password_hash)
     db.add(new_user)
     db.commit()
+    send_welcome_email(email, name, employee_id, password)
     return {"employee_id": employee_id, "password": password}
 
 #----------------------------------------
@@ -317,6 +393,54 @@ async def admin_settings_page(request: Request, user: User = Depends(get_current
         "rooms": rooms, 
         "departments": departments
     })
+
+
+@app.get("/admin/email_settings", response_class=HTMLResponse)
+async def admin_email_settings_page(request: Request, user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    env_data = load_env_file(ENV_PATH)
+    return templates.TemplateResponse("admin/admin_email_settings.html", {
+        "request": request,
+        "user": user,
+        "smtp_user": env_data.get("SMTP_USER", os.getenv("SMTP_USER", "")),
+        "smtp_from": env_data.get("SMTP_FROM", os.getenv("SMTP_FROM", "")),
+        "smtp_host": env_data.get("SMTP_HOST", os.getenv("SMTP_HOST", "smtp.gmail.com")),
+        "smtp_port": env_data.get("SMTP_PORT", os.getenv("SMTP_PORT", "465"))
+    })
+
+
+@app.post("/admin/email_settings")
+async def admin_email_settings_save(
+    request: Request,
+    smtp_user: str = Form(""),
+    smtp_from: str = Form(""),
+    smtp_pass: str = Form(""),
+    smtp_host: str = Form("smtp.gmail.com"),
+    smtp_port: str = Form("465"),
+    user: User = Depends(get_current_user)
+):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+
+    env_data = load_env_file(ENV_PATH)
+    updates = {
+        "SMTP_USER": smtp_user.strip(),
+        "SMTP_FROM": smtp_from.strip(),
+        "SMTP_HOST": smtp_host.strip() or "smtp.gmail.com",
+        "SMTP_PORT": smtp_port.strip() or "465"
+    }
+    if smtp_pass.strip():
+        updates["SMTP_PASS"] = smtp_pass.strip()
+    else:
+        updates["SMTP_PASS"] = env_data.get("SMTP_PASS", os.getenv("SMTP_PASS", ""))
+
+    update_env_file(ENV_PATH, updates)
+    for key, value in updates.items():
+        os.environ[key] = value
+
+    return RedirectResponse("/admin/email_settings", status_code=303)
 
 #-----------------------------------------
 #ADMIN - REMOVE EMPLOYEE ROUTE
@@ -772,6 +896,10 @@ async def admin_leave_page(request: Request, user: User = Depends(get_current_us
                                       {"request": request, "user": user, "pending": pending,
                                        "current_year": datetime.datetime.utcnow().year})
 
+
+# ----------------------------------------
+
+
 @app.post("/admin/leave/update")
 async def update_leave_status(request: Request,
                               leave_id: int = Form(...),
@@ -787,6 +915,16 @@ async def update_leave_status(request: Request,
 
     leave.status = "Approved" if action == "approve" else "Rejected"
     db.commit()
+    employee = db.query(User).filter(User.employee_id == leave.employee_id).first()
+    if employee and employee.email:
+        send_leave_status_email(
+            employee.email,
+            employee.name,
+            str(leave.start_date),
+            str(leave.end_date),
+            leave.reason,
+            leave.status
+        )
     return RedirectResponse("/admin/leave_requests", status_code=303)
 
 # ----------------------------------------
@@ -812,6 +950,14 @@ async def manager_dashboard(request: Request, user: User = Depends(get_current_u
 
     # 4. Check if Manager is ALSO a Team Leader
     is_also_lead = db.query(Team).filter(Team.leader_id == user.id).first() is not None
+    # 5. Upcoming meetings created by this manager (for quick view)
+    now = datetime.datetime.now()
+    meetings = (
+        db.query(Meeting)
+        .filter(Meeting.created_by == user.id, Meeting.meeting_datetime >= now)
+        .order_by(Meeting.meeting_datetime.asc())
+        .all()
+    )
 
     return templates.TemplateResponse("/employee/employee_manager_dashboard.html", {
         "request": request,
@@ -819,61 +965,377 @@ async def manager_dashboard(request: Request, user: User = Depends(get_current_u
         "projects": projects,
         "leave_requests": leave_requests,
         "teams": teams,
-        "is_also_lead": is_also_lead
+        "is_also_lead": is_also_lead,
+        "employees": db.query(User).filter(User.department == user.department).all(),
+        "meetings": meetings,
     })
 
-@app.post("/manager/create_team")
-async def manager_create_team(
-    name: str = Form(...),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if user.role != "manager": raise HTTPException(status_code=403)
-    
-    # Manager can only create teams in THEIR department
-    new_team = Team(name=name, department=user.department)
-    db.add(new_team)
-    db.commit()
-    return RedirectResponse("/manager/dashboard", status_code=303)
 
-@app.post("/manager/approve_leave")
-async def manager_approve_leave(
-    leave_id: int = Form(...),
-    action: str = Form(...),
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    if user.role != "manager": raise HTTPException(status_code=403)
-    
-    leave = db.query(LeaveRequest).filter(LeaveRequest.id == leave_id).first()
-    if leave:
-        leave.status = "Approved" if action == "approve" else "Rejected"
-        db.commit()
-    return RedirectResponse("/manager/dashboard", status_code=303)
-
-@app.post("/manager/create_project")
-async def create_project(
-    name: str = Form(...),
+@app.post("/manager/create_meeting")
+async def create_meeting(
+    title: str = Form(...),
     description: str = Form(""),
-    deadline: str = Form(...),
+    meeting_datetime: str = Form(...),
+    project_id: Optional[int] = Form(None),
+    assignees: Optional[str] = Form(None),  # Changed to string to receive comma-separated values
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    try:
+        mdt = datetime.datetime.fromisoformat(meeting_datetime)
+    except Exception:
+        try:
+            mdt = datetime.datetime.strptime(meeting_datetime, "%Y-%m-%dT%H:%M")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid datetime")
+
+    # Generate unique Jitsi room name with timestamp + secure random hex
+    # Each meeting gets a completely new unique link
+    timestamp = datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[:17]  # Include microseconds for uniqueness
+    random_suffix = secrets.token_hex(4)  # 8-character secure random hex
+    room_name = f"meeting_{timestamp}_{random_suffix}"
+    
+    # You can customize your Jitsi server URL here
+    # For self-hosted: "https://your-jitsi-domain.com/"
+    # For Jitsi Meet: "https://meet.jit.si/"
+    jitsi_server = "https://meet.jit.si/"
+    meeting_link = f"{jitsi_server}{room_name}"
+
+    new_meeting = Meeting(
+        project_id=project_id,
+        title=title,
+        description=description,
+        meeting_datetime=mdt,
+        created_by=user.id,
+        meeting_link=meeting_link,
+        room_name=room_name
+    )
+    db.add(new_meeting)
+    db.commit()
+    db.refresh(new_meeting)
+
+    # Parse assignees from comma-separated string
+    hashes = []
+    assignee_user_ids = []
+    assignee_list = []
+    if assignees and assignees.strip():
+        # Split comma-separated employee IDs
+        assignee_list = [emp_id.strip() for emp_id in assignees.split(',') if emp_id.strip()]
+
+    # Ensure creator is included in the assignees list
+    if user.employee_id and user.employee_id not in assignee_list:
+        assignee_list.append(user.employee_id)
+
+    recipients = []
+    if assignee_list:
+        for emp_id in assignee_list:
+            try:
+                pm = ProjectMeetingAssignee(meeting_id=new_meeting.id, employee_id=emp_id)
+                db.add(pm)
+                # find user to collect hash
+                u = db.query(User).filter(User.employee_id == emp_id).first()
+                if u and hasattr(u, 'employee_id_hash') and u.employee_id_hash:
+                    hashes.append(u.employee_id_hash)
+                    assignee_user_ids.append(u.id)
+                if u and u.email:
+                    recipients.append({"email": u.email, "name": u.name})
+            except Exception as e:
+                print(f"Error adding assignee {emp_id}: {e}")
+                continue
+        db.commit()
+    
+    # Send meeting notification to all assignees via chat
+    meeting_msg = f"📅 Meeting Invitation: {title}\n⏰ {mdt.strftime('%Y-%m-%d %H:%M')}\n📝 {description}\n\nHost: {user.name} ({user.employee_id})"
+    for assignee_id in assignee_user_ids:
+        try:
+            chat_store.add_message(user.id, assignee_id, meeting_msg)
+        except Exception:
+            pass
+
+    if recipients:
+        send_bulk_meeting_invites(
+            recipients,
+            title,
+            mdt.strftime("%b %d, %Y %I:%M %p"),
+            f"{user.name} ({user.employee_id})",
+            meeting_link
+        )
+
+    # Create a CalendarEvent with target_employee_hashes so assignees see the meeting
+    try:
+        unique_hashes = sorted(set(hashes))
+        target_hashes = "," + ",".join(unique_hashes) + "," if unique_hashes else None
+        cal_event = CalendarEvent(
+            user_id=user.id,
+            event_date=mdt.date(),
+            title=title,
+            notes=description,
+            event_type="meeting",
+            target_employee_hashes=target_hashes
+        )
+        db.add(cal_event)
+        db.commit()
+    except Exception:
+        db.rollback()
+
+    return RedirectResponse("/manager/dashboard", status_code=303)
+
+
+@app.get("/manager/meetings", response_class=HTMLResponse)
+async def manager_meetings_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    meetings = (
+        db.query(Meeting)
+        .filter(Meeting.created_by == user.id)
+        .order_by(Meeting.meeting_datetime.desc())
+        .all()
+    )
+
+    meeting_cards = []
+    for meeting in meetings:
+        assignees_q = (
+            db.query(User)
+            .join(ProjectMeetingAssignee, User.employee_id == ProjectMeetingAssignee.employee_id)
+            .filter(ProjectMeetingAssignee.meeting_id == meeting.id)
+            .all()
+        )
+        assignee_map = {emp.employee_id: emp for emp in assignees_q}
+
+        creator = db.query(User).filter(User.id == meeting.created_by).first()
+        if creator and creator.employee_id:
+            assignee_map.setdefault(creator.employee_id, creator)
+
+        assignees = ", ".join(
+            [f"{emp.name} ({emp.employee_id})" for emp in assignee_map.values()]
+        )
+
+        attended_users = (
+            db.query(User)
+            .join(MeetingAttendance, User.employee_id == MeetingAttendance.employee_id)
+            .filter(MeetingAttendance.meeting_id == meeting.id)
+            .all()
+        )
+        attended_ids = {u.employee_id for u in attended_users if u.employee_id}
+
+        invited_ids = set(assignee_map.keys())
+        not_attended_ids = invited_ids - attended_ids
+
+        attended_names = [
+            f"{u.name} ({u.employee_id})" for u in attended_users if u.employee_id in invited_ids
+        ]
+        not_attended_names = [
+            f"{assignee_map[emp_id].name} ({emp_id})" for emp_id in not_attended_ids if emp_id in assignee_map
+        ]
+
+        project_name = "No project"
+        if meeting.project_id:
+            project = db.query(Project).filter(Project.id == meeting.project_id).first()
+            if project:
+                project_name = project.name
+
+        now = datetime.datetime.now()
+        meeting_time = meeting.meeting_datetime
+        status = "Completed"
+        if meeting_time:
+            if meeting_time > now:
+                status = "Upcoming"
+            elif meeting_time <= now <= meeting_time + datetime.timedelta(hours=1):
+                status = "Ongoing"
+
+        organizer_label = "-"
+        if creator and creator.employee_id:
+            organizer_label = f"{creator.name} ({creator.employee_id})"
+
+        attendee_only_ids = [emp_id for emp_id in assignee_map.keys() if not creator or emp_id != creator.employee_id]
+        attendee_only_names = [
+            f"{assignee_map[emp_id].name} ({emp_id})" for emp_id in attendee_only_ids if emp_id in assignee_map
+        ]
+
+        meeting_cards.append({
+            "id": meeting.id,
+            "title": meeting.title,
+            "description": meeting.description or "",
+            "meeting_datetime": meeting.meeting_datetime.strftime("%b %d, %Y %I:%M %p") if meeting.meeting_datetime else "",
+            "meeting_datetime_input": meeting.meeting_datetime.strftime("%Y-%m-%dT%H:%M") if meeting.meeting_datetime else "",
+            "meeting_link": meeting.meeting_link or "",
+            "project_name": project_name,
+            "assignees": assignees or "No attendees",
+            "organizer": organizer_label,
+            "attendees": ", ".join(attendee_only_names) or "No attendees",
+            "attended": ", ".join(attended_names) or "None yet",
+            "not_attended": ", ".join(not_attended_names) or "All attended",
+            "status": status
+        })
+
+    return templates.TemplateResponse("employee/employee_manager_meetings.html", {
+        "request": request,
+        "user": user,
+        "meetings": meeting_cards
+    })
+
+
+@app.post("/manager/meeting/update")
+async def update_meeting(
+    meeting_id: int = Form(...),
+    title: str = Form(...),
+    description: str = Form(""),
+    meeting_datetime: str = Form(...),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    if user.role != "manager": raise HTTPException(status_code=403)
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
 
-    new_proj = Project(
-        name=name,
-        description=description,
-        department=user.department,
-        deadline=datetime.datetime.strptime(deadline, "%Y-%m-%d")
-    )
-    db.add(new_proj)
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting or meeting.created_by != user.id:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    try:
+        mdt = datetime.datetime.fromisoformat(meeting_datetime)
+    except Exception:
+        try:
+            mdt = datetime.datetime.strptime(meeting_datetime, "%Y-%m-%dT%H:%M")
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid datetime")
+
+    meeting.title = title
+    meeting.description = description
+    meeting.meeting_datetime = mdt
     db.commit()
+
+    return RedirectResponse("/manager/meetings", status_code=303)
+
+
+@app.post("/manager/meeting/delete")
+async def delete_meeting(
+    meeting_id: int = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting or meeting.created_by != user.id:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    db.query(ProjectMeetingAssignee).filter(ProjectMeetingAssignee.meeting_id == meeting.id).delete(synchronize_session=False)
+    db.delete(meeting)
+    db.commit()
+
+    return RedirectResponse("/manager/meetings", status_code=303)
+
+
+@app.post("/manager/create_task")
+async def create_task(
+    title: str = Form(...),
+    description: str = Form(""),
+    priority: str = Form("medium"),
+    due_date: Optional[str] = Form(None),
+    assignees: Optional[List[str]] = Form(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    due_dt = None
+    if due_date:
+        try:
+            due_dt = datetime.datetime.strptime(due_date, "%Y-%m-%d")
+        except Exception:
+            pass
+
+    # Create task for each selected employee
+    if assignees:
+        for emp_id in assignees:
+            emp_id = str(emp_id).strip()
+            if not emp_id:
+                continue
+            try:
+                new_task = Task(
+                    user_id=emp_id,
+                    title=title,
+                    description=description,
+                    priority=priority,
+                    due_date=due_dt
+                )
+                db.add(new_task)
+            except Exception:
+                continue
+        db.commit()
+
     return RedirectResponse("/manager/dashboard", status_code=303)
 
-# ----------------------------------------
-# TEAM LEADER ROUTES (New Feature)
-# ----------------------------------------
+
+@app.get("/manager/team_assignments", response_class=HTMLResponse)
+async def manager_team_assignments(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    # Get all employees in manager's department
+    employees = db.query(User).filter(
+        User.department == user.department,
+        User.role.in_(["employee", "team_lead"])
+    ).order_by(User.name.asc()).all()
+
+    # For each employee, collect their tasks and meetings
+    team_data = []
+    for emp in employees:
+        tasks = db.query(Task).filter(Task.user_id == emp.employee_id).order_by(Task.due_date.asc()).all()
+        meetings = db.query(ProjectMeetingAssignee).filter(
+            ProjectMeetingAssignee.employee_id == emp.employee_id
+        ).all()
+        
+        team_data.append({
+            "employee": emp,
+            "tasks": tasks,
+            "meetings": meetings,
+            "task_count": len(tasks),
+            "meeting_count": len(meetings)
+        })
+
+    return templates.TemplateResponse("employee/employee_manager_team_assignments.html", {
+        "request": request,
+        "user": user,
+        "team_data": team_data
+    })
+
+@app.get("/manager/projects", response_class=HTMLResponse)
+async def manager_projects_page(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    # Get all projects in manager's department
+    projects = db.query(Project).filter(
+        Project.department == user.department
+    ).order_by(Project.created_at.desc()).all()
+
+    # Get all employees for filtering
+    employees = db.query(User).filter(
+        User.department == user.department,
+        User.role.in_(["employee", "team_lead"])
+    ).order_by(User.name.asc()).all()
+
+    return templates.TemplateResponse("employee/employee_manager_projects.html", {
+        "request": request,
+        "user": user,
+        "projects": projects,
+        "employees": employees
+    })
 
 @app.get("/leader/dashboard", response_class=HTMLResponse)
 async def leader_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1065,6 +1527,190 @@ async def delete_task(task_id: int = Form(...),
     return RedirectResponse("/employee/tasks", status_code=303)
 
 #----------------------------------------
+# EMPLOYEE MEETINGS PAGE
+#----------------------------------------
+
+@app.get("/employee/meetings", response_class=HTMLResponse)
+async def employee_meetings_page(
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Display all meetings assigned to the current employee"""
+    # Get meetings where user is an assignee
+    meetings = (
+        db.query(Meeting)
+        .join(ProjectMeetingAssignee, Meeting.id == ProjectMeetingAssignee.meeting_id)
+        .filter(ProjectMeetingAssignee.employee_id == user.employee_id)
+        .order_by(Meeting.meeting_datetime.desc())
+        .all()
+    )
+    
+    # Enrich meetings with creator info and status
+    now = datetime.datetime.now()
+    for meeting in meetings:
+        meeting.creator_info = db.query(User).filter(User.id == meeting.created_by).first()
+        status = "Completed"
+        if meeting.meeting_datetime:
+            if meeting.meeting_datetime > now:
+                status = "Upcoming"
+            elif meeting.meeting_datetime <= now <= meeting.meeting_datetime + datetime.timedelta(hours=1):
+                status = "Ongoing"
+        meeting.status = status
+    
+    return templates.TemplateResponse(
+        "employee/employee_meetings.html",
+        {"request": request, "user": user, "meetings": meetings}
+    )
+
+
+@app.get("/employee/meeting/{meeting_id}", response_class=HTMLResponse)
+async def employee_meeting_room(
+    request: Request,
+    meeting_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Join a specific meeting room with Jitsi"""
+    # Verify user has access to this meeting
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+    
+    # Check if user is assigned to this meeting
+    is_assigned = (
+        db.query(ProjectMeetingAssignee)
+        .filter(
+            ProjectMeetingAssignee.meeting_id == meeting_id,
+            ProjectMeetingAssignee.employee_id == user.employee_id
+        )
+        .first()
+    )
+    
+    # Also allow creator to join
+    if not is_assigned and meeting.created_by != user.id:
+        raise HTTPException(status_code=403, detail="You are not invited to this meeting")
+    
+    # Record attendance on join
+    existing_attendance = db.query(MeetingAttendance).filter(
+        MeetingAttendance.meeting_id == meeting_id,
+        MeetingAttendance.employee_id == user.employee_id
+    ).first()
+    if not existing_attendance:
+        db.add(MeetingAttendance(meeting_id=meeting_id, employee_id=user.employee_id))
+        db.commit()
+
+    # Get creator info
+    creator = db.query(User).filter(User.id == meeting.created_by).first()
+    is_organizer = meeting.created_by == user.id
+    organizer_joined = False
+    if creator and creator.employee_id:
+        organizer_joined = db.query(MeetingAttendance).filter(
+            MeetingAttendance.meeting_id == meeting_id,
+            MeetingAttendance.employee_id == creator.employee_id
+        ).first() is not None
+
+    return templates.TemplateResponse(
+        "employee/employee_meeting_room.html",
+        {
+            "request": request,
+            "user": user,
+            "meeting": meeting,
+            "creator": creator,
+            "is_organizer": is_organizer,
+            "organizer_joined": organizer_joined
+        }
+    )
+
+
+@app.get("/api/meetings/{meeting_id}/host-status")
+async def meeting_host_status(
+    meeting_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    is_assigned = (
+        db.query(ProjectMeetingAssignee)
+        .filter(
+            ProjectMeetingAssignee.meeting_id == meeting_id,
+            ProjectMeetingAssignee.employee_id == user.employee_id
+        )
+        .first()
+    )
+
+    if not is_assigned and meeting.created_by != user.id:
+        raise HTTPException(status_code=403, detail="You are not invited to this meeting")
+
+    creator = db.query(User).filter(User.id == meeting.created_by).first()
+    if not creator or not creator.employee_id:
+        return {"host_joined": False}
+
+    host_joined = db.query(MeetingAttendance).filter(
+        MeetingAttendance.meeting_id == meeting_id,
+        MeetingAttendance.employee_id == creator.employee_id
+    ).first() is not None
+
+    return {"host_joined": host_joined}
+
+
+@app.get("/meeting/{meeting_id}", response_class=HTMLResponse)
+async def meeting_room_any(
+    request: Request,
+    meeting_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    meeting = db.query(Meeting).filter(Meeting.id == meeting_id).first()
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    is_assigned = (
+        db.query(ProjectMeetingAssignee)
+        .filter(
+            ProjectMeetingAssignee.meeting_id == meeting_id,
+            ProjectMeetingAssignee.employee_id == user.employee_id
+        )
+        .first()
+    )
+
+    if not is_assigned and meeting.created_by != user.id:
+        raise HTTPException(status_code=403, detail="You are not invited to this meeting")
+
+    existing_attendance = db.query(MeetingAttendance).filter(
+        MeetingAttendance.meeting_id == meeting_id,
+        MeetingAttendance.employee_id == user.employee_id
+    ).first()
+    if not existing_attendance:
+        db.add(MeetingAttendance(meeting_id=meeting_id, employee_id=user.employee_id))
+        db.commit()
+
+    creator = db.query(User).filter(User.id == meeting.created_by).first()
+    is_organizer = meeting.created_by == user.id
+    organizer_joined = False
+    if creator and creator.employee_id:
+        organizer_joined = db.query(MeetingAttendance).filter(
+            MeetingAttendance.meeting_id == meeting_id,
+            MeetingAttendance.employee_id == creator.employee_id
+        ).first() is not None
+
+    return templates.TemplateResponse(
+        "employee/employee_meeting_room.html",
+        {
+            "request": request,
+            "user": user,
+            "meeting": meeting,
+            "creator": creator,
+            "is_organizer": is_organizer,
+            "organizer_joined": organizer_joined
+        }
+    )
+
+
+#----------------------------------------
 #EMPLOYEE LEAVE PAGE
 # ----------------------------------------
 
@@ -1090,6 +1736,7 @@ async def apply_leave(request: Request,
                          reason=reason)
     db.add(leave)
     db.commit()
+    send_leave_requested_email(user.email, user.name, start_date, end_date, reason)
     return RedirectResponse("/employee/leave", status_code=303)
 
 #----------------------------------------
@@ -1224,7 +1871,7 @@ async def record_attendance(
         return {"status": "unknown_rfid"}
 
     today = datetime.date.today()
-    now = datetime.datetime.utcnow()
+    now = datetime.datetime.now()
 
     # --- NEW: WRITE TO DETAILED LOG ---
     new_log = AttendanceLog(
@@ -1403,6 +2050,165 @@ async def month_hours(user: User = Depends(get_current_user), db: Session = Depe
         Attendance.entry_time >= first_day
     ).scalar() or 0
     return {"total_hours": round(total, 2)}
+
+
+#----------------------------------------
+# API FOR MEETINGS POPUP
+#----------------------------------------
+
+@app.get("/api/meetings/popup")
+async def meetings_popup(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    meetings_map = {}
+
+    assigned_meetings = (
+        db.query(Meeting)
+        .join(ProjectMeetingAssignee, Meeting.id == ProjectMeetingAssignee.meeting_id)
+        .filter(ProjectMeetingAssignee.employee_id == user.employee_id)
+        .all()
+    )
+
+    created_meetings = db.query(Meeting).filter(Meeting.created_by == user.id).all()
+
+    for meeting in assigned_meetings + created_meetings:
+        meetings_map[meeting.id] = meeting
+
+    upcoming = []
+    past = []
+    now = datetime.datetime.now()
+
+    for meeting in meetings_map.values():
+        creator = db.query(User).filter(User.id == meeting.created_by).first()
+        is_assignee = (
+            db.query(ProjectMeetingAssignee)
+            .filter(ProjectMeetingAssignee.meeting_id == meeting.id,
+                    ProjectMeetingAssignee.employee_id == user.employee_id)
+            .first()
+        )
+
+        show_link = True if (is_assignee or meeting.created_by == user.id) else False
+
+        status = "Completed"
+        if meeting.meeting_datetime:
+            if meeting.meeting_datetime > now:
+                status = "Upcoming"
+            elif meeting.meeting_datetime <= now <= meeting.meeting_datetime + datetime.timedelta(hours=1):
+                status = "Ongoing"
+
+        attendees_q = (
+            db.query(User)
+            .join(ProjectMeetingAssignee, User.employee_id == ProjectMeetingAssignee.employee_id)
+            .filter(ProjectMeetingAssignee.meeting_id == meeting.id)
+            .all()
+        )
+        attendee_map = {u.employee_id: u for u in attendees_q if u.employee_id}
+        if creator and creator.employee_id:
+            attendee_map.setdefault(creator.employee_id, creator)
+
+        attendee_list = ", ".join(
+            [f"{u.name} ({u.employee_id})" for u in attendee_map.values()]
+        )
+
+        item = {
+            "id": meeting.id,
+            "title": meeting.title,
+            "meeting_datetime": meeting.meeting_datetime.strftime("%b %d, %Y %I:%M %p") if meeting.meeting_datetime else "",
+            "sender_name": creator.name if creator else "-",
+            "sender_employee_id": creator.employee_id if creator else "-",
+            "meeting_link": meeting.meeting_link if show_link else None,
+            "status": status,
+            "employees": attendee_list or "-",
+            "join_url": f"/meeting/{meeting.id}" if show_link else None
+        }
+
+        if status == "Completed":
+            past.append((meeting.meeting_datetime or datetime.datetime.min, item))
+        else:
+            upcoming.append((meeting.meeting_datetime or datetime.datetime.min, item))
+
+    upcoming.sort(key=lambda m: m[0])
+    past.sort(key=lambda m: m[0], reverse=True)
+
+    return {
+        "upcoming": [m[1] for m in upcoming],
+        "past": [m[1] for m in past]
+    }
+
+
+#----------------------------------------
+# API FOR MANAGER EMPLOYEE SEARCH (Meeting Management)
+#----------------------------------------
+
+@app.get("/api/manager_employees")
+async def manager_employees(q: str = "", user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+
+    query = (q or "").strip()
+    if not query:
+        return []
+
+    employees = db.query(User).filter(
+        User.department == user.department,
+        User.role.in_(["employee", "team_lead"]),
+        or_(
+            User.name.ilike(f"%{query}%"),
+            User.employee_id.ilike(f"%{query}%")
+        )
+    ).order_by(User.name.asc()).limit(50).all()
+
+    return [
+        {
+            "id": emp.id,
+            "name": emp.name,
+            "employee_id": emp.employee_id
+        }
+        for emp in employees
+    ]
+
+#----------------------------------------
+# API FOR ALL PROJECTS (for manager projects page)
+#----------------------------------------
+
+@app.get("/api/all_projects")
+async def all_projects(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Fetch all projects for manager's department"""
+    if user.role != "manager":
+        raise HTTPException(status_code=403)
+    
+    # Get all projects in manager's department
+    projects = db.query(Project).filter(
+        Project.department == user.department
+    ).all()
+    
+    projects_data = []
+    for project in projects:
+        # Get task assignments for this project
+        task_assignments = db.query(ProjectTaskAssignee).filter(
+            ProjectTaskAssignee.project_id == project.id
+        ).all()
+        
+        # Get assigned employees
+        assigned_employees = []
+        for assignment in task_assignments:
+            emp = db.query(User).filter(User.id == assignment.employee_id).first()
+            if emp and emp not in assigned_employees:
+                assigned_employees.append(emp)
+        
+        # Get project tasks
+        tasks = db.query(ProjectTask).filter(ProjectTask.project_id == project.id).all()
+        
+        projects_data.append({
+            "id": project.id,
+            "name": project.name,
+            "description": project.description,
+            "status": project.status,
+            "created_at": project.created_at.isoformat() if project.created_at else None,
+            "assigned_employees": [emp.name for emp in assigned_employees],
+            "task_count": len(tasks),
+            "employee_count": len(assigned_employees)
+        })
+    
+    return projects_data
 
 #----------------------------------------
 # SCHEDULER SETUP

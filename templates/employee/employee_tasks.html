@@ -119,6 +119,17 @@
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Due Date</label>
                         <input type="date" name="due_date" class="form-input w-full mt-1 px-3 py-2 text-sm"/>
                     </div>
+                    
+                    <div class="flex-1 min-w-[200px]">
+                        <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Assign To</label>
+                        <input id="taskAssigneeSearch" type="text" placeholder="Search employees..." class="form-input w-full mt-1 px-3 py-2 text-sm mb-2" />
+                        <select id="taskAssigneeSelect" name="assignee" class="form-input w-full mt-1 px-3 py-2 text-sm" size="6" style="max-height:180px; overflow:auto;">
+                            <option value="">(Assign to self)</option>
+                            {% for emp in (employees if employees is defined else []) %}
+                            <option value="{{ emp.employee_id }}">{{ emp.name }} — {{ emp.employee_id }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
                 </div>
 
                 <button class="w-full bg-slate-900 text-white font-bold py-3 rounded-xl hover:bg-slate-800 transition-all shadow-lg shadow-slate-200">
@@ -235,5 +246,16 @@
             }
         }
     });
+</script>
+
+<script>
+    (function () {
+        const pad = (n) => String(n).padStart(2, '0');
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+        document.querySelectorAll('input[name="due_date"]').forEach((input) => {
+            input.min = todayStr;
+        });
+    })();
 </script>
 {% endblock %}

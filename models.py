@@ -13,6 +13,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     rfid_tag = Column(String(100), unique=True, nullable=False)
+    employee_id_hash = Column(String(64), nullable=True, index=True)  # SHA256 hash of employee_id for security
     
     # Roles: 'admin', 'manager', 'team_lead', 'employee'
     role = Column(String(50), nullable=False) 
@@ -205,6 +206,46 @@ class ProjectTaskAssignee(Base):
     employee = relationship("User", primaryjoin="User.employee_id == ProjectTaskAssignee.employee_id")
 
 
+class Meeting(Base):
+    __tablename__ = "meetings"
+    id = Column(Integer, primary_key=True, index=True)
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    title = Column(String(200), nullable=False)
+    description = Column(Text, nullable=True)
+    meeting_datetime = Column(DateTime, nullable=False)
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Jitsi Integration
+    meeting_link = Column(String(500), nullable=True)  # Full Jitsi meeting URL
+    room_name = Column(String(200), nullable=True)     # Unique room identifier
+
+    project = relationship("Project")
+    creator = relationship("User", primaryjoin="User.id == Meeting.created_by")
+    assignees = relationship("ProjectMeetingAssignee", back_populates="meeting")
+
+
+class ProjectMeetingAssignee(Base):
+    __tablename__ = "project_meeting_assignees"
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
+    employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False)
+
+    meeting = relationship("Meeting", back_populates="assignees")
+    employee = relationship("User", primaryjoin="User.employee_id == ProjectMeetingAssignee.employee_id")
+
+
+class MeetingAttendance(Base):
+    __tablename__ = "meeting_attendance"
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
+    employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False)
+    joined_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+    meeting = relationship("Meeting")
+    employee = relationship("User", primaryjoin="User.employee_id == MeetingAttendance.employee_id")
+
+
 # --- GENERAL TASKS (Personal To-Do) ---
 
 class Task(Base):
@@ -248,3 +289,45 @@ class Payroll(Base):
     __table_args__ = (
         UniqueConstraint('employee_id', 'month', 'year', name='uix_employee_month_year'),
     )
+
+
+# --- OFFICE HOLIDAYS ---
+class OfficeHoliday(Base):
+    __tablename__ = "office_holidays"
+    id = Column(Integer, primary_key=True, index=True)
+    event_date = Column(Date, nullable=False)
+    title = Column(String(200), nullable=False)
+    notes = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+# --- CALENDAR EVENTS ---
+class CalendarEvent(Base):
+    __tablename__ = "calendar_events"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    event_date = Column(Date, nullable=False, index=True)
+    title = Column(String(200), nullable=False)
+    notes = Column(Text, nullable=True)
+    event_type = Column(String(50), default="general")  # general, meeting, task, personal_leave, office_holiday
+    
+    # For admin: can target specific teams or employees
+    target_team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    target_employee_hashes = Column(Text, nullable=True)  # comma-separated list with leading/trailing comma
+    
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    
+    # Relationships
+    user = relationship("User")
+    team = relationship("Team")
+
+
+class CalendarSettings(Base):
+    __tablename__ = "calendar_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, unique=True, index=True)
+    country_code = Column(String(2), default="IN")
+    state_code = Column(String(10), nullable=True)
+    
+    # Relationships
+    user = relationship("User")

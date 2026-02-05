@@ -46,7 +46,7 @@
                     </span>
                 </div>
                 
-                <form action="/admin/delete_team" method="POST" onsubmit="return confirm('Disband {{ team.name }}?');">
+                <form action="/admin/delete_team" method="POST" data-confirm="Disband {{ team.name }}?">
                     <input type="hidden" name="team_id" value="{{ team.id }}">
                     <button type="submit" class="text-slate-200 hover:text-red-600 transition-colors">
                         <i class="bi bi-trash-fill text-xl"></i>

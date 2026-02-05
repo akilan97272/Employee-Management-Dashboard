@@ -1,0 +1,76 @@
+{% extends "common/layout_base.html" %}
+
+{% block title %}Office Holidays | TeamSync{% endblock %}
+
+{% block page_title %}OFFICE_HOLIDAYS{% endblock %}
+
+{% block content %}
+<div class="grid grid-cols-1 xl:grid-cols-3 gap-8">
+  <div class="xl:col-span-1 space-y-6">
+    <div class="border border-[var(--border)] bg-white p-8">
+      <a href="/admin/manage_employees" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">Back to Manage</a>
+      <div class="mt-6">
+        <div class="text-lg font-black text-slate-800">Office Holidays</div>
+        <div class="text-xs text-slate-500 mt-2">Admin-only holiday entries shown across the calendar.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="xl:col-span-2 border border-[var(--border)] bg-white p-8">
+    <h3 class="text-xs font-black uppercase tracking-widest text-slate-600">{{ 'Edit' if edit_event else 'Add' }} Office Holiday</h3>
+    <form method="post" action="/admin/office_holidays" class="space-y-6 mt-6">
+      <input type="hidden" name="csrf_token" value="{{ request.cookies.get('csrf_token','') }}">
+      {% if edit_event %}
+      <input type="hidden" name="event_id" value="{{ edit_event.id }}">
+      {% endif %}
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+          <label class="text-[10px] uppercase tracking-widest text-slate-400">Date</label>
+          <input type="date" name="date" value="{{ edit_event.event_date if edit_event else '' }}" class="mt-1 w-full border border-[var(--border)] p-3 text-sm bg-white" required />
+        </div>
+        <div class="md:col-span-2">
+          <label class="text-[10px] uppercase tracking-widest text-slate-400">Title</label>
+          <input name="title" value="{{ edit_event.title if edit_event else '' }}" class="mt-1 w-full border border-[var(--border)] p-3 text-sm bg-white" placeholder="Office Holiday" required />
+        </div>
+      </div>
+      <div>
+        <label class="text-[10px] uppercase tracking-widest text-slate-400">Notes</label>
+        <textarea name="notes" rows="4" class="mt-1 w-full border border-[var(--border)] p-3 text-sm bg-white" placeholder="Optional notes">{{ edit_event.notes if edit_event else '' }}</textarea>
+      </div>
+      <div class="flex gap-3">
+        <a href="/admin/manage_employees" class="flex-1 py-3 text-center bg-slate-100 text-slate-600 font-black text-xs uppercase tracking-widest hover:bg-slate-200 transition-all">Cancel</a>
+        <button class="flex-1 py-3 bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all" type="submit">
+          {{ 'Update' if edit_event else 'Save' }} Holiday
+        </button>
+      </div>
+    </form>
+
+    <div class="mt-10 border-t border-[var(--border)] pt-6">
+      <div class="text-xs font-black uppercase tracking-widest text-slate-600 mb-4">Saved Office Holidays</div>
+      <div class="space-y-3">
+        {% for h in holidays %}
+        <div class="border border-[var(--border)] p-4 flex items-start justify-between">
+          <div>
+            <div class="text-[11px] text-slate-500">{{ h.event_date }}</div>
+            <div class="font-semibold text-slate-700">{{ h.title }}</div>
+            {% if h.notes %}
+            <div class="text-[11px] text-slate-500">{{ h.notes }}</div>
+            {% endif %}
+          </div>
+          <div class="flex items-center gap-2">
+            <a href="/admin/office_holidays?edit_id={{ h.id }}" class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-slate-200 hover:border-blue-600 hover:text-blue-600">Edit</a>
+            <form method="post" action="/admin/office_holidays/delete" data-confirm="Delete this holiday?">
+              <input type="hidden" name="csrf_token" value="{{ request.cookies.get('csrf_token','') }}">
+              <input type="hidden" name="event_id" value="{{ h.id }}">
+              <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-red-200 text-red-600 hover:bg-red-600 hover:text-white">Delete</button>
+            </form>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-[11px] text-slate-500">No office holidays saved yet.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
