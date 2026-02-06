@@ -5,507 +5,269 @@
 {% block content %}
 <style>
 :root {
-  --primary: #0f172a;
-  --accent: #2563eb;
-  --glass-bg: rgba(255,255,255,0.6);
-  --glass-border: rgba(255,255,255,0.45);
-  --glass-stroke: rgba(255,255,255,0.8);
-  --text-main: #1e293b;
-  --text-muted: #64748b;
+  --accent-navy: #0B1127; /* Your exact color match */
+  --bg-main: #f8fafc;
+  --border-color: #e2e8f0;
+  --radius-standard: 0.75rem;
+  --accent-emerald: #10b981;
 }
 
 body {
-  background:
-    radial-gradient(600px 400px at 10% 10%, rgba(255,255,255,.08), transparent),
-    radial-gradient(600px 400px at 90% 90%, rgba(255,255,255,.05), transparent),
-    #ffffff;
-  background-attachment: fixed;
+  background-color: var(--bg-main);
   font-family: 'Inter', system-ui, sans-serif;
-  color: var(--text-main);
-}
-
-.ui-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-top: 1px solid var(--glass-stroke);
-  border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.4),
-    0 10px 30px rgba(0,0,0,.08);
-  transition: transform .35s cubic-bezier(.16,1,.3,1),
-              box-shadow .35s ease;
-}
-
-.ui-card:hover {
-  transform: translateY(-4px);
-  background: rgba(255,255,255,.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.6),
-    0 20px 50px rgba(0,0,0,.15);
-}
-
-.heading-display {
-  font-size: 3rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg,#0f172a,#334155);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.search-input {
-  width: 100%;
-  padding: 12px 16px;
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  background: rgba(255,255,255,0.8);
-  font-size: 0.95rem;
-  transition: all 0.3s ease;
-}
-
-.search-input:focus {
-  outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 12px rgba(37, 99, 235, 0.3);
-  background: white;
-}
-
-.project-card {
-  padding: 16px;
-  border-radius: 12px;
-  background: white;
-  border: 1px solid #e2e8f0;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  margin-bottom: 12px;
-}
-
-.project-card:hover {
-  border-color: var(--accent);
-  background: linear-gradient(135deg, rgba(226, 232, 240, 0.5), rgba(248, 250, 252, 0.5));
-  transform: translateX(4px);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
-}
-
-.project-card.active {
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15), rgba(59, 130, 246, 0.1));
-  border-color: var(--accent);
-  border-left: 4px solid var(--accent);
-}
-
-.project-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 8px;
-}
-
-.project-title {
-  font-weight: 700;
-  font-size: 1rem;
   color: #1e293b;
 }
 
-.project-status {
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 20px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  text-transform: uppercase;
-}
-
-.status-active {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.status-pending {
-  background: #fef3c7;
-  color: #b45309;
-}
-
-.status-completed {
-  background: #dbeafe;
-  color: #0c4a6e;
-}
-
-.project-meta {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-top: 10px;
-}
-
-.meta-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.project-description {
-  font-size: 0.85rem;
-  color: #64748b;
-  margin-top: 8px;
-  line-height: 1.4;
-  max-height: 50px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  display: -webkit-box;
-  line-clamp: 2;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-}
-
-.project-employees {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.employee-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 10px;
-  background: #e0e7ff;
-  color: #3730a3;
-  border-radius: 16px;
-  font-size: 0.8rem;
-  font-weight: 500;
-}
-
-.scrollable-list {
-  max-height: 600px;
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.scrollable-list::-webkit-scrollbar {
-  width: 8px;
-}
-
-.scrollable-list::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.05);
-  border-radius: 10px;
-}
-
-.scrollable-list::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 10px;
-}
-
-.scrollable-list::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 0, 0, 0.3);
-}
-
-.detail-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.detail-section {
-  padding: 16px;
-  border-radius: 12px;
+/* TOP COMMAND BAR - Consistent with Console */
+.command-bar {
   background: white;
-  border: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
+  padding: 2.5rem 2rem;
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
-.detail-title {
+.heading-exec {
+  font-size: 3.5rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: var(--accent-navy);
+}
+
+.label-mono {
+  font-size: 0.75rem;
   font-weight: 700;
-  font-size: 1.1rem;
-  color: #0f172a;
-  margin-bottom: 12px;
-}
-
-.detail-description {
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
   color: #64748b;
-  line-height: 1.6;
-  font-size: 0.95rem;
 }
 
-.task-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+/* ARCHITECTURAL CARDS */
+.exec-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-standard);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  overflow: hidden;
 }
 
-.task-item {
-  padding: 10px;
+/* PROJECT SPECIFIC UI */
+.project-card {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-left: 4px solid transparent;
+}
+
+.project-card:hover {
   background: #f8fafc;
-  border-left: 3px solid #06b6d4;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  color: #475569;
+  border-left-color: #cbd5e1;
 }
 
-.stat-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
-  margin-bottom: 16px;
+.project-card.active {
+  background: #f1f5f9;
+  border-left-color: var(--accent-navy);
 }
 
+.project-status {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+}
+
+.status-active { background: #ecfdf5; color: #059669; }
+.status-completed { background: #f1f5f9; color: var(--accent-navy); }
+.status-pending { background: #fffbeb; color: #d97706; }
+
+/* STAT BOXES */
 .stat-box {
-  padding: 12px;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(59, 130, 246, 0.05));
-  border: 1px solid rgba(37, 99, 235, 0.2);
-  border-radius: 10px;
+  padding: 1.5rem;
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-standard);
   text-align: center;
 }
 
 .stat-value {
-  font-size: 1.5rem;
+  font-size: 2rem;
+  font-weight: 900;
+  color: var(--accent-navy);
+}
+
+/* BUTTONS */
+.btn-exec {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  color: var(--accent);
-}
-
-.stat-label {
-  font-size: 0.75rem;
   text-transform: uppercase;
-  color: var(--text-muted);
-  margin-top: 4px;
-}
-
-.btn-action {
-  background: linear-gradient(135deg,#2563eb,#1d4ed8);
-  color: #fff;
-  padding: .65rem 1.4rem;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: .875rem;
-  display: inline-flex;
-  align-items: center;
-  gap: .5rem;
-  border: 1px solid rgba(255,255,255,.25);
-  transition: all .25s ease;
-  cursor: pointer;
-}
-
-.btn-action:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(37,99,235,.4);
-}
-
-.btn-back {
-  background: linear-gradient(135deg, #6b7280, #4b5563);
-  color: white;
-  padding: 0.65rem 1.4rem;
-  border-radius: 12px;
-  font-weight: 600;
+  border-radius: var(--radius-standard);
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  border: none;
-  cursor: pointer;
-  text-decoration: none;
-  transition: all 0.25s ease;
 }
 
-.btn-back:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2);
-}
+.btn-primary { background: var(--accent-navy); color: white; border: none; }
+.btn-outline { border: 1px solid var(--border-color); background: transparent; color: var(--accent-navy); }
 
-.empty-state {
-  text-align: center;
-  padding: 40px 20px;
-  color: var(--text-muted);
-}
-
-.label-caps {
-  font-size: .68rem;
-  font-weight: 800;
+/* TAGS */
+.employee-tag {
+  background: #f1f5f9;
+  color: var(--accent-navy);
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .12em;
-  color: var(--text-muted);
 }
 
-.filter-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  flex-wrap: wrap;
+/* SEARCH & FILTERS */
+.search-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-standard);
+  font-size: 0.875rem;
+  outline: none;
 }
+
+.search-input:focus { border-color: var(--accent-navy); ring: 2px solid #e2e8f0; }
 
 .filter-tab {
-  padding: 8px 16px;
-  border-radius: 20px;
-  border: 1px solid #e2e8f0;
-  background: white;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 0.9rem;
-  transition: all 0.25s ease;
-}
-
-.filter-tab:hover {
-  border-color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  color: #64748b;
+  transition: all 0.2s;
 }
 
 .filter-tab.active {
-  background: var(--accent);
+  background: var(--accent-navy);
   color: white;
-  border-color: var(--accent);
 }
 
-.reveal {
-  animation: revealUp .7s cubic-bezier(.16,1,.3,1) both;
+.reveal-in {
+  animation: slideUp 0.4s ease-out forwards;
 }
 
-@keyframes revealUp {
-  from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
-}
-
-@media (max-width: 768px) {
-  .heading-display {
-    font-size: 2rem;
-  }
-  
-  .layout {
-    grid-template-columns: 1fr;
-  }
-  
-  .stat-grid {
-    grid-template-columns: 1fr;
-  }
-  
-  .project-meta {
-    grid-template-columns: 1fr;
-  }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 </style>
 
-<div class="max-w-7xl mx-auto px-6 py-8 space-y-8">
-  <!-- HEADER -->
-  <header class="flex justify-between items-center reveal">
-    <h1 class="heading-display">Projects Management</h1>
-    <a href="/manager/dashboard" class="btn-back">← Back to Dashboard</a>
-  </header>
-
-  <!-- MAIN LAYOUT -->
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 layout">
+<div class="command-bar flex flex-col lg:flex-row justify-between items-end gap-6">
+    <div>
+        
+        <h1 class="heading-exec">Project Matrix</h1>
+    </div>
     
-    <!-- PROJECTS LIST PANEL -->
-    <div class="lg:col-span-1 reveal">
-      <div class="ui-card p-6">
-        <p class="label-caps mb-4">All Projects</p>
-        
-        <input type="text" 
-               id="projectSearch" 
-               class="search-input mb-4" 
-               placeholder="Search projects...">
-        
-        <!-- FILTER TABS -->
-        <div class="filter-tabs mb-4">
-          <button class="filter-tab active" onclick="filterProjects('all')">All</button>
-          <button class="filter-tab" onclick="filterProjects('active')">Active</button>
-          <button class="filter-tab" onclick="filterProjects('completed')">Completed</button>
+    <div class="flex items-center gap-3 mb-2">
+        <a href="/manager/dashboard" class="btn-exec btn-outline">← Exit to Console</a>
+    </div>
+</div>
+
+<div class="max-w-[1600px] mx-auto p-8">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+    
+    <div class="lg:col-span-4 space-y-6 reveal-in">
+      <div class="exec-card flex flex-col">
+        <div class="p-6 border-b space-y-4">
+          <input type="text" id="projectSearch" class="search-input" placeholder="SEARCH PROJECTS...">
+          <div class="flex gap-2">
+            <button class="filter-tab active" onclick="filterProjects('all')">All</button>
+            <button class="filter-tab" onclick="filterProjects('active')">Active</button>
+            <button class="filter-tab" onclick="filterProjects('completed')">Completed</button>
+          </div>
         </div>
         
-        <div class="scrollable-list" id="projectsList">
-          {% if projects %}
-            {% for project in projects %}
-            <div class="project-card project-option" 
-                 data-project-id="{{ project.id }}"
-                 data-project-name="{{ project.name }}"
-                 data-project-status="{{ project.status }}"
-                 data-project-description="{{ project.description }}"
-                 data-project-created="{{ project.created_at }}">
-              <div class="project-header">
-                <div class="project-title">{{ project.name }}</div>
-                <span class="project-status {% if project.status == 'active' %}status-active{% elif project.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
-                  {{ project.status }}
-                </span>
-              </div>
-              
-              <div class="project-description">{{ project.description }}</div>
-              
-              <div class="project-meta">
-                <div class="meta-item">
-                  📋 <span id="tasks-{{ project.id }}">-</span> Tasks
-                </div>
-                <div class="meta-item">
-                  👥 <span id="employees-{{ project.id }}">-</span> Members
-                </div>
-              </div>
-              
-              <div class="project-employees" id="proj-emps-{{ project.id }}"></div>
+        <div class="divide-y overflow-y-auto max-h-[600px]" id="projectsList">
+          {% for project in projects %}
+          <div class="project-card project-option" 
+               data-project-id="{{ project.id }}"
+               data-project-name="{{ project.name }}"
+               data-project-status="{{ project.status }}">
+            <div class="flex justify-between items-start mb-2">
+              <span class="font-bold text-slate-900">{{ project.name }}</span>
+              <span class="project-status {% if project.status == 'active' %}status-active{% elif project.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
+                {{ project.status }}
+              </span>
             </div>
-            {% endfor %}
-          {% else %}
-          <div class="empty-state">
-            <p class="text-sm text-slate-500">No projects found in your department</p>
+            <div class="flex gap-4">
+               <span class="label-mono text-[10px]">Tasks: <span id="tasks-{{ project.id }}" class="text-slate-900">-</span></span>
+               <span class="label-mono text-[10px]">Personnel: <span id="employees-{{ project.id }}" class="text-slate-900">-</span></span>
+            </div>
           </div>
-          {% endif %}
+          {% endfor %}
         </div>
       </div>
     </div>
 
-    <!-- DETAIL PANEL -->
-    <div class="lg:col-span-2 reveal">
-      <div id="noSelectionPanel" class="flex items-center justify-center h-96">
-        <div class="empty-state">
-          <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
-          <p class="text-lg font-semibold">Select a project to view details</p>
-          <p class="text-sm text-slate-500 mt-2">Click any project from the list to see full information</p>
-        </div>
+    <div class="lg:col-span-8 space-y-6 reveal-in" style="animation-delay: 0.1s">
+      <div id="noSelectionPanel" class="exec-card p-20 text-center">
+        <div class="label-mono opacity-20 text-4xl mb-4">No Project Selected</div>
+        <p class="label-mono">Initialize view by selecting a record from the matrix</p>
       </div>
 
-      <div id="detailPanel" class="hidden detail-panel">
-        <!-- STATS -->
-        <div class="ui-card p-6">
-          <div class="stat-grid">
-            <div class="stat-box">
-              <div class="stat-value" id="detail-tasks">0</div>
-              <div class="stat-label">Tasks</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-value" id="detail-employees">0</div>
-              <div class="stat-label">Members</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-value" id="detail-status">—</div>
-              <div class="stat-label">Status</div>
-            </div>
+      <div id="detailPanel" class="hidden space-y-6">
+        <div class="grid grid-cols-3 gap-6">
+          <div class="stat-box">
+            <div class="label-mono mb-2">Task Volume</div>
+            <div class="stat-value" id="detail-tasks">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="label-mono mb-2">Team Size</div>
+            <div class="stat-value" id="detail-employees">0</div>
+          </div>
+          <div class="stat-box">
+            <div class="label-mono mb-2">Operational State</div>
+            <div id="detail-status" class="font-black uppercase text-xl">--</div>
           </div>
         </div>
 
-        <!-- DESCRIPTION -->
-        <div class="ui-card p-6">
-          <p class="label-caps mb-4">Overview</p>
-          <div class="detail-description" id="detail-description"></div>
-          <div class="text-xs text-slate-500 mt-4" id="detail-created"></div>
-        </div>
-
-        <!-- ASSIGNED EMPLOYEES -->
-        <div class="ui-card p-6">
-          <p class="label-caps mb-4">Assigned Members</p>
-          <div class="project-employees" id="detail-employees-list">
-            <p class="text-sm text-slate-500">No employees assigned</p>
+        <div class="exec-card">
+          <div class="p-4 bg-slate-50 border-b">
+            <span class="label-mono">Operational Scope</span>
+          </div>
+          <div class="p-8">
+            <p id="detail-description" class="text-slate-600 leading-relaxed text-lg"></p>
+            <div id="detail-created" class="mt-6 font-mono text-xs text-slate-400"></div>
           </div>
         </div>
 
-        <!-- TASKS -->
-        <div class="ui-card p-6">
-          <p class="label-caps mb-4">Project Tasks</p>
-          <div class="task-list" id="detail-tasks-list">
-            <p class="text-sm text-slate-500">No tasks in this project</p>
-          </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="exec-card">
+              <div class="p-4 bg-slate-50 border-b">
+                <span class="label-mono">Deployed Personnel</span>
+              </div>
+              <div class="p-6 flex flex-wrap gap-2" id="detail-employees-list"></div>
+            </div>
+
+            <div class="exec-card">
+              <div class="p-4 bg-slate-50 border-b">
+                <span class="label-mono">Deployment Log</span>
+              </div>
+              <div class="p-6" id="detail-tasks-list">
+                <div class="p-4 border border-dashed border-slate-200 rounded-lg text-center label-mono text-[10px]">
+                    Project specific tasks synchronized in Team Unit module
+                </div>
+              </div>
+            </div>
         </div>
       </div>
     </div>
-
   </div>
 </div>
+
 
 <script>
 let allProjects = [];

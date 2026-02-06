@@ -1,119 +1,96 @@
 {% extends "common/layout_base.html" %}
 
-{% block title %}Operations Registry | TeamSync{% endblock %}
+{% block title %}Operations Management | TeamSync{% endblock %}
 
 {% block content %}
-<div class="max-w-[1600px] mx-auto space-y-1">
-
-    <div class="bg-slate-900 p-8 flex flex-col md:flex-row justify-between items-center border-b border-slate-800">
-        <div>
-            <h2 class="text-4xl font-black tracking-tighter uppercase text-white">Operations Registry</h2>
-            <div class="flex items-center gap-4 mt-2">
-                <span class="executive-mono text-[10px] font-bold text-blue-500 uppercase tracking-[0.3em]">Status: Registry_Online</span>
-                <span class="text-slate-600 text-[10px] font-bold uppercase tracking-widest">// ARCHITECTURE // ASSETS // CONFIG</span>
-            </div>
+<div class="min-h-screen bg-[#FFFFFF] p-12">
+    <header class="max-w-[1400px] mx-auto mb-16 border-b border-slate-900 pb-10 flex justify-between items-end">
+        <div class="space-y-4">
+            
+            <h1 class="text-6xl font-black tracking-tighter text-slate-900 uppercase leading-none">
+                Operations <span class="text-blue-600">Control.</span>
+            </h1>
         </div>
-        <div class="flex items-center gap-6 mt-6 md:mt-0">
-            <a href="/admin/email_settings" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[10px] font-black uppercase tracking-widest">Email Settings</a>
-            <div class="text-right border-r border-slate-700 pr-6">
-                <p class="text-[9px] font-black text-slate-500 uppercase tracking-widest">Global Index</p>
-                <p class="text-xl font-black text-white">{{ departments|length + rooms|length }} Total Entities</p>
-            </div>
-            <div class="w-3 h-3 bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)] animate-pulse"></div>
+        <div class="flex gap-10">
+           
+            <a href="/admin/email_settings" class="h-14 px-8 flex items-center bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+                Email Settings
+            </a>
         </div>
-    </div>
+    </header>
 
-    <div class="grid grid-cols-1 xl:grid-cols-12 gap-1 bg-slate-200 border-x border-slate-200">
+    <div class="max-w-[1400px] mx-auto grid grid-cols-12 gap-16">
         
-        <div class="xl:col-span-4 bg-white p-10 flex flex-col h-[calc(100vh-250px)]">
-            <div class="flex justify-between items-end mb-8 border-b-2 border-slate-900 pb-4">
-                <h3 class="text-2xl font-black uppercase tracking-tighter text-slate-900">Division Index</h3>
-                <p class="executive-mono text-[10px] font-black text-blue-600">{{ departments|length }} Registered</p>
-            </div>
-
-            <form action="/admin/add_department" method="POST" class="space-y-4 mb-8">
-                <div class="bg-slate-50 p-6 border border-slate-100">
-                    <div class="space-y-4">
-                        <input type="text" name="name" required placeholder="DIVISION_NOMENCLATURE" 
-                               class="w-full bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase outline-none focus:border-slate-900 transition-all">
-                        <input type="text" name="description" placeholder="FUNCTIONAL_DESCRIPTION" 
-                               class="w-full bg-white border border-slate-200 px-4 py-3 text-[10px] font-black uppercase outline-none focus:border-slate-900 transition-all">
+        <div class="col-span-12 lg:col-span-4 space-y-12">
+            <div>
+                <h2 class="text-xs font-black uppercase tracking-[0.3em] text-slate-900 mb-8 flex items-center gap-4">
+                    01. Departments <span class="h-px flex-1 bg-slate-100"></span>
+                </h2>
+                
+                <form action="/admin/add_department" method="POST" class="mb-10 group">
+                    <div class="space-y-px bg-slate-200 border border-slate-200">
+                        <input type="text" name="name" required placeholder="Nomenclature" 
+                               class="w-full bg-white px-6 py-4 text-xs font-bold uppercase tracking-widest outline-none focus:bg-slate-50 transition-all">
+                        <input type="text" name="description" placeholder="Operational Scope" 
+                               class="w-full bg-white px-6 py-4 text-xs font-medium outline-none focus:bg-slate-50 transition-all">
                     </div>
-                    <button type="submit" class="w-full mt-4 py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-all">
-                        Register Division
+                    <button type="submit" class="w-full mt-4 py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+                        Authorize Department
                     </button>
-                </div>
-            </form>
+                </form>
 
-            <div class="relative mb-4">
-                <i class="bi bi-filter absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                <input type="text" id="searchDept" onkeyup="filterList('searchDept', 'deptList')" 
-                       placeholder="FILTER_COMMAND..." 
-                       class="w-full bg-slate-50 border border-slate-100 pl-12 pr-4 py-3 text-[10px] font-black uppercase outline-none focus:bg-white focus:border-slate-900">
-            </div>
-
-            <div id="deptList" class="flex-1 overflow-y-auto custom-scrollbar space-y-1">
-                {% for dept in departments %}
-                <div class="group p-5 bg-slate-50 border-l-4 border-slate-200 hover:border-slate-900 hover:bg-white transition-all">
-                    <div class="search-item">
-                        <p class="text-xs font-black text-slate-900 uppercase tracking-tight">{{ dept.name }}</p>
-                        <p class="executive-mono text-[9px] text-slate-400 uppercase mt-1">{{ dept.description or 'No data defined' }}</p>
+                <div id="deptList" class="space-y-4">
+                    {% for dept in departments %}
+                    <div class="group border-l-2 border-slate-100 hover:border-blue-600 pl-6 py-2 transition-all">
+                        <p class="text-sm font-black text-slate-900 uppercase tracking-tight">{{ dept.name }}</p>
+                        <p class="text-xs text-slate-400 mt-1 font-medium">{{ dept.description or 'Standard scope' }}</p>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
             </div>
         </div>
 
-        <div class="xl:col-span-8 bg-slate-50 p-10 h-[calc(100vh-250px)] flex flex-col">
-            <div class="flex justify-between items-end mb-8 border-b-2 border-slate-900 pb-4">
-                <h3 class="text-2xl font-black uppercase tracking-tighter text-slate-900">Facility Asset Roster</h3>
-                <div class="flex gap-4">
-                    <input type="text" id="searchRoom" onkeyup="filterList('searchRoom', 'roomList')" 
-                           placeholder="SEARCH_ASSETS..." 
-                           class="bg-white border border-slate-200 px-4 py-2 text-[10px] font-black uppercase outline-none focus:border-slate-900 w-64">
-                    <p class="executive-mono text-[10px] font-black text-emerald-600 self-center">{{ rooms|length }} Allocated</p>
-                </div>
-            </div>
+        <div class="col-span-12 lg:col-span-8 space-y-12">
+            <div>
+                <div class="flex justify-between items-center mb-8">
+                    <h2 class="text-xs font-black uppercase tracking-[0.3em] text-slate-900 flex items-center gap-4 flex-1">
+                        02. Infrastructure <span class="h-px flex-1 bg-slate-100"></span>
+                    </h2>
+<input type="text" id="searchRoom" onkeyup="filterList('searchRoom', 'roomList')" 
+       placeholder="Filter directory..." 
+       class="w-full md:w-72 text-[10px] font-bold uppercase tracking-widest border border-slate-200 px-4 py-3 outline-none focus:border-slate-400 focus:bg-white bg-slate-50/50 transition-all rounded-none">              </div>
 
-            <form action="/admin/add_room" method="POST" class="bg-white p-6 border border-slate-200 flex flex-wrap lg:flex-nowrap gap-4 mb-8 items-end">
-                <div class="flex-1 space-y-2">
-                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Asset ID</label>
-                    <input type="text" name="room_no" required placeholder="101" class="w-full bg-slate-50 border border-slate-100 p-3 text-[10px] font-black uppercase outline-none focus:bg-white focus:border-slate-900">
-                </div>
-                <div class="flex-1 space-y-2">
-                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Location</label>
-                    <input type="text" name="location_name" required placeholder="BLOCK_A" class="w-full bg-slate-50 border border-slate-100 p-3 text-[10px] font-black uppercase outline-none focus:bg-white focus:border-slate-900">
-                </div>
-                <div class="flex-[2] space-y-2">
-                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Specification</label>
-                    <input type="text" name="description" placeholder="USAGE_DATA" class="w-full bg-slate-50 border border-slate-100 p-3 text-[10px] font-black uppercase outline-none focus:bg-white focus:border-slate-900">
-                </div>
-                <button type="submit" class="bg-slate-900 text-white px-8 py-3 text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all h-[46px]">
-                    Deploy Asset
-                </button>
-            </form>
+                <form action="/admin/add_room" method="POST" class="grid grid-cols-1 md:grid-cols-4 gap-px bg-slate-200 border border-slate-200 mb-12">
+                    <input type="text" name="room_no" required placeholder="Asset ID" class="bg-white p-5 text-xs font-bold outline-none">
+                    <input type="text" name="location_name" required placeholder="Site Location" class="bg-white p-5 text-xs font-bold outline-none">
+                    <input type="text" name="description" placeholder="Specification" class="bg-white p-5 text-xs font-bold outline-none">
+                    <button type="submit" class="bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 transition-all">
+                        Log Asset
+                    </button>
+                </form>
 
-            <div id="roomList" class="flex-1 overflow-y-auto custom-scrollbar pr-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-3 gap-4">
+                <div id="roomList" class="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {% for room in rooms %}
-                    <div class="group bg-white border border-slate-200 p-6 relative hover:shadow-xl transition-all search-item">
+                    <div class="search-item border border-slate-100 p-8 hover:shadow-[0_20px_50px_rgba(0,0,0,0.05)] transition-all flex flex-col justify-between group">
                         <div class="flex justify-between items-start">
-                            <div class="w-12 h-12 bg-slate-900 text-white flex items-center justify-center font-black text-xs mb-4">
-                                {{ room.room_no }}
+                            <div>
+                                <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1">Asset No. {{ room.room_no }}</p>
+                                <h3 class="text-xl font-black text-slate-900 uppercase tracking-tighter">{{ room.location_name }}</h3>
+                                <p class="text-xs text-slate-400 mt-2 font-medium italic leading-relaxed">{{ room.description or 'No specification logged' }}</p>
                             </div>
                             <form action="/admin/remove_room" method="POST" data-confirm="Decommission asset?">
                                 <input type="hidden" name="room_id" value="{{ room.room_id }}">
-                                <button type="submit" class="text-slate-200 hover:text-red-600 transition-colors">
-                                    <i class="bi bi-trash3-fill text-lg"></i>
+                                <button type="submit" class="text-slate-200 hover:text-red-500 transition-colors">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
                                 </button>
                             </form>
                         </div>
-                        <h4 class="text-sm font-black text-slate-900 uppercase tracking-tight">{{ room.location_name }}</h4>
-                        <p class="executive-mono text-[9px] text-slate-400 uppercase mt-1">{{ room.description }}</p>
-                        
-                        <div class="mt-4 pt-4 border-t border-slate-50 flex justify-between items-center">
-                            <span class="text-[8px] font-black text-emerald-600 uppercase">Status: Allocated</span>
-                            <span class="executive-mono text-[8px] text-slate-300 uppercase">#{{ room.room_id }}</span>
+                        <div class="mt-10 pt-6 border-t border-slate-50 flex justify-between items-center opacity-40 group-hover:opacity-100 transition-opacity">
+                            <span class="text-[9px] font-black text-slate-900 tracking-widest uppercase">ID: {{ room.room_id }}</span>
+                            <div class="flex items-center gap-2">
+                                <span class="w-1.5 h-1.5 bg-green-500"></span>
+                                <span class="text-[9px] font-black text-slate-400 tracking-widest uppercase">Operational</span>
+                            </div>
                         </div>
                     </div>
                     {% endfor %}
@@ -124,10 +101,11 @@
 </div>
 
 <style>
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; }
-    .reveal { animation: reveal 0.4s cubic-bezier(0, 0, 0.2, 1); }
-    @keyframes reveal { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    /* Executive Refinements */
+    body { background-color: #FFFFFF; font-family: 'Inter', sans-serif; }
+    input::placeholder { color: #CBD5E1; text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; }
+    .custom-scrollbar::-webkit-scrollbar { width: 3px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #E2E8F0; }
 </style>
 
 <script>
@@ -139,8 +117,7 @@
 
         for (let i = 0; i < items.length; i++) {
             let txtValue = items[i].textContent || items[i].innerText;
-            let container = items[i].closest('.group') || items[i];
-            container.style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+            items[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
         }
     }
 </script>

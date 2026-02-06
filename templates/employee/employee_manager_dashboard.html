@@ -5,1022 +5,573 @@
 {% block content %}
 <style>
 :root {
-  --primary: #0f172a;
-  --accent: #2563eb;
-  --glass-bg: rgba(255,255,255,0.6);
-  --glass-border: rgba(255,255,255,0.45);
-  --glass-stroke: rgba(255,255,255,0.8);
-  --text-main: #1e293b;
-  --text-muted: #64748b;
+  --sidebar-dark: #020617; /* Dark Navy */
+  --bg-main: #f8fafc;
+  --border-color: #e2e8f0;
+  --accent-navy:#1b2552;  /* Updated Variable */
+  --accent-emerald: #10b981;
+  --radius-standard: 0.75rem; /* New Rounded Corner Variable */
 }
 
-/* BACKGROUND */
 body {
-  background:
-    radial-gradient(600px 400px at 10% 10%, rgba(255,255,255,.08), transparent),
-    radial-gradient(600px 400px at 90% 90%, rgba(255,255,255,.05), transparent),
-    #ffffff;
-  background-attachment: fixed;
+  background-color: var(--bg-main);
   font-family: 'Inter', system-ui, sans-serif;
-  color: var(--text-main);
+  color: #1e293b;
 }
 
-/* GLASS CARD */
-.ui-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(14px) saturate(180%);
-  -webkit-backdrop-filter: blur(14px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  border-top: 1px solid var(--glass-stroke);
-  border-radius: 18px;
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.4),
-    0 10px 30px rgba(0,0,0,.08);
-  transition: transform .35s cubic-bezier(.16,1,.3,1),
-              box-shadow .35s ease,
-              background .35s ease;
+/* TOP COMMAND BAR */
+.command-bar {
+  background: white;
+  border-bottom: 1px solid var(--border-color);
+  padding: 2.5rem 2rem; /* Increased padding for more presence */
+  position: sticky;
+  top: 0;
+  z-index: 40;
 }
 
-.ui-card:hover {
-  transform: translateY(-4px);
-  background: rgba(255,255,255,.72);
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,.6),
-    0 20px 50px rgba(0,0,0,.15);
+/* ARCHITECTURAL CARDS */
+.exec-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-standard); /* Added Rounded Corners */
+  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+  transition: all 0.2s ease;
+  overflow: hidden; /* Ensures content doesn't bleed past rounded corners */
 }
 
-/* HEADINGS */
-.heading-display {
-  font-size: 3rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg,#0f172a,#334155);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
+.exec-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
 }
 
-/* LABEL */
-.label-caps {
-  font-size: .68rem;
-  font-weight: 800;
+/* TYPOGRAPHY */
+.heading-exec {
+  font-size: 3.5rem; /* Made Very Big */
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  color: #000;
+}
+
+.label-mono {
+  font-size: 0.75rem;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: .12em;
-  color: var(--text-muted);
+  letter-spacing: 0.12em;
+  color: #64748b;
 }
 
-/* PRIMARY BUTTON */
-.btn-action {
-  background: linear-gradient(135deg,#2563eb,#1d4ed8);
-  color: #fff;
-  padding: .65rem 1.4rem;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: .875rem;
+/* ACTION COMPONENTS */
+.btn-exec {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-standard); /* Added Rounded Corners */
+  transition: all 0.2s ease;
   display: inline-flex;
   align-items: center;
-  gap: .5rem;
-  border: 1px solid rgba(255,255,255,.25);
-  transition: all .25s ease;
+  gap: 0.5rem;
 }
 
-.btn-action:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 30px rgba(37,99,235,.4);
+.btn-primary { 
+  background: var(--accent-navy); 
+  color: white; 
+  border: none; 
 }
-
-/* ACTION BUTTONS */
-.action-btn {
-  width: 46px;
-  height: 32px;
-  border-radius: 10px;
-  font-size: 14px;
-  font-weight: 800;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all .2s ease;
-  cursor: pointer;
-}
-
-.approve-btn {
-  background: linear-gradient(135deg,#2563eb,#1d4ed8);
-  color: white;
-  border: none;
-  box-shadow: 0 6px 16px rgba(37,99,235,.35);
-}
-
-.approve-btn:hover {
+.btn-primary:hover { 
+  background: #0f172a; 
   transform: translateY(-1px);
-  box-shadow: 0 10px 22px rgba(37,99,235,.45);
 }
 
-.decline-btn {
-  background: rgba(239,68,68,.08);
-  color: #b91c1c;
-  border: 1.5px solid rgba(239,68,68,.55);
+.btn-outline { 
+  border: 1px solid var(--border-color); 
+  background: transparent; 
+  color: var(--accent-navy); 
+}
+.btn-outline:hover { 
+  background: #f1f5f9; 
+  border-color: var(--accent-navy);
 }
 
-.decline-btn:hover {
-  background: rgba(239,68,68,.15);
-  border-color: #ef4444;
+/* DATA ROWS */
+.data-row:hover {
+  background: #f8fafc;
+  border-left-color: var(--accent-navy);
 }
 
-/* STATUS */
-.status-pill {
-  padding: 4px 10px;
-  border-radius: 999px;
-  font-size: .65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.status-online {
-  background: rgba(34,197,94,.15);
-  color: #166534;
-  border: 1px solid rgba(34,197,94,.3);
-}
-
-/* PROGRESS */
-.progress-container {
+.progress-track {
   height: 8px;
-  background: rgba(0,0,0,.06);
-  border-radius: 999px;
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.progress-bar {
+  background: var(--accent-navy);
+  border-radius: 10px;
+}
+
+/* MODAL ROUNDING */
+.modal-content-wrapper {
+  border-radius: 1rem;
   overflow: hidden;
 }
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg,#3b82f6,#2563eb);
-  border-radius: 999px;
-  animation: progressGrow 1.2s cubic-bezier(.16,1,.3,1);
+input, textarea, select {
+  border-radius: 0.5rem !important;
 }
 
-@keyframes progressGrow { from { width: 0; } }
+/* UTILITY OVERRIDE */
+.bg-indigo-600 { background-color: var(--accent-navy) !important; }
+.text-indigo-600 { color: var(--accent-navy) !important; }
+.border-indigo-500 { border-color: var(--accent-navy) !important; }
+.bg-indigo-100 { background-color: #f1f5f9 !important; color: var(--accent-navy) !important; }
 
-/* REVEAL */
-.reveal {
-  animation: revealUp .7s cubic-bezier(.16,1,.3,1) both;
-}
-
-@keyframes revealUp {
-  from { opacity: 0; transform: translateY(16px); filter: blur(6px); }
-  to { opacity: 1; transform: translateY(0); filter: blur(0); }
-}
 </style>
 
-<div class="max-w-7xl mx-auto px-6 py-8 space-y-8">
-
-  <!-- HEADER -->
-  <header class="flex justify-between items-center reveal">
-    <h1 class="heading-display">Operations Overview</h1>
-    <div class="flex items-center gap-3 flex-wrap">
-      <button onclick="document.getElementById('createProjectModal').classList.remove('hidden')"
-              class="btn-action">
-        New Project
-      </button>
-      <button onclick="openNewMeetingModal()"
-              class="btn-action bg-gradient-to-r from-blue-500 to-indigo-600">
-        New Meeting
-      </button>
-      <a href="/manager/meetings"
-         class="btn-action bg-gradient-to-r from-slate-600 to-slate-800">
-        Manage Meeting
-      </a>
-      <button onclick="document.getElementById('createTaskModal').classList.remove('hidden')"
-              class="btn-action bg-gradient-to-r from-emerald-500 to-teal-600">
-        Assign Task
-      </button>
-      <a href="/manager/team_assignments" class="btn-action bg-gradient-to-r from-purple-500 to-pink-600">
-        Team Overview
-      </a>
-      <a href="/manager/projects" class="btn-action bg-gradient-to-r from-cyan-500 to-blue-600" title="View All Projects">
-        📊 Projects
-      </a>
+<div class="command-bar flex flex-col lg:flex-row justify-between items-end gap-6">
+    <div>
+        <div class="flex items-center gap-3 mb-2">
+            <span class="w-3 h-3 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span class="label-mono">System Live / Node 01</span>
+        </div>
+        <h1 class="heading-exec">Operations Console</h1>
     </div>
-  </header>
-
-  <!-- STATS -->
-  <section class="grid grid-cols-1 md:grid-cols-3 gap-4 reveal">
-    <div class="ui-card p-5">
-      <p class="label-caps">Pending Approvals</p>
-      <p class="text-3xl font-black mt-2">
-        {{ leave_requests|selectattr("status","equalto","Pending")|list|length }}
-      </p>
-    </div>
-    <div class="ui-card p-5">
-      <p class="label-caps">Active Projects</p>
-      <p class="text-3xl font-black mt-2">{{ projects|length }}</p>
-    </div>
-    <div class="ui-card p-5">
-      <p class="label-caps">Assigned Teams</p>
-      <p class="text-3xl font-black mt-2">{{ teams|length }}</p>
-    </div>
-  </section>
-
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-
-    <!-- REVIEW QUEUE -->
-    <aside class="lg:col-span-4 reveal">
-      <div class="ui-card overflow-hidden">
-        <div class="p-4 border-b bg-white/20">
-          <h3 class="text-sm font-bold uppercase tracking-widest">Review Queue</h3>
-        </div>
-
-        <div class="divide-y max-h-[520px] overflow-y-auto">
-          {% for req in leave_requests if req.status == 'Pending' %}
-          <div class="p-4 hover:bg-white/40 transition">
-            <div class="flex justify-between mb-2">
-              <span class="font-bold text-sm">{{ req.user.name }}</span>
-              <span class="text-[10px] font-mono bg-white/50 px-2 py-0.5 rounded-full">
-                {{ req.start_date }}
-              </span>
-            </div>
-
-            <p class="text-xs italic text-slate-600 mb-4">"{{ req.reason }}"</p>
-
-            <form action="/manager/approve_leave"
-                  method="POST"
-                  class="flex gap-2 justify-end">
-              <input type="hidden" name="leave_id" value="{{ req.id }}">
-              <button name="action" value="approve" class="action-btn approve-btn">✓</button>
-              <button name="action" value="reject" class="action-btn decline-btn">✕</button>
-            </form>
-          </div>
-          {% else %}
-          <div class="py-16 text-center text-slate-400 text-xs">
-            No pending action items
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </aside>
-
-    <!-- MAIN -->
-    <main class="lg:col-span-8 space-y-6 reveal">
-
-      <!-- PROJECTS -->
-        <!-- MEETINGS -->
-        <div class="ui-card p-6">
-          <h3 class="text-lg font-bold mb-6">Upcoming Meetings</h3>
-          <div class="space-y-3">
-            {% for m in meetings %}
-            <div class="p-3 bg-white/20 rounded-md">
-              <div class="flex justify-between items-start">
-                <div>
-                  <div class="font-bold">{{ m.title }}</div>
-                  <div class="text-xs text-slate-500">{{ m.meeting_datetime }}</div>
-                </div>
-                <div class="text-sm text-slate-600">Project: {{ m.project.name if m.project else '—' }}</div>
-              </div>
-              {% if m.assignees and m.assignees|length > 0 %}
-              <div class="text-[12px] text-slate-500 mt-2 flex items-center justify-between gap-3 flex-wrap">
-                <div>Attendees:
-                  {% for a in m.assignees %}
-                    <span class="inline-block px-2 py-0.5 ml-1 rounded-full bg-white/10">{{ a.employee.name if a.employee else a.employee_id }}</span>
-                  {% endfor %}
-                </div>
-                <button type="button"
-                        class="view-attendees-btn px-2 py-1 rounded-lg text-[10px] font-extrabold uppercase tracking-widest bg-white/40 hover:bg-white/60 text-slate-700"
-                        data-attendees="{% for a in m.assignees %}{{ a.employee.name if a.employee else a.employee_id }}{% if not loop.last %}, {% endif %}{% endfor %}">View</button>
-              </div>
-              {% endif %}
-            </div>
-            {% else %}
-            <div class="py-6 text-center text-slate-400 text-xs">No upcoming meetings</div>
-            {% endfor %}
-          </div>
-        </div>
-
-        <div id="attendeesListModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div class="bg-white/95 rounded-2xl shadow-xl w-full max-w-lg mx-4 overflow-hidden">
-            <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
-              <h4 class="text-sm font-bold text-slate-800">Attendees</h4>
-              <button type="button" id="closeAttendeesModal" class="text-xs font-semibold px-3 py-1 rounded-lg bg-slate-100 hover:bg-slate-200">Close</button>
-            </div>
-            <div class="p-5">
-              <ul id="attendeesListItems" class="space-y-2 text-sm text-slate-700 max-h-64 overflow-y-auto"></ul>
-            </div>
-          </div>
-        </div>
-
-      <div class="ui-card p-6">
-        <h3 class="text-lg font-bold mb-6">Active Portfolio</h3>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {% for project in projects %}
-          {% set completed = project.tasks|selectattr("status","equalto","completed")|list|length %}
-          {% set total = project.tasks|length %}
-          {% set percent = (completed / total * 100)|int if total > 0 else 0 %}
-          <div class="p-4 bg-white/30 rounded-xl hover:bg-white/50 transition">
-            <div class="flex justify-between mb-3">
-              <span class="font-bold text-sm">{{ project.name }}</span>
-              <span class="text-xs font-bold text-blue-600">{{ percent }}%</span>
-            </div>
-            <div class="progress-container">
-              <div class="progress-fill" style="width: {{ percent }}%"></div>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-
-      <!-- TEAMS -->
-      <div class="ui-card overflow-hidden">
-        <div class="p-6 border-b bg-white/20 flex justify-between items-center">
-          <h3 class="text-lg font-bold">Resource Allocation</h3>
-          <span class="text-xs text-slate-500 font-semibold">Active Teams</span>
-        </div>
-
-<div class="px-6 py-3 grid grid-cols-3 text-[11px] font-extrabold uppercase tracking-widest text-slate-400 border-b">
-
-  <!-- TEAM HEADER (offset for avatar width) -->
-  <div class="flex items-center gap-4">
-    <div class="opacity-0"></div> <!-- spacer for avatar -->
-    <span>Team</span>
-  </div>
-
-  <!-- LEAD HEADER (offset for avatar) -->
-  <div class="flex items-center gap-3">
-    <div class="opacity-0"></div> <!-- spacer for avatar -->
-    <span>Lead</span>
-  </div>
-
-  <!-- STATUS HEADER -->
-  <div class="flex justify-end ">
-    <span>Status</span>
-  </div>
-
-</div>
-
-
-
-        <div class="divide-y">
-          {% for team in teams %}
-          <div class="grid grid-cols-3 items-center px-6 py-5 hover:bg-white/40 transition">
-            <div class="flex items-center gap-4">
-              <div class="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 font-extrabold flex items-center justify-center">
-                {{ team.name[0] }}
-              </div>
-              <div>
-                <p class="font-bold">{{ team.name }}</p>
-                <p class="text-xs text-slate-500">Team Unit</p>
-              </div>
-            </div>
-
-            <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-full bg-slate-200 text-xs font-bold flex items-center justify-center">
-                {{ team.leader.name[0] if team.leader else "?" }}
-              </div>
-              <span class="text-sm">{{ team.leader.name if team.leader else "Unassigned" }}</span>
-            </div>
-
-            <div class="text-right">
-              <span class="status-pill status-online">Operational</span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-
-    </main>
-  </div>
-</div>
-
-<!-- CREATE PROJECT MODAL (OUTSIDE MAIN – CORRECT) -->
-<div id="createProjectModal"
-     class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-
-  <div class="ui-card w-full max-w-lg p-8 mx-4 reveal">
-    <h3 class="text-xl font-bold mb-6">Initiate New Project</h3>
-
-    <form action="/manager/create_project" method="POST" class="space-y-4">
-      <input type="text" name="name" placeholder="Project Name" required class="w-full px-4 py-3 rounded-xl border">
-      <textarea name="description" rows="3" placeholder="Description" class="w-full px-4 py-3 rounded-xl border"></textarea>
-      <input type="date" name="deadline" required class="w-full px-4 py-3 rounded-xl border">
-
-      <div class="flex justify-end gap-4 pt-6">
-        <button type="button"
-                onclick="document.getElementById('createProjectModal').classList.add('hidden')"
-                class="text-sm font-bold text-slate-500">
-          Cancel
+    
+    <div class="flex items-center gap-3 flex-wrap mb-2">
+        <button onclick="openModal('createProjectModal')" class="btn-exec btn-outline">
+            + New Project
         </button>
-        <button type="submit" class="btn-action">Create Project</button>
+        <button onclick="openNewMeetingModal()" class="btn-exec btn-outline">
+            + Schedule Meeting
+        </button>
+        <button onclick="openModal('createTaskModal')" class="btn-exec btn-primary">
+            Assign Task
+        </button>
+    </div>
+</div>
+
+<div class="max-w-[1600px] mx-auto p-8 space-y-8">
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 reveal-in">
+        <div class="exec-card p-6 border-b-4 border-b-indigo-500">
+            <p class="label-mono">Pending Approvals</p>
+            <h3 class="text-3xl font-black mt-2">{{ leave_requests|selectattr("status","equalto","Pending")|list|length }}</h3>
+        </div>
+        <div class="exec-card p-6">
+            <p class="label-mono">Active Portfolio</p>
+            <h3 class="text-3xl font-black mt-2">{{ projects|length }}</h3>
+        </div>
+        <div class="exec-card p-6">
+            <p class="label-mono">Teams Engaged</p>
+            <h3 class="text-3xl font-black mt-2">{{ teams|length }}</h3>
+        </div>
+        <!-- <div class="exec-card p-6 bg-slate-900 text-white">
+            <p class="label-mono text-slate-400">Operational Efficiency</p>
+            <h3 class="text-3xl font-black mt-2">94.2%</h3>
+        </div> -->
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <div class="lg:col-span-4 space-y-6 reveal-in" style="animation-delay: 0.1s">
+            <div class="exec-card flex flex-col h-full">
+                <div class="p-4 bg-slate-50 border-b flex justify-between items-center">
+                    <span class="label-mono text-slate-900">Review Queue</span>
+                    <span class="bg-indigo-100 text-indigo-700 text-[10px] px-2 py-0.5 font-bold uppercase">Priority</span>
+                </div>
+                <div class="divide-y max-h-[600px] overflow-y-auto">
+                    {% for req in leave_requests if req.status == 'Pending' %}
+                    <div class="p-5 data-row">
+                        <div class="flex justify-between items-start mb-2">
+                            <span class="font-bold text-sm text-slate-900">{{ req.user.name }}</span>
+                            <span class="font-mono text-[10px] text-slate-400">{{ req.start_date }}</span>
+                        </div>
+                        <p class="text-xs text-slate-500 mb-4 bg-slate-50 p-2 border-l border-slate-200 italic leading-relaxed">"{{ req.reason }}"</p>
+                        <form action="/manager/approve_leave" method="POST" class="flex gap-2 justify-end">
+                            <input type="hidden" name="leave_id" value="{{ req.id }}">
+                            <button name="action" value="approve" class="px-3 py-1 bg-emerald-50 text-emerald-700 text-[10px] font-bold uppercase border border-emerald-200 hover:bg-emerald-500 hover:text-white transition-all">Approve</button>
+                            <button name="action" value="reject" class="px-3 py-1 bg-red-50 text-red-700 text-[10px] font-bold uppercase border border-red-200 hover:bg-red-500 hover:text-white transition-all">Decline</button>
+                        </form>
+                    </div>
+                    {% else %}
+                    <div class="p-12 text-center label-mono opacity-30">No Action Items</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-8 reveal-in" style="animation-delay: 0.2s">
+            
+            <div class="exec-card">
+                <div class="p-4 bg-slate-50 border-b">
+                    <span class="label-mono text-slate-900">Upcoming Agenda</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50/50 border-b border-slate-100">
+                                <th class="p-4 label-mono">Time</th>
+                                <th class="p-4 label-mono">Session</th>
+                                <th class="p-4 label-mono">Project Context</th>
+                                <th class="p-4"></th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            {% for m in meetings %}
+                            <tr class="hover:bg-slate-50/50 transition">
+                                <td class="p-4 text-xs font-mono text-indigo-600 font-bold">{{ m.meeting_datetime }}</td>
+                                <td class="p-4">
+                                    <div class="text-sm font-bold text-slate-900">{{ m.title }}</div>
+                                    <div class="text-[10px] text-slate-400 font-medium uppercase tracking-wider">{{ m.assignees|length }} Participants</div>
+                                </td>
+                                <td class="p-4">
+                                    <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[10px] font-bold uppercase tracking-tight">
+                                        {{ m.project.name if m.project else 'General Operations' }}
+                                    </span>
+                                </td>
+                                <td class="p-4 text-right">
+                                    <button class="view-attendees-btn text-[10px] font-black uppercase text-indigo-600 hover:underline"
+                                            data-attendees="{% for a in m.assignees %}{{ a.employee.name if a.employee else a.employee_id }}{% if not loop.last %}, {% endif %}{% endfor %}">
+                                        View Log
+                                    </button>
+                                </td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="p-12 text-center label-mono opacity-30 italic text-slate-400 uppercase tracking-widest">No sessions scheduled</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div class="exec-card p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <span class="label-mono">Portfolio Progress</span>
+                        <a href="/manager/projects" class="text-[10px] font-bold text-indigo-600 hover:underline uppercase">Audit All</a>
+                    </div>
+                    <div class="space-y-6">
+                        {% for project in projects %}
+                        {% set completed = project.tasks|selectattr("status","equalto","completed")|list|length %}
+                        {% set total = project.tasks|length %}
+                        {% set percent = (completed / total * 100)|int if total > 0 else 0 %}
+                        <div>
+                            <div class="flex justify-between text-[11px] mb-2 font-bold uppercase tracking-tight">
+                                <span class="text-slate-700">{{ project.name }}</span>
+                                <span class="text-slate-400">{{ percent }}%</span>
+                            </div>
+                            <div class="progress-track w-full">
+                                <div class="progress-bar h-full transition-all duration-1000" style="width: {{ percent }}%"></div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="exec-card flex flex-col">
+                    <div class="p-4 border-b bg-slate-50">
+                        <span class="label-mono">Team Allocation</span>
+                    </div>
+                    <div class="flex-1 divide-y divide-slate-100 overflow-y-auto max-h-[300px]">
+                        {% for team in teams %}
+                        <div class="p-4 flex items-center justify-between hover:bg-slate-50 transition">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-indigo-100 text-indigo-700 font-bold flex items-center justify-center text-xs">
+                                    {{ team.name[0] }}
+                                </div>
+                                <div>
+                                    <div class="text-xs font-bold text-slate-800">{{ team.name }}</div>
+                                    <div class="text-[9px] text-slate-400 uppercase font-black">Lead: {{ team.leader.name if team.leader else "N/A" }}</div>
+                                </div>
+                            </div>
+                            <span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 text-[8px] font-black uppercase tracking-wider">Active</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="attendeesListModal" class="hidden fixed inset-0 z-[100] items-center justify-center modal-backdrop">
+  <div class="bg-white rounded-none shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-slate-200">
+    <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
+      <h4 class="label-mono text-slate-800">Session Attendees</h4>
+      <button onclick="closeModal('attendeesListModal')" class="text-slate-400 hover:text-slate-900">✕</button>
+    </div>
+    <div class="p-6">
+      <ul id="attendeesListItems" class="space-y-3 text-sm text-slate-700 max-h-64 overflow-y-auto"></ul>
+    </div>
+  </div>
+</div>
+
+<div id="createProjectModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center modal-backdrop">
+  <div class="bg-white w-full max-w-lg p-8 mx-4 border border-slate-200 shadow-2xl">
+    <h3 class="heading-exec text-xl mb-6">Initiate Project</h3>
+    <form action="/manager/create_project" method="POST" class="space-y-5">
+      <div class="space-y-1">
+          <label class="label-mono">Project Nomenclature</label>
+          <input type="text" name="name" required class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm">
+      </div>
+      <div class="space-y-1">
+          <label class="label-mono">Operational Scope</label>
+          <textarea name="description" rows="3" class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm resize-none"></textarea>
+      </div>
+      <div class="space-y-1">
+          <label class="label-mono">Target Deadline</label>
+          <input type="date" name="deadline" required class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm">
+      </div>
+      <div class="flex justify-end gap-4 pt-4">
+        <button type="button" onclick="closeModal('createProjectModal')" class="label-mono hover:text-red-600 transition">Discard</button>
+        <button type="submit" class="btn-exec btn-primary">Establish Project</button>
       </div>
     </form>
   </div>
 </div>
 
-<!-- CREATE MEETING MODAL -->
-<div id="createMeetingModal"
-  class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-lg">
-
-  <div class="w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col bg-white/95 rounded-3xl border border-slate-200/70 shadow-[0_24px_60px_rgba(15,23,42,0.25)] overflow-hidden reveal ring-1 ring-slate-100">
-    <!-- MODAL HEADER -->
-    <div class="bg-gradient-to-r from-blue-500 via-blue-600 to-indigo-600 px-7 py-6 flex justify-between items-center flex-shrink-0">
-      <div class="flex items-center gap-3">
-        <div class="text-4xl">📹</div>
-        <div>
-          <h3 class="text-2xl font-bold text-white">Schedule New Meeting</h3>
-          <p class="text-xs text-blue-100 mt-1">Create an agenda, set time, and invite participants with video link</p>
-        </div>
-      </div>
-      <button type="button"
-              onclick="document.getElementById('createMeetingModal').classList.add('hidden')"
-              class="text-white text-2xl font-light hover:bg-white/20 rounded-lg p-1 transition">
-        ✕
-      </button>
+<div id="createMeetingModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center modal-backdrop">
+  <div class="w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col bg-white border border-slate-900 shadow-2xl overflow-hidden">
+    <div class="bg-slate-900 px-7 py-6 flex justify-between items-center">
+        <h3 class="text-xl font-bold text-white uppercase tracking-tighter italic">Schedule Session</h3>
+        <button onclick="closeModal('createMeetingModal')" class="text-white hover:text-blue-400 transition">✕</button>
     </div>
-
-    <!-- SCROLLABLE CONTENT -->
-    <div class="overflow-y-auto flex-1 px-7 py-7 bg-gradient-to-b from-slate-50/70 to-white">
+    <div class="overflow-y-auto flex-1 px-8 py-8">
       <form action="/manager/create_meeting" method="POST" id="meetingForm" class="space-y-6">
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-2">Meeting Title</label>
-          <input type="text" name="title" placeholder="e.g., Q1 Planning Session" required 
-                 class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="space-y-1 md:col-span-2">
+                <label class="label-mono">Session Title</label>
+                <input type="text" name="title" required class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm">
+            </div>
+            <div class="space-y-1 md:col-span-2">
+                <label class="label-mono">Agenda Outline</label>
+                <textarea name="description" rows="2" class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm resize-none"></textarea>
+            </div>
+            <div class="space-y-1">
+                <label class="label-mono">Timestamp</label>
+                <input type="datetime-local" name="meeting_datetime" required class="w-full px-4 py-3 border border-slate-200 outline-none text-sm">
+            </div>
+            <div class="space-y-1">
+                <label class="label-mono">Project Context</label>
+                <select name="project_id" class="w-full px-4 py-3 border border-slate-200 outline-none text-sm bg-white">
+                  <option value="">-- General --</option>
+                  {% for p in projects %}
+                  <option value="{{ p.id }}">{{ p.name }}</option>
+                  {% endfor %}
+                </select>
+            </div>
         </div>
 
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-2">Agenda / Notes</label>
-          <textarea name="description" rows="3" placeholder="Add meeting details, agenda items..." 
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 resize-none transition"></textarea>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">📅 Date & Time</label>
-            <input type="datetime-local" name="meeting_datetime" required 
-                   class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
+        <div class="pt-6 border-t border-slate-100">
+          <label class="label-mono block mb-4">Participant Selection</label>
+          <div class="relative mb-4">
+            <input id="meetingAssigneeSearch" type="text" placeholder="FILTER BY NAME/ID..." class="w-full pl-4 pr-4 py-3 border border-slate-200 text-xs font-bold outline-none focus:border-indigo-500" />
           </div>
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">Project (optional)</label>
-            <select name="project_id" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition">
-              <option value="">-- Select Project --</option>
-              {% for p in projects %}
-              <option value="{{ p.id }}">{{ p.name }}</option>
-              {% endfor %}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-2">👥 Add Participants</label>
-          <div class="relative mb-3">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔎</span>
-            <input id="meetingAssigneeSearch" type="text" placeholder="Search by name or ID..." 
-                   class="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 bg-white/80 shadow-sm focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition" />
-          </div>
-          <div id="meetingAssigneeIdle" class="p-8 text-center rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="text-slate-400 text-sm">🔍 Start typing to search employees...</div>
-          </div>
-          <div id="meetingAssigneeEmpty" class="hidden p-8 text-center rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="text-slate-400 text-sm">No employees match your search</div>
-          </div>
-          <div id="meetingAssigneeCards" class="hidden space-y-2 max-h-[300px] overflow-y-auto p-2 rounded-2xl border border-slate-200 bg-slate-50/50">
+          <div id="meetingAssigneeIdle" class="py-4 text-center text-[10px] text-slate-400 font-bold tracking-widest uppercase">Start typing to filter directory</div>
+          <div id="meetingAssigneeCards" class="hidden space-y-2 max-h-[200px] overflow-y-auto p-2 bg-slate-50 border border-slate-200">
             {% for emp in employees %}
-            <div class="meeting-assignee-card group cursor-pointer p-3 rounded-xl bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all duration-200" 
-                 data-emp-id="{{ emp.employee_id }}" data-emp-name="{{ emp.name }}">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
-                  {{ emp.name[0].upper() }}
-                </div>
-                <div class="flex-1">
-                  <div class="font-semibold text-sm text-slate-800 group-hover:text-blue-600 transition">{{ emp.name }}</div>
-                  <div class="text-xs text-slate-500">{{ emp.employee_id }}</div>
-                </div>
-                <div class="assignee-check hidden w-6 h-6 rounded-full bg-blue-500 text-white flex items-center justify-center text-xs">✓</div>
-              </div>
+            <div class="meeting-assignee-card cursor-pointer p-3 bg-white border border-slate-100 hover:border-indigo-500 transition-all flex items-center justify-between" data-emp-id="{{ emp.employee_id }}" data-emp-name="{{ emp.name }}">
+              <div class="text-xs font-bold text-slate-800">{{ emp.name }} <span class="text-slate-400 ml-2">#{{ emp.employee_id }}</span></div>
+              <div class="assignee-check hidden text-indigo-600 font-bold">✓</div>
             </div>
             {% endfor %}
           </div>
           <input type="hidden" id="meetingAssignees" name="assignees" value="">
-          <div id="meetingSelectedAssignees" class="mt-3 hidden">
-            <p class="text-xs text-slate-500 mb-2">✅ Selected participants</p>
-            <div class="flex flex-wrap gap-2"></div>
-          </div>
         </div>
 
-        <script>
-          (function(){
-            const search = document.getElementById('meetingAssigneeSearch');
-            const cardsContainer = document.getElementById('meetingAssigneeCards');
-            const idleState = document.getElementById('meetingAssigneeIdle');
-            const emptyState = document.getElementById('meetingAssigneeEmpty');
-            const hiddenInput = document.getElementById('meetingAssignees');
-            const selectedWrap = document.getElementById('meetingSelectedAssignees');
-            const selectedList = selectedWrap ? selectedWrap.querySelector('div') : null;
-            if (!search || !cardsContainer) return;
-            
-            const cards = Array.from(cardsContainer.querySelectorAll('.meeting-assignee-card'));
-            const selectedIds = new Set();
-            
-            const renderSelected = () => {
-              if (!selectedWrap || !selectedList) return;
-              const selectedCards = cards.filter(c => selectedIds.has(c.dataset.empId));
-              if (selectedCards.length === 0) {
-                selectedWrap.classList.add('hidden');
-                selectedList.innerHTML = '';
-                hiddenInput.value = '';
-                return;
-              }
-              selectedWrap.classList.remove('hidden');
-              selectedList.innerHTML = selectedCards.map(c => {
-                return `<span class="px-3 py-1 rounded-full bg-blue-50 text-blue-700 text-xs font-semibold border border-blue-200">${c.dataset.empName} — ${c.dataset.empId}</span>`;
-              }).join('');
-              hiddenInput.value = Array.from(selectedIds).join(',');
-            };
-
-            const applySearch = () => {
-              const q = search.value.toLowerCase().trim();
-              
-              if (q === '') {
-                idleState.classList.remove('hidden');
-                emptyState.classList.add('hidden');
-                cardsContainer.classList.add('hidden');
-                return;
-              }
-              
-              let visibleCount = 0;
-              cards.forEach(card => {
-                const name = card.dataset.empName.toLowerCase();
-                const id = card.dataset.empId.toLowerCase();
-                const txt = name + ' ' + id;
-                if (txt.includes(q)) {
-                  card.style.display = '';
-                  visibleCount++;
-                } else {
-                  card.style.display = 'none';
-                }
-              });
-              
-              idleState.classList.add('hidden');
-              if (visibleCount === 0) {
-                emptyState.classList.remove('hidden');
-                cardsContainer.classList.add('hidden');
-              } else {
-                emptyState.classList.add('hidden');
-                cardsContainer.classList.remove('hidden');
-              }
-            };
-            
-            cards.forEach(card => {
-              card.addEventListener('click', () => {
-                const empId = card.dataset.empId;
-                const checkmark = card.querySelector('.assignee-check');
-                if (selectedIds.has(empId)) {
-                  selectedIds.delete(empId);
-                  card.classList.remove('border-blue-500', 'bg-blue-50');
-                  checkmark.classList.add('hidden');
-                } else {
-                  selectedIds.add(empId);
-                  card.classList.add('border-blue-500', 'bg-blue-50');
-                  checkmark.classList.remove('hidden');
-                }
-                renderSelected();
-              });
-            });
-            
-            search.addEventListener('input', applySearch);
-            applySearch();
-          })();
-        </script>
-
-        <!-- AUTO-GENERATED VIDEO MEETING LINK PREVIEW -->
-        <div class="mt-8 pt-6 border-t border-slate-200">
-          <label class="block text-sm font-semibold text-slate-700 mb-3">📹 Video Meeting Link (Auto-Generated)</label>
-          <div class="p-4 rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200">
-            <div class="flex items-center gap-3 bg-white rounded-xl p-3 border border-green-300 shadow-sm">
-              <svg class="w-6 h-6 text-green-600 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/>
-              </svg>
-              <div class="flex-1">
-                <div class="text-xs font-semibold text-green-700 mb-1">Google Meet</div>
-                <input type="text" 
-                       id="generatedMeetingLink" 
-                       readonly
-                       value="https://meet.jit.si/meeting_auto_generated"
-                       class="w-full bg-transparent text-sm text-slate-700 font-mono focus:outline-none"
-                       onclick="this.select()">
-              </div>
-              <button type="button" 
-                      id="copyMeetingLinkBtn"
-                      onclick="copyGeneratedMeetingLink(event)"
-                      class="px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold transition whitespace-nowrap shadow-sm">
-                📋 Copy Link
-              </button>
-            </div>
-            <p class="text-xs text-slate-600 mt-3 flex items-center gap-2">
-              <span class="text-green-600">✓</span>
-              <span>This Google Meet link will be automatically generated and sent to all participants via chat</span>
-            </p>
+        <div class="pt-6 border-t border-slate-100">
+          <label class="label-mono block mb-3">Meeting Asset (Auto-Generated)</label>
+          <div class="p-4 bg-slate-50 border border-slate-200 flex items-center gap-4">
+            <input type="text" id="generatedMeetingLink" readonly value="https://meet.jit.si/..." class="flex-1 bg-transparent text-xs font-mono text-slate-600 focus:outline-none">
+            <button type="button" onclick="copyGeneratedMeetingLink(event)" class="btn-exec btn-outline py-2 text-[9px]">Copy Link</button>
           </div>
         </div>
-
-        <script>
-          // Auto-generate NEW unique meeting link for each meeting creation
-          (function() {
-            const modal = document.getElementById('createMeetingModal');
-            const linkInput = document.getElementById('generatedMeetingLink');
-            const meetingForm = document.getElementById('meetingForm');
-            
-            function generateUniqueMeetingLink() {
-              // Generate timestamp with milliseconds for uniqueness
-              const now = new Date();
-              const timestamp = now.getFullYear().toString() +
-                              (now.getMonth() + 1).toString().padStart(2, '0') +
-                              now.getDate().toString().padStart(2, '0') +
-                              now.getHours().toString().padStart(2, '0') +
-                              now.getMinutes().toString().padStart(2, '0') +
-                              now.getSeconds().toString().padStart(2, '0') +
-                              now.getMilliseconds().toString().padStart(3, '0');
-              
-              // Generate random hex string (8 characters)
-              const randomHex = Array.from({length: 8}, () => 
-                Math.floor(Math.random() * 16).toString(16)
-              ).join('');
-              
-              const roomName = `meeting_${timestamp}_${randomHex}`;
-              return `https://meet.jit.si/${roomName}`;
-            }
-            
-            // Generate new link when modal is shown
-            const observer = new MutationObserver((mutations) => {
-              mutations.forEach((mutation) => {
-                if (mutation.attributeName === 'class') {
-                  const isHidden = modal.classList.contains('hidden');
-                  if (!isHidden && linkInput) {
-                    // Generate completely NEW unique link for each meeting
-                    linkInput.value = generateUniqueMeetingLink();
-                    console.log('🎯 New meeting link generated:', linkInput.value);
-                  }
-                }
-              });
-            });
-            
-            if (modal) {
-              observer.observe(modal, { attributes: true });
-              // Also generate initial link when page loads
-              if (linkInput) {
-                linkInput.value = generateUniqueMeetingLink();
-              }
-            }
-            
-            // Reset form and generate new link when form is submitted
-            if (meetingForm) {
-              meetingForm.addEventListener('submit', function() {
-                console.log('✅ Meeting created with link:', linkInput.value);
-              });
-            }
-          })();
-          
-          // Function to open modal and generate fresh meeting link
-          function openNewMeetingModal() {
-            const modal = document.getElementById('createMeetingModal');
-            const linkInput = document.getElementById('generatedMeetingLink');
-            
-            // Generate brand new unique link
-            const now = new Date();
-            const timestamp = now.getFullYear().toString() +
-                            (now.getMonth() + 1).toString().padStart(2, '0') +
-                            now.getDate().toString().padStart(2, '0') +
-                            now.getHours().toString().padStart(2, '0') +
-                            now.getMinutes().toString().padStart(2, '0') +
-                            now.getSeconds().toString().padStart(2, '0') +
-                            now.getMilliseconds().toString().padStart(3, '0');
-            
-            const randomHex = Array.from({length: 8}, () => 
-              Math.floor(Math.random() * 16).toString(16)
-            ).join('');
-            
-            const roomName = `meeting_${timestamp}_${randomHex}`;
-            const newLink = `https://meet.jit.si/${roomName}`;
-            
-            if (linkInput) {
-              linkInput.value = newLink;
-              console.log('🎯 Fresh meeting link generated:', newLink);
-            }
-            
-            // Show modal
-            modal.classList.remove('hidden');
-          }
-          
-          function copyGeneratedMeetingLink(event) {
-            event.preventDefault();
-            const linkInput = document.getElementById('generatedMeetingLink');
-            if (linkInput && linkInput.value) {
-              linkInput.select();
-              document.execCommand('copy');
-              const btn = event.currentTarget;
-              const originalText = btn.innerHTML;
-              btn.innerHTML = '✓ Copied!';
-              btn.classList.add('bg-green-800');
-              setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.classList.remove('bg-green-800');
-              }, 2000);
-            }
-          }
-        </script>
       </form>
     </div>
-
-    <!-- MODAL FOOTER -->
-    <div class="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 flex-shrink-0 bg-slate-50">
-      <button type="button"
-              onclick="document.getElementById('createMeetingModal').classList.add('hidden')"
-              class="px-6 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-200 transition">
-        Cancel
-      </button>
-      <button type="submit" form="meetingForm" class="btn-action bg-gradient-to-r from-blue-500 to-indigo-600">
-        Schedule Meeting
-      </button>
+    <div class="bg-slate-50 px-8 py-4 flex justify-end gap-3 border-t border-slate-200">
+      <button onclick="closeModal('createMeetingModal')" class="label-mono px-4 py-2 hover:text-red-600">Cancel</button>
+      <button type="submit" form="meetingForm" class="btn-exec btn-primary">Commit Schedule</button>
     </div>
   </div>
 </div>
 
-<!-- CREATE TASK MODAL -->
-<div id="createTaskModal"
-  class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-lg">
-
-  <div class="w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col bg-white/95 rounded-3xl border border-slate-200/70 shadow-[0_24px_60px_rgba(15,23,42,0.25)] overflow-hidden reveal ring-1 ring-slate-100">
-    <!-- MODAL HEADER -->
-    <div class="bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 px-7 py-6 flex justify-between items-center flex-shrink-0">
-      <div>
-        <h3 class="text-2xl font-bold text-white">✓ Assign Task to Team</h3>
-        <p class="text-xs text-emerald-100 mt-1">Define priority, due date, and assignees</p>
-      </div>
-      <button type="button"
-              onclick="document.getElementById('createTaskModal').classList.add('hidden')"
-              class="text-white text-2xl font-light hover:bg-white/20 rounded-lg p-1 transition">
-        ✕
-      </button>
+<div id="createTaskModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center modal-backdrop">
+  <div class="w-full max-w-2xl mx-4 bg-white border border-slate-200 shadow-2xl">
+    <div class="bg-indigo-600 px-7 py-5 flex justify-between items-center text-white">
+        <h3 class="text-sm font-bold uppercase tracking-widest">Assign Operational Task</h3>
+        <button onclick="closeModal('createTaskModal')" class="hover:opacity-70 transition">✕</button>
     </div>
-
-    <!-- SCROLLABLE CONTENT -->
-    <div class="overflow-y-auto flex-1 px-7 py-7 bg-gradient-to-b from-slate-50/70 to-white">
+    <div class="p-8">
       <form action="/manager/create_task" method="POST" id="taskForm" class="space-y-6">
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-2">Task Title</label>
-          <input type="text" name="title" placeholder="e.g., Complete Project Report" required 
-                 class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+        <div class="space-y-1">
+          <label class="label-mono">Task Objective</label>
+          <input type="text" name="title" required class="w-full px-4 py-3 border border-slate-200 outline-none text-sm">
         </div>
-
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-2">Task Description</label>
-          <textarea name="description" rows="3" placeholder="Provide details about what needs to be done..." 
-                    class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 resize-none transition"></textarea>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">🎯 Priority Level</label>
-            <select name="priority" class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
-              <option value="low">🟢 Low</option>
-              <option value="medium" selected>🟡 Medium</option>
-              <option value="high">🔴 High</option>
+        <div class="grid grid-cols-2 gap-6">
+          <div class="space-y-1">
+            <label class="label-mono">Priority Level</label>
+            <select name="priority" class="w-full px-4 py-3 border border-slate-200 outline-none text-sm bg-white">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
             </select>
           </div>
-          <div>
-            <label class="block text-sm font-semibold text-slate-700 mb-2">📅 Due Date</label>
-            <input type="date" name="due_date" 
-                   class="w-full px-4 py-3 rounded-xl border border-slate-200 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition">
+          <div class="space-y-1">
+            <label class="label-mono">Due Date</label>
+            <input type="date" name="due_date" required class="w-full px-4 py-3 border border-slate-200 outline-none text-sm">
           </div>
         </div>
-
-        <div>
-          <label class="block text-sm font-semibold text-slate-700 mb-2">👥 Assign To Team Members</label>
-          <div class="relative mb-3">
-            <span class="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">🔎</span>
-            <input id="taskAssigneeSearch" type="text" placeholder="Search by name or ID..." 
-                   class="w-full pl-11 pr-4 py-3 rounded-2xl border border-slate-200 bg-white/80 shadow-sm focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition" />
-          </div>
-          <div id="taskAssigneeIdle" class="p-8 text-center rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="text-slate-400 text-sm">🔍 Start typing to search employees...</div>
-          </div>
-          <div id="taskAssigneeEmpty" class="hidden p-8 text-center rounded-2xl border border-slate-200 bg-slate-50/50">
-            <div class="text-slate-400 text-sm">No employees match your search</div>
-          </div>
-          <div id="taskAssigneeCards" class="hidden space-y-2 max-h-[300px] overflow-y-auto p-2 rounded-2xl border border-slate-200 bg-slate-50/50">
+        <div class="space-y-1">
+          <label class="label-mono text-indigo-600">Assign To Personnel</label>
+          <input id="taskAssigneeSearch" type="text" placeholder="FILTER PERSONNEL..." class="w-full px-4 py-3 border border-slate-200 text-xs font-bold outline-none mb-3" />
+          <div id="taskAssigneeCards" class="hidden space-y-2 max-h-[150px] overflow-y-auto p-2 bg-slate-50 border border-slate-100">
             {% for emp in employees %}
-            <div class="task-assignee-card group cursor-pointer p-3 rounded-xl bg-white border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all duration-200" 
-                 data-emp-id="{{ emp.employee_id }}" data-emp-name="{{ emp.name }}">
-              <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 text-white font-bold flex items-center justify-center text-sm shadow-md">
-                  {{ emp.name[0].upper() }}
-                </div>
-                <div class="flex-1">
-                  <div class="font-semibold text-sm text-slate-800 group-hover:text-emerald-600 transition">{{ emp.name }}</div>
-                  <div class="text-xs text-slate-500">{{ emp.employee_id }}</div>
-                </div>
-                <div class="assignee-check hidden w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center text-xs">✓</div>
-              </div>
+            <div class="task-assignee-card cursor-pointer p-2 bg-white border border-slate-200 hover:border-indigo-400 flex items-center justify-between" data-emp-id="{{ emp.employee_id }}" data-emp-name="{{ emp.name }}">
+              <div class="text-[11px] font-bold">{{ emp.name }}</div>
+              <div class="assignee-check hidden text-indigo-500">✓</div>
             </div>
             {% endfor %}
           </div>
           <input type="hidden" id="taskAssignees" name="assignees" value="">
-          <div id="taskSelectedAssignees" class="mt-3 hidden">
-            <p class="text-xs text-slate-500 mb-2">✅ Selected team members</p>
-            <div class="flex flex-wrap gap-2"></div>
-          </div>
         </div>
-
-        <script>
-          (function(){
-            const search = document.getElementById('taskAssigneeSearch');
-            const cardsContainer = document.getElementById('taskAssigneeCards');
-            const idleState = document.getElementById('taskAssigneeIdle');
-            const emptyState = document.getElementById('taskAssigneeEmpty');
-            const hiddenInput = document.getElementById('taskAssignees');
-            const selectedWrap = document.getElementById('taskSelectedAssignees');
-            const selectedList = selectedWrap ? selectedWrap.querySelector('div') : null;
-            if (!search || !cardsContainer) return;
-            
-            const cards = Array.from(cardsContainer.querySelectorAll('.task-assignee-card'));
-            const selectedIds = new Set();
-            
-            const renderSelected = () => {
-              if (!selectedWrap || !selectedList) return;
-              const selectedCards = cards.filter(c => selectedIds.has(c.dataset.empId));
-              if (selectedCards.length === 0) {
-                selectedWrap.classList.add('hidden');
-                selectedList.innerHTML = '';
-                hiddenInput.value = '';
-                return;
-              }
-              selectedWrap.classList.remove('hidden');
-              selectedList.innerHTML = selectedCards.map(c => {
-                return `<span class="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 text-xs font-semibold border border-emerald-200">${c.dataset.empName} — ${c.dataset.empId}</span>`;
-              }).join('');
-              hiddenInput.value = Array.from(selectedIds).join(',');
-            };
-
-            const applySearch = () => {
-              const q = search.value.toLowerCase().trim();
-              
-              if (q === '') {
-                idleState.classList.remove('hidden');
-                emptyState.classList.add('hidden');
-                cardsContainer.classList.add('hidden');
-                return;
-              }
-              
-              let visibleCount = 0;
-              cards.forEach(card => {
-                const name = card.dataset.empName.toLowerCase();
-                const id = card.dataset.empId.toLowerCase();
-                const txt = name + ' ' + id;
-                if (txt.includes(q)) {
-                  card.style.display = '';
-                  visibleCount++;
-                } else {
-                  card.style.display = 'none';
-                }
-              });
-              
-              idleState.classList.add('hidden');
-              if (visibleCount === 0) {
-                emptyState.classList.remove('hidden');
-                cardsContainer.classList.add('hidden');
-              } else {
-                emptyState.classList.add('hidden');
-                cardsContainer.classList.remove('hidden');
-              }
-            };
-            
-            cards.forEach(card => {
-              card.addEventListener('click', () => {
-                const empId = card.dataset.empId;
-                const checkmark = card.querySelector('.assignee-check');
-                if (selectedIds.has(empId)) {
-                  selectedIds.delete(empId);
-                  card.classList.remove('border-emerald-500', 'bg-emerald-50');
-                  checkmark.classList.add('hidden');
-                } else {
-                  selectedIds.add(empId);
-                  card.classList.add('border-emerald-500', 'bg-emerald-50');
-                  checkmark.classList.remove('hidden');
-                }
-                renderSelected();
-              });
-            });
-            
-            search.addEventListener('input', applySearch);
-            applySearch();
-          })();
-        </script>
+        <div class="flex justify-end gap-3 pt-4 border-t border-slate-50">
+          <button type="button" onclick="closeModal('createTaskModal')" class="label-mono hover:text-red-500">Discard</button>
+          <button type="submit" class="btn-exec btn-primary">Authorize Assignment</button>
+        </div>
       </form>
-    </div>
-
-    <!-- MODAL FOOTER -->
-    <div class="border-t border-slate-200 px-6 py-4 flex justify-end gap-3 flex-shrink-0 bg-slate-50">
-      <button type="button"
-              onclick="document.getElementById('createTaskModal').classList.add('hidden')"
-              class="px-6 py-2 rounded-lg text-slate-700 font-semibold hover:bg-slate-200 transition">
-        Cancel
-      </button>
-      <button type="submit" form="taskForm" class="btn-action bg-gradient-to-r from-emerald-500 to-teal-600">
-        Assign Task
-      </button>
     </div>
   </div>
 </div>
 
-<!-- MEETING LINK COPY FUNCTION -->
 <script>
-function copyGeneratedMeetingLink(e) {
-  e.preventDefault();
-  const linkInput = document.getElementById('generatedMeetingLink');
-  
-  if (!linkInput.value || linkInput.value.includes('will be auto-generated')) {
-    window.showToast?.('Meeting link will be generated when you schedule the meeting!', 'warning');
-    return;
-  }
-  
-  linkInput.select();
-  navigator.clipboard.writeText(linkInput.value).then(() => {
-    const btn = document.getElementById('copyMeetingLinkBtn');
-    const originalText = btn.textContent;
-    btn.textContent = '✓ Copied!';
-    btn.classList.add('bg-green-200', 'text-green-700');
-    btn.classList.remove('bg-blue-100', 'text-blue-700');
-    
-    setTimeout(() => {
-      btn.textContent = originalText;
-      btn.classList.remove('bg-green-200', 'text-green-700');
-      btn.classList.add('bg-blue-100', 'text-blue-700');
-    }, 2000);
-  }).catch(() => {
-    window.showToast?.('Failed to copy link', 'error');
-  });
+// UTILITY FUNCTIONS
+function openModal(id) {
+    document.getElementById(id).classList.remove('hidden');
+    document.getElementById(id).classList.add('flex');
 }
-</script>
 
-<script>
-  (function () {
-    const modal = document.getElementById('attendeesListModal');
-    const closeBtn = document.getElementById('closeAttendeesModal');
-    const listEl = document.getElementById('attendeesListItems');
-    const buttons = document.querySelectorAll('.view-attendees-btn');
+function closeModal(id) {
+    document.getElementById(id).classList.add('hidden');
+    document.getElementById(id).classList.remove('flex');
+}
 
-    function parseNames(value) {
-      if (!value) return [];
-      return value.split(',').map(name => name.trim()).filter(Boolean);
+function openNewMeetingModal() {
+    const linkInput = document.getElementById('generatedMeetingLink');
+    const timestamp = Date.now().toString(36);
+    const random = Math.random().toString(36).substring(2, 7);
+    linkInput.value = `https://meet.jit.si/teamsync_${timestamp}_${random}`;
+    openModal('createMeetingModal');
+}
+
+function copyGeneratedMeetingLink(e) {
+    e.preventDefault();
+    const linkInput = document.getElementById('generatedMeetingLink');
+    if (linkInput && linkInput.value) {
+        linkInput.select();
+        document.execCommand('copy');
+        const btn = e.target;
+        const orig = btn.innerText;
+        btn.innerText = 'COPIED';
+        setTimeout(() => { btn.innerText = orig; }, 2000);
     }
+}
 
-    function openModal(names) {
-      if (!modal || !listEl) return;
-      listEl.innerHTML = '';
-      const items = parseNames(names);
-      if (items.length === 0) {
-        const li = document.createElement('li');
-        li.className = 'text-slate-500';
-        li.textContent = 'No attendees available.';
-        listEl.appendChild(li);
-      } else {
-        items.forEach(name => {
-          const li = document.createElement('li');
-          li.className = 'px-3 py-2 rounded-lg border border-slate-100 bg-white';
-          li.textContent = name;
-          listEl.appendChild(li);
+// CONSOLIDATED GLOBAL SCRIPT
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Real-time Executive Clock initialization
+    function updateClock() {
+        const clockElement = document.getElementById('clock');
+        if (clockElement) {
+            const now = new Date();
+            clockElement.textContent = now.toLocaleTimeString('en-GB');
+        }
+    }
+    updateClock();
+    setInterval(updateClock, 1000);
+
+    // 2. Initialize Attendees logic
+    (function () {
+        const listEl = document.getElementById('attendeesListItems');
+        const buttons = document.querySelectorAll('.view-attendees-btn');
+
+        buttons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                if (listEl) {
+                    listEl.innerHTML = '';
+                    const names = btn.dataset.attendees ? btn.dataset.attendees.split(',').map(n => n.trim()) : [];
+                    if (names.length === 0) {
+                        listEl.innerHTML = '<li class="text-slate-400 italic">No participants found.</li>';
+                    } else {
+                        names.forEach(name => {
+                            const li = document.createElement('li');
+                            li.className = 'p-3 bg-slate-50 border border-slate-100 font-bold text-xs uppercase tracking-tight';
+                            li.textContent = name;
+                            listEl.appendChild(li);
+                        });
+                    }
+                    openModal('attendeesListModal');
+                }
+            });
         });
-      }
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
+    })();
+
+    // 3. Robust Multi-Select logic
+    function setupMultiSelect(searchId, containerId, hiddenInputId, cardClass) {
+        const search = document.getElementById(searchId);
+        const container = document.getElementById(containerId);
+        const hiddenInput = document.getElementById(hiddenInputId);
+        
+        if (!search || !container || !hiddenInput) return;
+
+        const cards = Array.from(container.querySelectorAll('.' + cardClass));
+        const selectedIds = new Set();
+
+        search.addEventListener('input', () => {
+            const q = search.value.toLowerCase().trim();
+            if (q === '') {
+                container.classList.add('hidden');
+                return;
+            }
+            container.classList.remove('hidden');
+            cards.forEach(card => {
+                const txt = (card.dataset.empName || '') + (card.dataset.empId || '');
+                card.style.display = txt.toLowerCase().includes(q) ? 'flex' : 'none';
+            });
+        });
+
+        cards.forEach(card => {
+            card.addEventListener('click', () => {
+                const id = card.dataset.empId;
+                const check = card.querySelector('.assignee-check');
+                if (selectedIds.has(id)) {
+                    selectedIds.delete(id);
+                    card.classList.remove('border-indigo-500', 'bg-indigo-50');
+                    if (check) check.classList.add('hidden');
+                } else {
+                    selectedIds.add(id);
+                    card.classList.add('border-indigo-500', 'bg-indigo-50');
+                    if (check) check.classList.remove('hidden');
+                }
+                hiddenInput.value = Array.from(selectedIds).join(',');
+            });
+        });
     }
 
-    function closeModal() {
-      if (!modal) return;
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
+    try {
+        setupMultiSelect('meetingAssigneeSearch', 'meetingAssigneeCards', 'meetingAssignees', 'meeting-assignee-card');
+        setupMultiSelect('taskAssigneeSearch', 'taskAssigneeCards', 'taskAssignees', 'task-assignee-card');
+    } catch (e) {
+        console.warn("Assignee search initialization failed.");
     }
 
-    buttons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        openModal(btn.dataset.attendees || '');
-      });
+    // 4. Global Date Constraints
+    const now = new Date();
+    const iso = now.toISOString().split('T')[0];
+    document.querySelectorAll('input[type="date"], input[type="datetime-local"]').forEach(i => {
+        i.min = i.type === 'date' ? iso : iso + 'T00:00';
     });
-
-    closeBtn?.addEventListener('click', closeModal);
-    modal?.addEventListener('click', (event) => {
-      if (event.target === modal) closeModal();
-    });
-  })();
+});
 </script>
-
-<script>
-  (function () {
-    const pad = (n) => String(n).padStart(2, '0');
-    const today = new Date();
-    const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-    const todayStart = `${todayStr}T00:00`;
-
-    document.querySelectorAll('input[name="meeting_datetime"]').forEach((input) => {
-      input.min = todayStart;
-    });
-
-    document.querySelectorAll('input[name="due_date"]').forEach((input) => {
-      input.min = todayStr;
-    });
-  })();
-</script>
-
 {% endblock %}
