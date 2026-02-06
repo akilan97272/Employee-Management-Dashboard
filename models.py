@@ -13,7 +13,7 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     rfid_tag = Column(String(100), unique=True, nullable=False)
-    employee_id_hash = Column(String(64), nullable=True, index=True)  # SHA256 hash of employee_id for security
+    # employee_id_hash = Column(String(64), nullable=True, index=True)  # SHA256 hash of employee_id for security
     
     # Roles: 'admin', 'manager', 'team_lead', 'employee'
     role = Column(String(50), nullable=False) 

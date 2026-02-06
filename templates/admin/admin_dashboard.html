@@ -194,111 +194,87 @@
 </div>
 
 <!-- Success Popup Modal -->
-<div id="successPopup" class="hidden fixed inset-0 z-[250] bg-black/50 backdrop-blur-lg flex justify-center items-center p-4 animate-fadeIn">
-  <div class="w-full max-w-2xl flex flex-col bg-white rounded-3xl shadow-[0_20px_60px_rgba(0,0,0,0.3)] overflow-hidden transform transition-all duration-300 max-h-[90vh]">
-    <!-- Icon Container with gradient background -->
-    <div class="bg-gradient-to-br from-emerald-50 via-teal-100 to-cyan-100 px-8 pt-8 pb-6 flex justify-center relative overflow-hidden">
-      <div class="absolute inset-0 opacity-20">
-        <div class="absolute top-2 left-4 w-20 h-20 bg-emerald-300 rounded-full blur-3xl"></div>
-        <div class="absolute bottom-2 right-4 w-16 h-16 bg-teal-300 rounded-full blur-2xl"></div>
-      </div>
-      <div class="relative">
-        <svg class="w-20 h-20 text-emerald-600 animate-bounce" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-        </svg>
-      </div>
+<div id="successPopup" class="hidden fixed inset-0 z-[250] bg-slate-900/60 backdrop-blur-sm flex justify-center items-center p-4">
+  <div class="w-full max-w-xl bg-white border border-slate-900 shadow-[24px_24px_0px_rgba(0,0,0,0.1)] overflow-hidden transform transition-all">
+    
+    <div class="bg-slate-900 px-8 py-10 flex justify-between items-center">
+        <div>
+            <h3 class="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500 mb-2">Internal Operations</h3>
+            <h2 class="text-3xl font-light text-white uppercase tracking-tighter leading-none">
+                Employee <span class="font-bold">Registered</span>
+            </h2>
+        </div>
+        <div class="h-12 w-12 border border-blue-500/50 flex items-center justify-center">
+            <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="square" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+        </div>
     </div>
 
-    <!-- Title & Subtext -->
-    <div class="px-8 pt-8 pb-2 text-center">
-      <h3 class="text-3xl font-bold text-slate-900 mb-2">🎉 Employee Created!</h3>
-      <p class="text-slate-500 text-sm font-medium">Credentials are ready to share</p>
+    <div class="p-8 space-y-8">
+        <div class="flex items-center gap-4">
+            <p class="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] whitespace-nowrap">Access Authorization</p>
+            <div class="h-px w-full bg-slate-100"></div>
+        </div>
+
+        <div class="grid grid-cols-1 gap-px bg-slate-200 border border-slate-200 shadow-sm">
+            
+            <div class="bg-white p-5 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Employee Identifier</label>
+                    <code id="successEmployeeId" class="block font-mono text-base font-bold text-slate-900 select-all">-</code>
+                </div>
+                <button onclick="copyToClipboard('successEmployeeId')" class="px-4 py-2 border border-slate-200 text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
+                    Copy
+                </button>
+            </div>
+
+            <div class="bg-white p-5 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-black text-slate-400 uppercase tracking-widest">System Username</label>
+                    <code id="successUsername" class="block font-mono text-base font-bold text-slate-900 select-all">-</code>
+                </div>
+                <button onclick="copyToClipboard('successUsername')" class="px-4 py-2 border border-slate-200 text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
+                    Copy
+                </button>
+            </div>
+
+            <div class="bg-white p-5 flex items-center justify-between group hover:bg-slate-50 transition-colors">
+                <div class="space-y-1">
+                    <label class="text-[9px] font-black text-blue-600 uppercase tracking-widest">Temporary Password</label>
+                    <code id="successPassword" class="block font-mono text-base font-bold text-slate-900 select-all">-</code>
+                </div>
+                <button onclick="copyToClipboard('successPassword')" class="px-4 py-2 border border-blue-600 text-blue-600 text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all">
+                    Copy
+                </button>
+            </div>
+        </div>
+
+        <!-- <div class="bg-slate-50 border-l-2 border-slate-900 p-5 flex gap-4">
+            <div class="text-slate-900 mt-0.5">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="square" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+            </div>
+            <div class="space-y-1">
+                <p class="text-[10px] font-black text-slate-900 uppercase tracking-widest">Security Protocol</p>
+                <p class="text-[11px] text-slate-500 leading-relaxed">
+                    Credentials are displayed once per session. Ensure data is transmitted via encrypted channels. Once dismissed, password recovery is restricted to administrative reset.
+                </p>
+            </div>
+        </div> -->
     </div>
 
-    <!-- Content Area - Scrollable -->
-    <div class="px-8 py-6 overflow-y-auto flex-1 space-y-4">
-      <!-- Employee ID -->
-      <div class="group">
-        <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">📋 Employee ID</label>
-          <span class="text-xs text-slate-400 font-medium">Click to copy</span>
-        </div>
-        <div class="relative flex items-center gap-2">
-          <div class="flex-1 bg-gradient-to-br from-emerald-50 to-teal-50 border-2 border-emerald-200 rounded-xl px-4 py-4 transition-all duration-200 group-hover:border-emerald-400 group-hover:shadow-lg group-hover:shadow-emerald-100">
-            <code id="successEmployeeId" class="font-mono text-lg font-bold text-emerald-900 break-all select-all">-</code>
-          </div>
-          <button onclick="copyToClipboard('successEmployeeId')" class="flex-shrink-0 p-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg shadow-emerald-200 hover:shadow-emerald-300 active:scale-90" title="Copy Employee ID">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 011 1v2h4V4a1 1 0 011-1h2a1 1 0 011 1v2h1a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h1V3zM4 7h12v10H4V7z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Username -->
-      <div class="group">
-        <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">👤 Username</label>
-          <span class="text-xs text-slate-400 font-medium">Click to copy</span>
-        </div>
-        <div class="relative flex items-center gap-2">
-          <div class="flex-1 bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl px-4 py-4 transition-all duration-200 group-hover:border-blue-400 group-hover:shadow-lg group-hover:shadow-blue-100">
-            <code id="successUsername" class="font-mono text-lg font-bold text-blue-900 break-all select-all">-</code>
-          </div>
-          <button onclick="copyToClipboard('successUsername')" class="flex-shrink-0 p-3 bg-gradient-to-br from-blue-500 to-cyan-600 text-white rounded-xl hover:from-blue-600 hover:to-cyan-700 transition-all duration-200 shadow-lg shadow-blue-200 hover:shadow-blue-300 active:scale-90" title="Copy Username">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 011 1v2h4V4a1 1 0 011-1h2a1 1 0 011 1v2h1a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h1V3zM4 7h12v10H4V7z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Password -->
-      <div class="group">
-        <div class="flex items-center justify-between mb-2">
-          <label class="text-xs font-bold text-slate-700 uppercase tracking-wider">🔐 Password</label>
-          <span class="text-xs text-slate-400 font-medium">Click to copy</span>
-        </div>
-        <div class="relative flex items-center gap-2">
-          <div class="flex-1 bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-xl px-4 py-4 transition-all duration-200 group-hover:border-purple-400 group-hover:shadow-lg group-hover:shadow-purple-100">
-            <code id="successPassword" class="font-mono text-lg font-bold text-purple-900 break-all select-all">-</code>
-          </div>
-          <button onclick="copyToClipboard('successPassword')" class="flex-shrink-0 p-3 bg-gradient-to-br from-purple-500 to-pink-600 text-white rounded-xl hover:from-purple-600 hover:to-pink-700 transition-all duration-200 shadow-lg shadow-purple-200 hover:shadow-purple-300 active:scale-90" title="Copy Password">
-            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M8 3a1 1 0 011-1h2a1 1 0 011 1v2h4V4a1 1 0 011-1h2a1 1 0 011 1v2h1a2 2 0 012 2v10a2 2 0 01-2 2H3a2 2 0 01-2-2V6a2 2 0 012-2h1V3zM4 7h12v10H4V7z"/>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <!-- Important Notice -->
-      <div class="mt-6 bg-gradient-to-br from-amber-50 to-orange-50 border-l-4 border-amber-500 rounded-2xl p-4 relative overflow-hidden">
-        <div class="absolute top-0 right-0 w-20 h-20 bg-amber-200 rounded-full blur-3xl opacity-20 -z-10"></div>
-        <div class="flex gap-3">
-          <span class="text-2xl flex-shrink-0 mt-0.5">⚠️</span>
-          <div>
-            <p class="text-sm font-bold text-amber-900 mb-1">Keep It Secure!</p>
-            <p class="text-xs text-amber-800 leading-relaxed">Share credentials through a secure channel. This is the only time the password will be displayed. Once you close this dialog, you cannot recover the password.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Divider -->
-    <div class="h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent"></div>
-
-    <!-- Footer -->
-    <div class="px-8 py-4 bg-gradient-to-b from-slate-50 to-white flex gap-3 justify-end">
-      <button onclick="closeSuccessPopup();" class="px-6 py-3 text-slate-700 font-bold rounded-xl hover:bg-slate-100 transition-all duration-200">
-        View Later
-      </button>
-      <button onclick="closeSuccessPopup(); resetAddEmployeeForm();" class="px-8 py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl hover:from-emerald-600 hover:to-teal-700 transition-all duration-200 shadow-lg shadow-emerald-200 hover:shadow-emerald-300 active:scale-95">
-        Add Another
-      </button>
+    <div class="bg-white border-t border-slate-100 p-6 flex justify-end gap-3">
+        <button onclick="closeSuccessPopup();" class="px-6 py-3 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-colors">
+            Dismiss
+        </button>
+        <button onclick="closeSuccessPopup(); resetAddEmployeeForm();" class="px-8 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-[0.2em] hover:bg-blue-700 transition-all shadow-lg">
+            Create Another Entry
+        </button>
     </div>
   </div>
 </div>
-
 <style>
   @keyframes fadeIn {
     from {
