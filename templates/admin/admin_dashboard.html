@@ -5,6 +5,28 @@
 {% block page_title %}COMMAND_CENTER{% endblock %}
 
 {% block content %}
+<div class="border border-[var(--border)] bg-[var(--panel)] p-6 mb-8 flex items-center justify-between">
+  <div class="flex items-center gap-4">
+    {% if user.photo_blob %}
+      <img src="/employee/photo/{{ user.employee_id }}" alt="{{ user.name }}" class="w-14 h-14 rounded-2xl object-cover border border-slate-200" />
+    {% elif user.photo_path %}
+      <img src="{{ user.photo_path }}" alt="{{ user.name }}" class="w-14 h-14 rounded-2xl object-cover border border-slate-200" />
+    {% else %}
+      <div class="w-14 h-14 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xl font-black">
+        {{ user.name[0]|upper }}
+      </div>
+    {% endif %}
+    <div>
+      <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Admin</div>
+      <div class="text-lg font-black text-slate-900">{{ user.name }}</div>
+      <div class="text-[10px] text-slate-400">ID - {{ user.employee_id }}</div>
+    </div>
+  </div>
+  <div class="text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
+    Command Center
+  </div>
+</div>
+
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-12">
 
   <div class="border border-[var(--border)] p-8 bg-[var(--panel)] group hover:shadow-xl transition-all">
@@ -121,27 +143,6 @@
   </div>
 
   <div class="space-y-6">
-    <div class="border border-[var(--border)] bg-[var(--panel)] p-8 border-t-4 border-blue-600">
-      <h3 class="text-xs font-black uppercase tracking-[0.3em] mb-8">Register New Employee</h3>
-      <form id="addEmployeeForm" class="space-y-4">
-        <input id="empName" class="w-full border border-[var(--border)] p-4 text-sm font-bold bg-[var(--bg)] outline-none focus:border-blue-600" name="name" placeholder="Full Name" required />
-        <div class="grid grid-cols-2 gap-4">
-            <input id="empEmail" class="w-full border border-[var(--border)] p-4 text-sm font-bold bg-[var(--bg)] outline-none focus:border-blue-600" name="email" placeholder="Email Address" required />
-            <input id="empRfid" class="w-full border border-[var(--border)] p-4 text-sm font-bold bg-[var(--bg)] outline-none focus:border-blue-600" name="rfid_tag" placeholder="RFID Tag ID" required />
-        </div>
-        <div class="grid grid-cols-2 gap-4">
-            <select id="empRole" name="role" class="border border-[var(--border)] p-4 text-xs font-black uppercase bg-[var(--bg)] outline-none focus:border-blue-600">
-              <option value="employee">Employee</option><option value="admin">Admin</option><option value="manager">Manager</option>
-            </select>
-            <select id="empDept" name="department" class="border border-[var(--border)] p-4 text-xs font-black uppercase bg-[var(--bg)] outline-none focus:border-blue-600">
-              <option>IT</option><option>HR</option><option>Finance</option>
-            </select>
-        </div>
-        <button class="w-full py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all" type="submit">
-          Add Personnel
-        </button>
-      </form>
-    </div>
 
     <div class="border border-[var(--border)] bg-[var(--panel)] p-8 border-t-4 border-red-600">
       <h3 class="text-xs font-black uppercase tracking-[0.3em] mb-6 text-red-600">Deactivate Account</h3>

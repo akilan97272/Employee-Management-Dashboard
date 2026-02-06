@@ -69,42 +69,123 @@ def _sanitize_optional(value: str | None, max_len: int = 200) -> str | None:
     return sanitize_db_text(value, max_len=max_len)
 
 
-def _supported_countries_list() -> list[dict]:
-    """Get list of supported countries for holiday selection"""
-    supported = holidays.list_supported_countries()
+# Countries list as requested (names only, no official-name variants)
+_COUNTRY_NAME_LIST = [
+    "Algeria", "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde",
+    "Cameroon", "Central African Republic", "Chad", "Comoros", "Congo (Brazzaville)",
+    "Congo (Kinshasa)", "Côte d'Ivoire", "Djibouti", "Egypt", "Equatorial Guinea",
+    "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea",
+    "Guinea-Bissau", "Kenya", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi",
+    "Mali", "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger",
+    "Nigeria", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles",
+    "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Tanzania",
+    "Togo", "Tunisia", "Uganda", "Zambia", "Zimbabwe",
+    "Afghanistan", "Armenia", "Azerbaijan", "Bahrain", "Bangladesh", "Bhutan", "Brunei",
+    "Cambodia", "China", "Cyprus", "Georgia", "India", "Indonesia", "Iran", "Iraq",
+    "Israel", "Japan", "Jordan", "Kazakhstan", "Kuwait", "Kyrgyzstan", "Laos",
+    "Lebanon", "Malaysia", "Maldives", "Mongolia", "Myanmar", "Nepal", "North Korea",
+    "Oman", "Pakistan", "Palestine", "Philippines", "Qatar", "Russia", "Saudi Arabia",
+    "Singapore", "South Korea", "Sri Lanka", "Syria", "Taiwan", "Tajikistan", "Thailand",
+    "Timor-Leste", "Turkey", "Turkmenistan", "United Arab Emirates", "Uzbekistan",
+    "Vietnam", "Yemen",
+    "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina",
+    "Bulgaria", "Croatia", "Czechia", "Denmark", "Estonia", "Finland", "France",
+    "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Italy", "Kosovo", "Latvia",
+    "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Moldova", "Monaco",
+    "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland", "Portugal",
+    "Romania", "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain", "Sweden",
+    "Switzerland", "Ukraine", "United Kingdom", "Vatican City",
+    "Antigua and Barbuda", "Bahamas", "Barbados", "Belize", "Canada", "Costa Rica",
+    "Cuba", "Dominica", "Dominican Republic", "El Salvador", "Grenada", "Guatemala",
+    "Haiti", "Honduras", "Jamaica", "Mexico", "Nicaragua", "Panama",
+    "Saint Kitts and Nevis", "Saint Lucia", "Saint Vincent and the Grenadines",
+    "Trinidad and Tobago", "United States of America",
+    "Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Ecuador", "Guyana",
+    "Paraguay", "Peru", "Suriname", "Uruguay", "Venezuela",
+    "Australia", "Fiji", "Kiribati", "Marshall Islands", "Micronesia", "Nauru",
+    "New Zealand", "Palau", "Papua New Guinea", "Samoa", "Solomon Islands", "Tonga",
+    "Tuvalu", "Vanuatu",
+]
+
+_COUNTRY_CODE_OVERRIDES = {
+    "Bolivia": "BO",
+    "Brunei": "BN",
+    "Cabo Verde": "CV",
+    "Congo (Brazzaville)": "CG",
+    "Congo (Kinshasa)": "CD",
+    "Côte d'Ivoire": "CI",
+    "Czechia": "CZ",
+    "Eswatini": "SZ",
+    "Kosovo": "XK",
+    "Laos": "LA",
+    "North Macedonia": "MK",
+    "Micronesia": "FM",
+    "Moldova": "MD",
+    "North Korea": "KP",
+    "Palestine": "PS",
+    "Russia": "RU",
+    "South Korea": "KR",
+    "Syria": "SY",
+    "Taiwan": "TW",
+    "Tanzania": "TZ",
+    "Timor-Leste": "TL",
+    "United Kingdom": "GB",
+    "United States of America": "US",
+    "Venezuela": "VE",
+    "Vatican City": "VA",
+    "Vietnam": "VN",
+    "Sao Tome and Principe": "ST",
+}
+
+
+def _country_code_from_name(name: str) -> str | None:
+    """Resolve ISO alpha-2 code from a provided country name"""
+    if name in _COUNTRY_CODE_OVERRIDES:
+        return _COUNTRY_CODE_OVERRIDES[name]
+
     pycountry = _safe_pycountry()
+    if not pycountry:
+        return None
+
+    try:
+        matches = pycountry.countries.search_fuzzy(name)
+        if matches:
+            return getattr(matches[0], "alpha_2", None)
+    except Exception:
+        return None
+    return None
+
+
+def _countries_list() -> list[dict]:
+    """Get list of countries for selection (provided names)"""
     countries = []
-    seen_names = set()
-    for code in supported.keys():
-        name = code
-        if pycountry:
-            country = pycountry.countries.get(alpha_2=code) or pycountry.countries.get(alpha_3=code)
-            if country:
-                name = country.name
-        name_key = name.lower()
-        if name_key in seen_names:
-            continue
-        seen_names.add(name_key)
-        countries.append({"code": code, "name": name})
-    countries.sort(key=lambda c: c["name"])
+    for name in _COUNTRY_NAME_LIST:
+        code = _country_code_from_name(name)
+        countries.append({"code": code or "", "name": name})
     return countries
 
 
-def _supported_subdivisions(country_code: str) -> list[dict]:
-    """Get list of supported subdivisions/states for a country"""
-    supported = holidays.list_supported_countries()
-    codes = supported.get(country_code, [])
+def _subdivisions_list(country_code: str) -> list[dict]:
+    """Get list of subdivisions/states for a country (full names)"""
     pycountry = _safe_pycountry()
     items = []
-    for code in codes:
-        name = code
-        if pycountry:
-            subdivision = pycountry.subdivisions.get(code=f"{country_code}-{code}")
-            if subdivision:
-                name = subdivision.name
-        items.append({"code": code, "name": name})
+    if not pycountry or not country_code:
+        return items
+
+    for subdivision in pycountry.subdivisions:
+        if getattr(subdivision, "country_code", None) != country_code:
+            continue
+        code = getattr(subdivision, "code", "")
+        name = getattr(subdivision, "official_name", None) or getattr(subdivision, "name", None)
+        if code and name:
+            items.append({"code": code.split("-")[-1], "name": name})
+
     items.sort(key=lambda s: s["name"])
     return items
+
+
+def _valid_country_codes() -> set[str]:
+    return {c["code"] for c in _countries_list() if c["code"]}
 
 
 def _safe_pycountry():
@@ -186,6 +267,7 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                 "title": e.title,
                 "notes": e.notes or "",
                 "type": e.event_type or "general",
+                "owner_id": e.user_id,
             }
             for e in events
         ]
@@ -199,6 +281,7 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                 "title": oh.title,
                 "notes": oh.notes or "",
                 "type": "office_holiday",
+                "owner_id": None,
             })
         
         # Add approved personal leaves (only for the current user)
@@ -231,6 +314,7 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                         "title": "Approved Leave",
                         "notes": leave.reason or "",
                         "type": "personal_leave",
+                        "owner_id": user.id,
                     })
                     current += datetime.timedelta(days=1)
         
@@ -257,6 +341,7 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                             "title": getattr(t, 'title', 'Task'),
                             "notes": getattr(t, 'description', '') or '',
                             "type": "task",
+                            "owner_id": user.id,
                         })
                 except Exception:
                     # If Task model/query fails, continue without tasks
@@ -296,6 +381,7 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                             "title": getattr(pt, 'title', 'Project Task'),
                             "notes": getattr(pt, 'description', '') or '',
                             "type": "task",
+                            "owner_id": user.id,
                         })
                 except Exception:
                     pass
@@ -351,6 +437,7 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                             "notes": getattr(meeting, 'description', '') or '',
                             "type": "meeting",
                             "attendees": attendees,
+                            "owner_id": user.id,
                         })
                 except Exception:
                     pass
@@ -405,6 +492,9 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
             event_date = datetime.date.fromisoformat(date_raw)
         except ValueError:
             raise HTTPException(status_code=400, detail="Invalid date")
+
+        if event_date < datetime.date.today():
+            raise HTTPException(status_code=400, detail="Cannot create events in the past")
         
         event = CalendarEvent(
             user_id=user.id,
@@ -487,12 +577,12 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
             db.commit()
         
         requested_country = request.query_params.get("country") or settings.country_code or "IN"
-        supported = holidays.list_supported_countries()
-        if requested_country not in supported:
-            requested_country = "IN"
-        
-        countries = _supported_countries_list()
-        states = _supported_subdivisions(requested_country)
+        if requested_country not in _valid_country_codes():
+            mapped = _country_code_from_name(requested_country)
+            requested_country = mapped if mapped in _valid_country_codes() else "IN"
+
+        countries = _countries_list()
+        states = _subdivisions_list(requested_country)
         
         return JSONResponse({
             "country": settings.country_code,
@@ -510,14 +600,18 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
     ):
         """Update user's calendar settings"""
         payload = await request.json()
-        country = _sanitize_required(str(payload.get("country", "IN")), "country", max_len=10)
+        country_raw = _sanitize_required(str(payload.get("country", "IN")), "country", max_len=100)
         state = _sanitize_optional(str(payload.get("state", "")).strip(), max_len=20)
-        
-        supported = holidays.list_supported_countries()
-        if country not in supported:
-            country = "IN"
-        if state and state not in supported.get(country, []):
-            state = ""
+
+        valid_countries = _valid_country_codes()
+        country = country_raw
+        if country not in valid_countries:
+            mapped = _country_code_from_name(country_raw)
+            country = mapped if mapped in valid_countries else "IN"
+        if state:
+            valid_states = {s["code"] for s in _subdivisions_list(country)}
+            if state not in valid_states:
+                state = ""
         
         settings = db.query(CalendarSettings).filter(CalendarSettings.user_id == user.id).first()
         if not settings:
@@ -541,9 +635,14 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
         country = settings.country_code if settings else "IN"
         state = settings.state_code if settings else None
         
+        supported = holidays.list_supported_countries()
+        if country not in supported:
+            return JSONResponse({"holidays": [], "supported": False, "state_supported": False})
+
         national = holidays.country_holidays(country, years=[year])
         state_holidays = None
-        if state:
+        state_supported = bool(state and state in supported.get(country, []))
+        if state_supported:
             try:
                 state_holidays = holidays.country_holidays(country, subdiv=state, years=[year])
             except Exception:
@@ -567,7 +666,11 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
                     "type": "state_holiday",
                 })
         
-        return JSONResponse({"holidays": results})
+        return JSONResponse({
+            "holidays": results,
+            "supported": True,
+            "state_supported": state_supported,
+        })
     
     
     # ----------------------------------------

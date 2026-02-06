@@ -189,9 +189,15 @@
 <div class="p-4 border-t border-slate-800">
 {% if request.path.startswith('/employee') %}
       <a href="/employee/profile" class="flex items-center gap-3 p-3 hover:bg-slate-800/50 transition-all group">
-        <div class="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-xs group-hover:bg-blue-600 transition-colors">
-          {{ user.name[0] }}
-        </div>
+        {% if user.photo_blob %}
+          <img src="/employee/photo/{{ user.employee_id }}" alt="{{ user.name }}" class="w-9 h-9 rounded-full object-cover border border-slate-700 group-hover:border-blue-500 transition-colors" />
+        {% elif user.photo_path %}
+          <img src="{{ user.photo_path }}" alt="{{ user.name }}" class="w-9 h-9 rounded-full object-cover border border-slate-700 group-hover:border-blue-500 transition-colors" />
+        {% else %}
+          <div class="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-xs group-hover:bg-blue-600 transition-colors">
+            {{ user.name[0] }}
+          </div>
+        {% endif %}
         <div class="overflow-hidden">
           <p class="text-xs font-bold text-white truncate group-hover:text-blue-400 transition-colors">{{ user.name }}</p>
           <div class="flex items-center gap-1.5">
@@ -201,9 +207,15 @@
       </a>
       {% else %}
       <div class="flex items-center gap-3 p-3 opacity-80">
-        <div class="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-xs">
-          {{ user.name[0] }}
-        </div>
+        {% if user.photo_blob %}
+          <img src="/employee/photo/{{ user.employee_id }}" alt="{{ user.name }}" class="w-9 h-9 rounded-full object-cover border border-slate-700" />
+        {% elif user.photo_path %}
+          <img src="{{ user.photo_path }}" alt="{{ user.name }}" class="w-9 h-9 rounded-full object-cover border border-slate-700" />
+        {% else %}
+          <div class="w-9 h-9 bg-slate-800 flex items-center justify-center text-white font-bold text-xs">
+            {{ user.name[0] }}
+          </div>
+        {% endif %}
         <div class="overflow-hidden">
           <p class="text-xs font-bold text-white truncate">{{ user.name }}</p>
           <div class="flex items-center gap-1.5">
@@ -647,12 +659,16 @@ updateChatBadge();
         meetingModalEmptyUpcoming?.classList.add('hidden');
       }
 
+      let meetingPolling = null;
       function openMeetingModal() {
         if (!meetingModal) return;
         meetingModal.classList.remove('hidden');
         meetingModal.classList.add('flex');
         loadMeetingPopup(meetingModalListUpcoming, meetingModalListPast, meetingModalEmptyUpcoming, meetingModalEmptyPast, meetingBadge);
         showUpcomingTab();
+        if (!meetingPolling) {
+          meetingPolling = setInterval(() => loadMeetingPopup(meetingModalListUpcoming, meetingModalListPast, meetingModalEmptyUpcoming, meetingModalEmptyPast, meetingBadge), 60000);
+        }
       }
 
       function closeMeetingModal() {
@@ -663,8 +679,6 @@ updateChatBadge();
 
       if (meetingToggle) {
         meetingToggle.addEventListener('click', openMeetingModal);
-        loadMeetingPopup(meetingModalListUpcoming, meetingModalListPast, meetingModalEmptyUpcoming, meetingModalEmptyPast, meetingBadge);
-        setInterval(() => loadMeetingPopup(meetingModalListUpcoming, meetingModalListPast, meetingModalEmptyUpcoming, meetingModalEmptyPast, meetingBadge), 60000);
       }
       if (meetingClose) meetingClose.addEventListener('click', closeMeetingModal);
       if (meetingUpcomingBtn) meetingUpcomingBtn.addEventListener('click', showUpcomingTab);
@@ -878,8 +892,10 @@ updateChatBadge();
     const calendarNext = document.getElementById('aiCalendarNext');
     const calendarMonth = document.getElementById('aiCalendarMonth');
     const calendarYear = document.getElementById('aiCalendarYear');
+    const currentUserId = {{ user.id if user else 'null' }};
     let calendarEventsCache = [];
     let holidayCache = {};
+    let combinedEventsByDate = {};
     let viewYear = new Date().getFullYear();
     let viewMonth = new Date().getMonth();
     let calendarSettingsLoaded = false;
@@ -889,6 +905,7 @@ updateChatBadge();
     let settingsSaveTimer = null;
     let targetEmployees = [];
     let targetTeams = [];
+    let targetsLoaded = false;
 
     const upcomingBtn = document.getElementById('meetingUpcomingBtn');
 const pastBtn = document.getElementById('meetingPastBtn');
@@ -944,6 +961,20 @@ pastBtn.addEventListener('click', () => switchTab('past'));
       return holidayCache[year];
     }
 
+    function rebuildEventsIndex() {
+      combinedEventsByDate = {};
+      calendarEventsCache.forEach(e => {
+        if (!combinedEventsByDate[e.date]) combinedEventsByDate[e.date] = [];
+        combinedEventsByDate[e.date].push(e);
+      });
+      Object.values(holidayCache).forEach(list => {
+        list.forEach(e => {
+          if (!combinedEventsByDate[e.date]) combinedEventsByDate[e.date] = [];
+          combinedEventsByDate[e.date].push(e);
+        });
+      });
+    }
+
     function eventColor(title, type) {
       const t = (title || '').toLowerCase();
       const ty = (type || '').toLowerCase();
@@ -958,9 +989,7 @@ pastBtn.addEventListener('click', () => switchTab('past'));
 
     function renderSelectedDayList(dateStr) {
       if (!calendarList) return;
-      const holidayEvents = Object.values(holidayCache).flat().filter(e => e.date === dateStr);
-      const userEvents = calendarEventsCache.filter(e => e.date === dateStr);
-      const events = [...holidayEvents, ...userEvents];
+      const events = combinedEventsByDate[dateStr] || [];
       if (!events.length) {
         calendarList.innerHTML = '<div class="text-[11px] text-slate-400">No events scheduled.</div>';
         return;
@@ -972,7 +1001,7 @@ pastBtn.addEventListener('click', () => switchTab('past'));
             <div class="font-semibold">${e.title}</div>
             ${e.notes ? `<div class="text-[11px] text-slate-400">${e.notes}</div>` : ''}
           </div>
-          ${e.id && !['office_holiday', 'national_holiday', 'state_holiday'].includes((e.type || '').toLowerCase()) ? `<button data-ai-cal-remove="${e.id}" class="text-[10px] uppercase tracking-widest text-red-500">Remove</button>` : ''}
+          ${e.id && e.owner_id === currentUserId && !['office_holiday', 'national_holiday', 'state_holiday'].includes((e.type || '').toLowerCase()) ? `<button data-ai-cal-remove="${e.id}" class="text-[10px] uppercase tracking-widest text-red-500">Remove</button>` : ''}
         </div>
       `).join('');
       document.querySelectorAll('[data-ai-cal-remove]').forEach(btn => {
@@ -980,6 +1009,7 @@ pastBtn.addEventListener('click', () => switchTab('past'));
           const id = Number(btn.getAttribute('data-ai-cal-remove'));
           await fetch(`/api/calendar/${id}`, { method: 'DELETE' });
           calendarEventsCache = await fetchCalendarEvents();
+          rebuildEventsIndex();
           renderCalendar();
           renderSelectedDayList(calendarDate?.value || '');
         });
@@ -1035,20 +1065,9 @@ pastBtn.addEventListener('click', () => switchTab('past'));
 
     function renderCalendar() {
       if (!calendarGrid) return;
-      const eventsMap = {};
-      calendarEventsCache.forEach(e => {
-        if (!eventsMap[e.date]) eventsMap[e.date] = [];
-        eventsMap[e.date].push(e);
-      });
-      Object.values(holidayCache).forEach(list => {
-        list.forEach(e => {
-          if (!eventsMap[e.date]) eventsMap[e.date] = [];
-          eventsMap[e.date].push(e);
-        });
-      });
-      const current = buildMonth(viewYear, viewMonth, eventsMap);
+      const current = buildMonth(viewYear, viewMonth, combinedEventsByDate);
       const nextDate = new Date(viewYear, viewMonth + 1, 1);
-      const next = buildMonth(nextDate.getFullYear(), nextDate.getMonth(), eventsMap);
+      const next = buildMonth(nextDate.getFullYear(), nextDate.getMonth(), combinedEventsByDate);
       calendarGrid.innerHTML = current + next;
       document.querySelectorAll('[data-calendar-day]').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1065,6 +1084,8 @@ pastBtn.addEventListener('click', () => switchTab('past'));
       if (!calendarModal) return;
       calendarModal.classList.remove('hidden');
       calendarModal.classList.add('flex');
+      const todayStr = new Date().toISOString().slice(0, 10);
+      if (calendarDate) calendarDate.setAttribute('min', todayStr);
       if (calendarDate && !calendarDate.value) {
         const today = new Date().toISOString().slice(0, 10);
         calendarDate.value = today;
@@ -1079,7 +1100,9 @@ pastBtn.addEventListener('click', () => switchTab('past'));
       if (!calendarSettingsLoaded) {
         loadCalendarSettings().finally(() => { calendarSettingsLoaded = true; });
       }
-      loadCalendarTargets();
+      if (!targetsLoaded) {
+        loadCalendarTargets().finally(() => { targetsLoaded = true; });
+      }
       if (!calendarDataPromise) {
         const yearA = viewYear;
         const yearB = new Date(viewYear, viewMonth + 1, 1).getFullYear();
@@ -1089,16 +1112,19 @@ pastBtn.addEventListener('click', () => switchTab('past'));
           yearB !== yearA ? fetchHolidays(yearB) : Promise.resolve([])
         ]).then(([events]) => {
           calendarEventsCache = events;
+          rebuildEventsIndex();
         }).catch(() => {
           calendarEventsCache = [];
+          rebuildEventsIndex();
         }).finally(() => {
           calendarDataPromise = null;
         });
       }
       if (calendarDataPromise) {
-        await calendarDataPromise;
-        renderCalendar();
-        renderSelectedDayList(calendarDate?.value || '');
+        calendarDataPromise.then(() => {
+          renderCalendar();
+          renderSelectedDayList(calendarDate?.value || '');
+        });
       }
     }
 
@@ -1153,6 +1179,7 @@ pastBtn.addEventListener('click', () => switchTab('past'));
         const title = (calendarTitle?.value || '').trim();
         const notes = (calendarNotes?.value || '').trim();
         const type = calendarType?.value || 'general';
+        const todayStr = new Date().toISOString().slice(0, 10);
         let target_employee_hashes = [];
         let target_team_id = null;
         if (calendarTargetSection && !calendarTargetSection.classList.contains('hidden')) {
@@ -1162,6 +1189,10 @@ pastBtn.addEventListener('click', () => switchTab('past'));
           });
         }
         if (!title) return;
+        if (date && date < todayStr) {
+          window.showToast?.('You cannot create events in the past.', 'warning');
+          return;
+        }
         await fetch('/api/calendar', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1177,6 +1208,7 @@ pastBtn.addEventListener('click', () => switchTab('past'));
         if (calendarTitle) calendarTitle.value = '';
         if (calendarNotes) calendarNotes.value = '';
         calendarEventsCache = await fetchCalendarEvents();
+        rebuildEventsIndex();
         renderCalendar();
         renderSelectedDayList(date);
       });
@@ -1294,6 +1326,7 @@ if (calendarSettings) {
       const yearB = new Date(viewYear, viewMonth + 1, 1).getFullYear();
       await fetchHolidays(yearA);
       if (yearB !== yearA) await fetchHolidays(yearB);
+      rebuildEventsIndex();
       renderCalendar();
       renderSelectedDayList(calendarDate?.value || '');
     }
@@ -1365,12 +1398,10 @@ if (calendarSettings) {
       });
     }
 
-    if (calendarCountry || calendarState) {
-      loadCalendarSettings();
-    }
+    // calendar settings load is deferred to calendar open
   </script>
 
-  <script src="/static/script.js"></script>
+  <script src="/static/script.js?v=20250206"></script>
   
 </body>
 </html>

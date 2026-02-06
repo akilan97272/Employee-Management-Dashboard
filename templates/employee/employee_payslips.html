@@ -92,6 +92,8 @@
 }
 </style>
 
+{% set months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] %}
+
 <div class="payslip-container space-y-6 p-4">
 
     <div class="glass-panel p-6 rounded-[1.5rem] reveal">
@@ -100,7 +102,6 @@
                 <div class="flex-1">
                     <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Payroll Month</label>
                     <select name="month" class="select-input w-full mt-1">
-                        {% set months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"] %}
                         {% for i in range(1,13) %}
                         <option value="{{ i }}" {% if i == month %}selected{% endif %}>
                             {{ months[i-1] }}
@@ -185,19 +186,56 @@
                 </p>
             </div>
             
-            <a href="/employee/payslips/download?month={{ month }}&year={{ year }}"
+            <button type="button"
+               id="openPayslipModal"
+               data-download-url="/employee/payslips/download?month={{ month }}&year={{ year }}"
                class="flex items-center gap-2 bg-white border border-slate-200 text-slate-700 px-6 py-3 rounded-xl font-bold hover:bg-slate-50 transition-all shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
                 Download PDF
-            </a>
+            </button>
         </div>
 
         <p class="text-[10px] text-center text-slate-400 font-medium">
             This is a computer-generated document and does not require a physical signature. 
             For payroll discrepancies, contact HR within 48 hours of receipt.
         </p>
+
+          <div id="payslipModal" class="fixed inset-0 hidden items-center justify-center bg-slate-900/40 z-50">
+            <div class="bg-white rounded-2xl w-[92%] max-w-lg shadow-2xl border border-slate-200">
+              <div class="p-6 border-b border-slate-100">
+                <div class="text-xs font-black text-slate-400 uppercase tracking-widest">Confirm Download</div>
+                <h3 class="text-xl font-black text-slate-900 mt-2">Payslip PDF</h3>
+                <p class="text-sm text-slate-500 mt-1">Review the details before continuing.</p>
+              </div>
+              <div class="p-6 space-y-4">
+                <div class="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Employee</div>
+                    <div class="font-bold text-slate-800">{{ user.name }}</div>
+                    <div class="text-xs text-slate-500">ID: {{ user.employee_id }}</div>
+                  </div>
+                  <div>
+                    <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Period</div>
+                    <div class="font-bold text-slate-800">{{ months[month-1] }} {{ year }}</div>
+                    <div class="text-xs text-slate-500">Net Pay: ₹{{ "{:,.2f}".format(net_salary) }}</div>
+                  </div>
+                </div>
+                <div class="rounded-xl bg-slate-50 border border-slate-200 p-4 text-xs text-slate-500">
+                  The PDF includes your earnings, deductions, and attendance summary for this period.
+                </div>
+              </div>
+              <div class="p-6 pt-0 flex flex-col sm:flex-row gap-3 justify-end">
+                <button type="button" id="closePayslipModal" class="px-5 py-2 rounded-xl border border-slate-200 text-slate-700 font-bold hover:bg-slate-50">
+                  Cancel
+                </button>
+                <button type="button" id="continuePayslipDownload" class="px-5 py-2 rounded-xl bg-slate-900 text-white font-bold hover:bg-slate-800">
+                  Continue
+                </button>
+              </div>
+            </div>
+          </div>
 
     </div>
     {% else %}
@@ -212,5 +250,57 @@
     {% endif %}
 
 </div>
+
+{% if computed %}
+<script>
+const openPayslipModal = document.getElementById("openPayslipModal");
+const payslipModal = document.getElementById("payslipModal");
+const closePayslipModal = document.getElementById("closePayslipModal");
+const continuePayslipDownload = document.getElementById("continuePayslipDownload");
+
+if (openPayslipModal && payslipModal) {
+  openPayslipModal.addEventListener("click", () => {
+    payslipModal.classList.remove("hidden");
+    payslipModal.classList.add("flex");
+  });
+}
+
+function closeModal() {
+  if (!payslipModal) {
+    return;
+  }
+  payslipModal.classList.add("hidden");
+  payslipModal.classList.remove("flex");
+}
+
+if (closePayslipModal) {
+  closePayslipModal.addEventListener("click", closeModal);
+}
+
+if (payslipModal) {
+  payslipModal.addEventListener("click", (event) => {
+    if (event.target === payslipModal) {
+      closeModal();
+    }
+  });
+}
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    closeModal();
+  }
+});
+
+if (continuePayslipDownload && openPayslipModal) {
+  continuePayslipDownload.addEventListener("click", () => {
+    const downloadUrl = openPayslipModal.getAttribute("data-download-url");
+    if (downloadUrl) {
+      window.location.href = downloadUrl;
+    }
+    closeModal();
+  });
+}
+</script>
+{% endif %}
 
 {% endblock %}

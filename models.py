@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Date, ForeignKey, Time, Enum, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Float, Text, Date, ForeignKey, Time, Enum, UniqueConstraint, LargeBinary
 from sqlalchemy.orm import relationship
 from database import Base
 import datetime
@@ -13,6 +13,14 @@ class User(Base):
     name = Column(String(100), nullable=False)
     email = Column(String(100), unique=True, nullable=False)
     rfid_tag = Column(String(100), unique=True, nullable=False)
+    title = Column(String(100), nullable=True)
+    date_of_birth = Column(Date, nullable=True)
+    photo_path = Column(String(255), nullable=True)
+    photo_blob = Column(LargeBinary, nullable=True)
+    photo_mime = Column(String(50), nullable=True)
+    notes = Column(Text, nullable=True)
+    phone = Column(String(40), nullable=True)
+    address = Column(Text, nullable=True)
     # employee_id_hash = Column(String(64), nullable=True, index=True)  # SHA256 hash of employee_id for security
     
     # Roles: 'admin', 'manager', 'team_lead', 'employee'
@@ -299,6 +307,17 @@ class OfficeHoliday(Base):
     title = Column(String(200), nullable=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
+class EmailSettings(Base):
+    __tablename__ = "email_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    smtp_user = Column(String(255), nullable=True)
+    smtp_from = Column(String(255), nullable=True)
+    smtp_pass = Column(String(255), nullable=True)
+    smtp_host = Column(String(255), nullable=True)
+    smtp_port = Column(String(20), nullable=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
 
 
 # --- CALENDAR EVENTS ---

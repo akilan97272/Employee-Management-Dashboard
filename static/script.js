@@ -8,7 +8,8 @@ let calendarState = {
     events: [],
     holidays: [],
     targets: { employees: [], teams: [] },
-    settings: { country: 'IN', state: null }
+    settings: { country: 'IN', state: null },
+    holidayWarningKey: null
 };
 
 // Initialize calendar on page load
@@ -24,12 +25,15 @@ function initializeCalendar() {
     
     setupCalendarEventListeners();
     setupCalendarSettings();
-    loadCalendarSettings();
 }
 
-function openCalendar() {
+async function openCalendar() {
     document.getElementById('aiCalendarModal').classList.remove('hidden');
     document.getElementById('aiCalendarModal').classList.add('flex');
+    const todayStr = new Date().toISOString().split('T')[0];
+    const dateInput = document.getElementById('aiCalendarDate');
+    if (dateInput) dateInput.setAttribute('min', todayStr);
+    await loadCalendarSettings();
     renderCalendarMonth();
     loadCalendarEvents();
 }
@@ -106,6 +110,17 @@ async function loadCalendarEvents(date = null) {
         const holidayRes = await fetch(`/api/calendar/holidays?year=${year}`);
         const holidayData = await holidayRes.json();
         calendarState.holidays = holidayData.holidays || [];
+
+        const warningKey = `${year}|${country}|${calendarState.settings.state || ''}`;
+        if (calendarState.holidayWarningKey !== warningKey) {
+            if (holidayData.supported === false) {
+                window.showToast?.('Holiday data not available for selected country.', 'warning');
+                calendarState.holidayWarningKey = warningKey;
+            } else if (holidayData.state_supported === false && calendarState.settings.state) {
+                window.showToast?.('State holiday data not available for selected region.', 'warning');
+                calendarState.holidayWarningKey = warningKey;
+            }
+        }
         
         renderCalendarMonth();
     } catch (err) {
@@ -235,9 +250,15 @@ async function addCalendarEvent() {
     const title = document.getElementById('aiCalendarTitle').value;
     const type = document.getElementById('aiCalendarType').value;
     const notes = document.getElementById('aiCalendarNotes').value;
+    const todayStr = new Date().toISOString().split('T')[0];
     
     if (!date || !title) {
         window.showToast?.('Please fill in date and title', 'warning');
+        return;
+    }
+
+    if (date < todayStr) {
+        window.showToast?.('You cannot create events in the past.', 'warning');
         return;
     }
     
@@ -286,13 +307,25 @@ async function deleteCalendarEvent(eventId) {
 }
 
 function previousMonth() {
+    const prevYear = calendarState.currentDate.getFullYear();
     calendarState.currentDate.setMonth(calendarState.currentDate.getMonth() - 1);
-    renderCalendarMonth();
+    const nextYear = calendarState.currentDate.getFullYear();
+    if (prevYear !== nextYear) {
+        loadCalendarEvents();
+    } else {
+        renderCalendarMonth();
+    }
 }
 
 function nextMonth() {
+    const prevYear = calendarState.currentDate.getFullYear();
     calendarState.currentDate.setMonth(calendarState.currentDate.getMonth() + 1);
-    renderCalendarMonth();
+    const nextYear = calendarState.currentDate.getFullYear();
+    if (prevYear !== nextYear) {
+        loadCalendarEvents();
+    } else {
+        renderCalendarMonth();
+    }
 }
 
 function changeMonth(e) {
@@ -302,7 +335,7 @@ function changeMonth(e) {
 
 function changeYear(e) {
     calendarState.currentDate.setFullYear(parseInt(e.target.value));
-    renderCalendarMonth();
+    loadCalendarEvents();
 }
 
 async function loadCountries() {
@@ -323,7 +356,12 @@ async function loadCountries() {
         }
         
         countrySelect.innerHTML = data.countries
-            .map(c => `<option value="${c.code}" ${c.code === calendarState.settings.country ? 'selected' : ''}>${c.name}</option>`)
+            .map(c => {
+                const isSelected = c.code && c.code === calendarState.settings.country;
+                const selectedAttr = isSelected ? 'selected' : '';
+                const dataCode = c.code || '';
+                return `<option value="${c.name}" data-code="${dataCode}" ${selectedAttr}>${c.name}</option>`;
+            })
             .join('');
         
         if (search) {
@@ -352,7 +390,7 @@ async function loadStates() {
     const stateSelect = document.getElementById('aiCalendarState');
     if (!countrySelect || !stateSelect) return;
     
-    const countryCode = countrySelect.value;
+    const countryCode = countrySelect.options[countrySelect.selectedIndex]?.dataset?.code || '';
     
     try {
         // Show loading state
@@ -362,6 +400,11 @@ async function loadStates() {
         const data = await res.json();
         const search = document.getElementById('aiCalendarStateSearch');
         
+        const stateCodes = new Set((data.states || []).map(s => s.code));
+        if (calendarState.settings.state && !stateCodes.has(calendarState.settings.state)) {
+            calendarState.settings.state = null;
+        }
+
         stateSelect.innerHTML = '<option value="">None (National Holidays Only)</option>' +
             (data.states || []).map(s => `<option value="${s.code}" ${s.code === calendarState.settings.state ? 'selected' : ''}>${s.name}</option>`)
             .join('');
@@ -382,7 +425,10 @@ async function loadStates() {
 }
 
 async function saveCalendarSettings() {
-    const country = document.getElementById('aiCalendarCountry').value;
+    const countryOption = document.getElementById('aiCalendarCountry').options[
+        document.getElementById('aiCalendarCountry').selectedIndex
+    ];
+    const country = countryOption?.dataset?.code || countryOption?.value || '';
     const state = document.getElementById('aiCalendarState').value;
     
     try {
@@ -398,7 +444,9 @@ async function saveCalendarSettings() {
             document.getElementById('aiCalendarSettings').classList.remove('flex');
             // Reload calendar to show holidays for new country/state
             await loadCalendarEvents();
-            window.showToast?.('Calendar settings updated! Now showing holidays for ' + country + (state ? ' - ' + state : ''), 'success');
+            const countryName = document.querySelector('#aiCalendarCountry option:checked')?.text || country;
+            const stateName = document.querySelector('#aiCalendarState option:checked')?.text || state;
+            window.showToast?.('Calendar settings updated! Now showing holidays for ' + countryName + (state ? ' - ' + stateName : ''), 'success');
         }
     } catch (err) {
         console.error('Error saving calendar settings:', err);
