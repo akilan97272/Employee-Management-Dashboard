@@ -138,8 +138,23 @@ input, textarea, select {
         </div>
         <h1 class="heading-exec">Operations Console</h1>
     </div>
-    
-    <div class="flex items-center gap-3 flex-wrap mb-2">
+
+    <div class="flex items-center gap-4 flex-wrap mb-2">
+        <div class="flex items-center gap-3 px-4 py-2 border border-slate-200 rounded-xl bg-white">
+            {% if user.photo_blob %}
+              <img src="/employee/photo/{{ user.employee_id }}" alt="{{ user.name }}" class="w-10 h-10 rounded-xl object-cover border border-slate-200" />
+            {% elif user.photo_path %}
+              <img src="{{ user.photo_path }}" alt="{{ user.name }}" class="w-10 h-10 rounded-xl object-cover border border-slate-200" />
+            {% else %}
+              <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center text-sm font-black">
+                {{ user.name[0]|upper }}
+              </div>
+            {% endif %}
+            <div>
+              <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Manager</div>
+              <div class="text-sm font-bold text-slate-900">{{ user.name }}</div>
+            </div>
+        </div>
         <button onclick="openModal('createProjectModal')" class="btn-exec btn-outline">
             + New Project
         </button>
@@ -263,7 +278,7 @@ input, textarea, select {
                                 <span class="text-slate-400">{{ percent }}%</span>
                             </div>
                             <div class="progress-track w-full">
-                                <div class="progress-bar h-full transition-all duration-1000" style="width: {{ percent }}%"></div>
+                              <div class="progress-bar h-full transition-all duration-1000" data-progress="{{ percent }}"></div>
                             </div>
                         </div>
                         {% endfor %}
@@ -575,3 +590,10 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 </script>
 {% endblock %}
+
+<script>
+document.querySelectorAll('[data-progress]').forEach(el => {
+  const val = Number(el.getAttribute('data-progress')) || 0;
+  el.style.width = `${Math.min(Math.max(val, 0), 100)}%`;
+});
+</script>

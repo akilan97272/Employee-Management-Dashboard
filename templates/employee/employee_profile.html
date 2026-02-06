@@ -4,201 +4,113 @@
 {% block content %}
 
 <style>
-/* =========================================
-   PREMIUM CORPORATE PROFILE STYLES
-   ========================================= */
-
 :root {
-  --glass-bg: rgba(255, 255, 255, 0.9);
-  --glass-border: rgba(226, 232, 240, 0.7);
-  --corp-navy: #0f172a;
+  --card-bg: #f8fafc;
+  --card-border: #e2e8f0;
   --accent-blue: #2563eb;
-  --slate-500: #64748b;
 }
 
-.profile-container {
-  max-width: 1000px;
+.profile-card-wrap {
+  max-width: 360px;
   margin: 0 auto;
 }
 
-/* Card Polish */
-.glass-panel {
-  background: var(--glass-bg);
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.05);
-  border-radius: 1.5rem;
+.profile-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 1.75rem;
+  padding: 2rem 1.75rem;
+  text-align: center;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-/* Identity Sidebar */
-.identity-card {
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 1.25rem;
-  padding: 2rem;
-  text-align: center;
+.profile-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 40px -18px rgba(15, 23, 42, 0.25);
 }
 
 .avatar-large {
-  width: 100px;
-  height: 100px;
-  margin: 0 auto;
-  background: linear-gradient(135deg, var(--accent-blue), #1d4ed8);
-  box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.3);
+  width: 96px;
+  height: 96px;
+  margin: 0 auto 1rem;
+  background: linear-gradient(135deg, #3b82f6, #1d4ed8);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.5rem;
+  font-size: 2.25rem;
   font-weight: 800;
   color: white;
-  border-radius: 2.5rem;
+  border-radius: 2rem;
 }
 
-/* Input Styling */
-.input-group label {
-  display: block;
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  color: var(--slate-500);
-  margin-bottom: 0.5rem;
-  margin-left: 0.25rem;
-}
-
-.form-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border-radius: 0.75rem;
-  border: 1px solid #e2e8f0;
+.pill-row {
   background: white;
-  font-size: 0.95rem;
-  font-weight: 500;
-  color: var(--corp-navy);
-  transition: all 0.2s ease;
-}
-
-.form-input:focus {
-  border-color: var(--accent-blue);
-  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.08);
-  outline: none;
-}
-
-/* Badge Styling */
-.info-badge {
-  background: white;
-  border: 1px solid #e2e8f0;
-  padding: 0.5rem 1rem;
-  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-top: 0.5rem;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-/* Entrance */
-.reveal {
-  opacity: 0;
-  transform: translateY(15px);
-  animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-@keyframes slideUp {
-  to { opacity: 1; transform: translateY(0); }
+.pill-label {
+  color: #94a3b8;
+  font-size: 0.6rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 800;
 }
 </style>
 
-<div class="profile-container p-4 space-y-6">
+<div class="profile-card-wrap p-4">
+  <a href="/employee/profile/details" class="block profile-card">
+    {% if user.photo_blob %}
+      <img src="/employee/photo/{{ user.employee_id }}" alt="{{ user.name }}" class="avatar-large object-cover" />
+    {% elif user.photo_path %}
+      <img src="{{ user.photo_path }}" alt="{{ user.name }}" class="avatar-large object-cover" />
+    {% else %}
+      <div class="avatar-large">{{ user.name[0] }}</div>
+    {% endif %}
+    <div class="text-lg font-black text-slate-900">{{ user.name }}</div>
+    <div class="text-sm font-black text-blue-600 uppercase tracking-widest mt-1">{{ user.role|default('Staff') }}</div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    
-    <div class="lg:col-span-1 space-y-6 reveal">
-      <div class="glass-panel p-2">
-        <div class="identity-card">
-          <div class="avatar-large mb-4">
-            {{ user.name[0] }}
-          </div>
-          <h2 class="text-xl font-black text-slate-900 tracking-tight">{{ user.name }}</h2>
-          <p class="text-sm font-bold text-blue-600 uppercase tracking-wider mt-1">{{ user.role|default('Staff') }}</p>
-          
-          <div class="mt-6 space-y-2 text-left">
-            <div class="info-badge">
-              <span class="text-[10px] font-bold text-slate-400 uppercase">Employee ID</span>
-              <span class="text-xs font-bold text-slate-700">{{ user.employee_id }}</span>
-            </div>
-            <div class="info-badge">
-              <span class="text-[10px] font-bold text-slate-400 uppercase">Department</span>
-              <span class="text-xs font-bold text-slate-700">{{ user.department }}</span>
-            </div>
-            <div class="info-badge">
-              <span class="text-[10px] font-bold text-slate-400 uppercase">RFID Tag</span>
-              <span class="text-xs font-mono font-bold text-slate-700">{{ user.rfid_tag }}</span>
-            </div>
-          </div>
-        </div>
+    <div class="mt-6 space-y-3">
+      <div class="pill-row">
+        <span class="pill-label">Employee ID</span>
+        <span>{{ user.employee_id }}</span>
       </div>
-
-      <div class="glass-panel p-6">
-        <h4 class="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Security</h4>
-        <a href="/employee/password" class="flex items-center justify-between group">
-          <span class="text-sm font-bold text-slate-700 group-hover:text-blue-600 transition-colors">Change Password</span>
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-slate-300 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-          </svg>
-        </a>
+      <div class="pill-row">
+        <span class="pill-label">Department</span>
+        <span>{{ user.department or '-' }}</span>
+      </div>
+      <div class="pill-row">
+        <span class="pill-label">RFID Tag</span>
+        <span>{{ user.rfid_tag or '-' }}</span>
       </div>
     </div>
+  </a>
 
-    <div class="lg:col-span-2 reveal" style="animation-delay: 0.1s;">
-      <div class="glass-panel p-8">
-        <h3 class="text-xl font-black text-slate-900 tracking-tight mb-8">Personal Information</h3>
-        
-        <form method="post" action="/employee/profile/update" class="space-y-6">
-          
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="input-group">
-              <label>Official Email</label>
-              <input type="email" name="email" value="{{ user.email }}" class="form-input">
-            </div>
-
-            <div class="input-group">
-              <label>Mobile Number</label>
-              <input type="text" name="phone" value="{{ user.phone }}" class="form-input">
-            </div>
-          </div>
-
-          <div class="input-group">
-            <label>Residential Address</label>
-            <textarea name="address" rows="4" class="form-input resize-none">{{ user.address }}</textarea>
-          </div>
-
-          <div class="pt-6 border-t border-slate-100 flex items-center justify-end">
-            <button type="submit" 
-                    class="px-8 py-3 bg-slate-900 text-white font-bold rounded-xl 
-                           hover:bg-slate-800 transition-all shadow-lg shadow-slate-200
-                           flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-              </svg>
-              Update Profile
-            </button>
-          </div>
-
-        </form>
-      </div>
-
-      <div class="mt-6 p-4 bg-blue-50/50 border border-blue-100 rounded-xl flex items-start gap-3">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-blue-500 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <p class="text-xs text-blue-800 font-medium leading-relaxed">
-          Some information (ID, Department, and RFID) is locked and managed by HR. If any of these details are incorrect, please contact the IT helpdesk.
-        </p>
-      </div>
+  <!-- <form method="post" action="/employee/profile/update" class="mt-6 bg-white border border-slate-200 rounded-2xl p-4">
+    <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">Quick Update</div>
+    <div class="mt-3">
+      <label class="pill-label" for="mobileNumber">Mobile Number</label>
+      <input id="mobileNumber" name="phone" type="text" value="{{ user.phone }}" class="w-full mt-2 px-4 py-2 rounded-xl border border-slate-200 text-sm font-semibold text-slate-700" />
+      <input type="hidden" name="email" value="{{ user.email }}" />
+      <input type="hidden" name="address" value="{{ user.address }}" />
     </div>
+    <div class="mt-4 flex justify-end">
+      <button type="submit" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold uppercase tracking-widest hover:bg-slate-800">
+        Save
+      </button>
+    </div>
+  </form> -->
 
+  <div class="mt-4 text-center text-xs text-slate-500">
+    Tap the card to view your full employee details.
   </div>
-
 </div>
 
 {% endblock %}

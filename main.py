@@ -1,5 +1,5 @@
-from fastapi import FastAPI, Depends, HTTPException, Request, Form, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, Depends, HTTPException, Request, Form, status, File, UploadFile
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
@@ -11,17 +11,22 @@ from email_service import (
     send_leave_status_email,
     send_bulk_meeting_invites
 )
-from auth import authenticate_user, hash_password
-from sqlalchemy import func, extract, or_
+from auth import authenticate_user, hash_password, verify_password
+from sqlalchemy import func, extract, or_, inspect, text
 import random
 import string
 import datetime
 import hashlib
 import secrets
 import os
+from io import BytesIO
 from pathlib import Path
 from typing import Optional, List
-from calendar import monthrange
+from calendar import monthrange, month_name
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
+from reportlab.pdfgen import canvas
 from team_scheduler import auto_assign_leaders
 from threading import Thread
 import time
@@ -33,6 +38,8 @@ from models import Team, User
 from fastapi.exception_handlers import http_exception_handler
 from starlette.middleware.sessions import SessionMiddleware
 
+BASE_DIR = Path(__file__).resolve().parent
+
 scheduler = BackgroundScheduler()
 
 # Importing all models 
@@ -41,11 +48,111 @@ from models import (
     Task, LeaveRequest, Team, Project, ProjectTask, ProjectAssignment, 
     ProjectTaskAssignee, AttendanceLog, AttendanceDaily, Payroll, OfficeHoliday, Meeting, ProjectMeetingAssignee, MeetingAttendance, CalendarEvent
 )
+from models import EmailSettings
 from team_scheduler import auto_assign_leaders
 from calendar_routes import register_calendar_routes
 
 # Setup
 Base.metadata.create_all(bind=engine)
+
+
+def auto_sync_schema() -> None:
+    """Create missing tables and add missing columns (no drops/changes)."""
+    try:
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+
+        for table in Base.metadata.tables.values():
+            if table.name not in existing_tables:
+                table.create(bind=engine)
+
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+
+        for table in Base.metadata.tables.values():
+            if table.name not in existing_tables:
+                continue
+            existing_columns = {col["name"] for col in inspector.get_columns(table.name)}
+            for col in table.columns:
+                if col.name in existing_columns:
+                    continue
+                col_type = col.type.compile(dialect=engine.dialect)
+                nullable = "NULL" if col.nullable else "NOT NULL"
+                default_clause = ""
+                if col.default is not None and hasattr(col.default, "arg"):
+                    default_val = col.default.arg
+                    if not callable(default_val):
+                        if isinstance(default_val, str):
+                            default_clause = f" DEFAULT '{default_val}'"
+                        elif isinstance(default_val, bool):
+                            default_clause = f" DEFAULT {1 if default_val else 0}"
+                        elif default_val is None:
+                            default_clause = ""
+                        else:
+                            default_clause = f" DEFAULT {default_val}"
+
+                sql = f"ALTER TABLE {table.name} ADD COLUMN {col.name} {col_type} {nullable}{default_clause}"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                except Exception as exc:
+                    print(f"Schema sync skipped {table.name}.{col.name}: {exc}")
+
+            # Add missing indexes
+            existing_indexes = {idx["name"] for idx in inspector.get_indexes(table.name)}
+            for idx in table.indexes:
+                if idx.name in existing_indexes:
+                    continue
+                cols = ", ".join(c.name for c in idx.columns)
+                unique_clause = "UNIQUE " if idx.unique else ""
+                sql = f"CREATE {unique_clause}INDEX {idx.name} ON {table.name} ({cols})"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                except Exception as exc:
+                    print(f"Schema sync index skipped {table.name}.{idx.name}: {exc}")
+
+            # Add missing unique constraints
+            existing_unique = {u.get("name") for u in inspector.get_unique_constraints(table.name)}
+            for constraint in table.constraints:
+                if not getattr(constraint, "columns", None):
+                    continue
+                if constraint.__class__.__name__ != "UniqueConstraint":
+                    continue
+                cname = getattr(constraint, "name", None)
+                if not cname or cname in existing_unique:
+                    continue
+                cols = ", ".join(c.name for c in constraint.columns)
+                sql = f"ALTER TABLE {table.name} ADD CONSTRAINT {cname} UNIQUE ({cols})"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                except Exception as exc:
+                    print(f"Schema sync unique skipped {table.name}.{cname}: {exc}")
+
+            # Add missing foreign keys
+            existing_fks = {fk.get("name") for fk in inspector.get_foreign_keys(table.name)}
+            for constraint in table.constraints:
+                if constraint.__class__.__name__ != "ForeignKeyConstraint":
+                    continue
+                cname = getattr(constraint, "name", None)
+                if not cname or cname in existing_fks:
+                    continue
+                if table.name in {"users", "teams"}:
+                    continue
+                local_cols = ", ".join(c.name for c in constraint.columns)
+                remote_cols = ", ".join([f"{fk.column.table.name}.{fk.column.name}" for fk in constraint.elements])
+                sql = f"ALTER TABLE {table.name} ADD CONSTRAINT {cname} FOREIGN KEY ({local_cols}) REFERENCES {remote_cols}"
+                try:
+                    with engine.begin() as conn:
+                        conn.execute(text(sql))
+                except Exception as exc:
+                    print(f"Schema sync fk skipped {table.name}.{cname}: {exc}")
+    except Exception as exc:
+        print(f"Schema sync failed: {exc}")
+
+
+auto_sync_schema()
 app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
@@ -138,6 +245,8 @@ def calculate_monthly_payroll(db, emp, month, year):
             "base_salary": round(existing.base_salary, 2),
             "leave_deduction": round(existing.leave_deduction, 2),
             "tax": round(existing.tax, 2),
+            "allowances": round(existing.allowances or 0.0, 2),
+            "deductions": round(existing.deductions or 0.0, 2),
             "net_salary": round(existing.net_salary, 2),
             "explanation": existing.explanation,
             "locked": bool(existing.locked),
@@ -217,6 +326,8 @@ Tax ({tax_percentage}%): ₹{tax_val}
         "base_salary": base_salary_val,
         "leave_deduction": leave_deduction_val,
         "tax": tax_val,
+        "allowances": round(allowances, 2),
+        "deductions": round(deductions, 2),
         "net_salary": round(net_salary, 2),
         "explanation": explanation,
         "locked": True,
@@ -275,9 +386,41 @@ async def add_no_cache_headers(request: Request, call_next):
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
         return templates.TemplateResponse("auth/401.html", {"request": request}, status_code=401)
-    
-    # Use the imported default handler for all other errors
-    return await http_exception_handler(request, exc)
+
+    accept = (request.headers.get("accept") or "").lower()
+    wants_html = "text/html" in accept and "application/json" not in accept
+    if request.url.path.startswith("/api") or not wants_html:
+        return JSONResponse({"detail": str(exc.detail)}, status_code=exc.status_code)
+
+    return templates.TemplateResponse(
+        "common/error_modal.html",
+        {
+            "request": request,
+            "status_code": exc.status_code,
+            "detail": str(exc.detail),
+            "path": request.url.path,
+        },
+        status_code=exc.status_code
+    )
+
+
+@app.exception_handler(Exception)
+async def custom_exception_handler(request: Request, exc: Exception):
+    accept = (request.headers.get("accept") or "").lower()
+    wants_html = "text/html" in accept and "application/json" not in accept
+    if request.url.path.startswith("/api") or not wants_html:
+        return JSONResponse({"detail": str(exc)}, status_code=500)
+
+    return templates.TemplateResponse(
+        "common/error_modal.html",
+        {
+            "request": request,
+            "status_code": 500,
+            "detail": str(exc),
+            "path": request.url.path,
+        },
+        status_code=500
+    )
 
 
 from chat_routes import router as chat_router
@@ -331,14 +474,50 @@ async def admin_dashboard(request: Request, user: User = Depends(get_current_use
                                         "removed_employees": []
                                         }
                                     )
+
+#----------------------------------------
+#ADMIN - REGISTER EMPLOYEE PAGE
+#----------------------------------------
+
+@app.get("/admin/register_employee", response_class=HTMLResponse)
+async def admin_register_employee(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    departments = db.query(Department).all()
+    teams = db.query(Team).order_by(Team.name.asc()).all()
+    return templates.TemplateResponse("admin/admin_register_employee.html", {
+        "request": request,
+        "user": user,
+        "departments": departments,
+        "teams": teams,
+    })
 #----------------------------------------
 # ADMIN - ADD EMPLOYEE ROUTE
 #----------------------------------------
 
 @app.post("/admin/add_employee")
-async def add_employee(request: Request, name: str = Form(...), email: str = Form(...), rfid_tag: str = Form(...),
-                       role: str = Form(...), department: str = Form(...), user: User = Depends(get_current_user),
-                       db: Session = Depends(get_db)):
+async def add_employee(
+    request: Request,
+    name: str = Form(...),
+    email: str = Form(...),
+    phone: Optional[str] = Form(None),
+    rfid_tag: str = Form(...),
+    role: str = Form(...),
+    department: str = Form(...),
+    title: Optional[str] = Form(None),
+    date_of_birth: Optional[str] = Form(None),
+    hourly_rate: Optional[float] = Form(None),
+    allowances: Optional[float] = Form(None),
+    deductions: Optional[float] = Form(None),
+    notes: Optional[str] = Form(None),
+    team_id: Optional[int] = Form(None),
+    is_active: Optional[str] = Form(None),
+    can_manage: Optional[str] = Form(None),
+    active_leader: Optional[str] = Form(None),
+    photo: Optional[UploadFile] = File(None),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     # Check if name already exists
     existing_name = db.query(User).filter(User.name == name).first()
     if existing_name:
@@ -368,12 +547,63 @@ async def add_employee(request: Request, name: str = Form(...), email: str = For
     # Generate password
     password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
     password_hash = hash_password(password)
-    new_user = User(employee_id=employee_id, name=name, email=email, rfid_tag=rfid_tag, role=role,
-                    department=department, password_hash=password_hash)
+    dob_val = None
+    if date_of_birth:
+        dob_raw = date_of_birth.strip()
+        try:
+            dob_val = datetime.datetime.strptime(dob_raw, "%d-%m-%Y").date()
+        except Exception:
+            try:
+                dob_val = datetime.date.fromisoformat(dob_raw)
+            except Exception:
+                dob_val = None
+
+    photo_blob = None
+    photo_mime = None
+    if photo and photo.filename:
+        photo_blob = await photo.read()
+        photo_mime = photo.content_type or "image/jpeg"
+
+    team_id_val = int(team_id) if team_id else None
+    if team_id_val:
+        team_exists = db.query(Team).filter(Team.id == team_id_val).first()
+        if not team_exists:
+            team_id_val = None
+
+    new_user = User(
+        employee_id=employee_id,
+        name=name,
+        email=email,
+        phone=phone,
+        rfid_tag=rfid_tag,
+        role=role,
+        department=department,
+        password_hash=password_hash,
+    )
+    if title:
+        new_user.title = title
+    if dob_val:
+        new_user.date_of_birth = dob_val
+    if photo_blob:
+        new_user.photo_blob = photo_blob
+        new_user.photo_mime = photo_mime
+    if notes:
+        new_user.notes = notes
+    if team_id_val:
+        new_user.current_team_id = team_id_val
+    if hourly_rate is not None:
+        new_user.hourly_rate = hourly_rate
+    if allowances is not None:
+        new_user.allowances = allowances
+    if deductions is not None:
+        new_user.deductions = deductions
+    new_user.is_active = True if is_active else False
+    new_user.can_manage = True if can_manage else False
+    new_user.active_leader = True if active_leader else False
     db.add(new_user)
     db.commit()
-    send_welcome_email(email, name, employee_id, password)
-    return {"employee_id": employee_id, "password": password}
+    email_sent = send_welcome_email(email, name, employee_id, password)
+    return {"employee_id": employee_id, "password": password, "email_sent": email_sent}
 
 #----------------------------------------
 #ADMIN - Settings
@@ -396,18 +626,18 @@ async def admin_settings_page(request: Request, user: User = Depends(get_current
 
 
 @app.get("/admin/email_settings", response_class=HTMLResponse)
-async def admin_email_settings_page(request: Request, user: User = Depends(get_current_user)):
+async def admin_email_settings_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
 
-    env_data = load_env_file(ENV_PATH)
+    settings = db.query(EmailSettings).order_by(EmailSettings.id.desc()).first()
     return templates.TemplateResponse("admin/admin_email_settings.html", {
         "request": request,
         "user": user,
-        "smtp_user": env_data.get("SMTP_USER", os.getenv("SMTP_USER", "")),
-        "smtp_from": env_data.get("SMTP_FROM", os.getenv("SMTP_FROM", "")),
-        "smtp_host": env_data.get("SMTP_HOST", os.getenv("SMTP_HOST", "smtp.gmail.com")),
-        "smtp_port": env_data.get("SMTP_PORT", os.getenv("SMTP_PORT", "465"))
+        "smtp_user": settings.smtp_user if settings else "",
+        "smtp_from": settings.smtp_from if settings else "",
+        "smtp_host": settings.smtp_host if settings and settings.smtp_host else "smtp.gmail.com",
+        "smtp_port": settings.smtp_port if settings and settings.smtp_port else "465"
     })
 
 
@@ -419,26 +649,24 @@ async def admin_email_settings_save(
     smtp_pass: str = Form(""),
     smtp_host: str = Form("smtp.gmail.com"),
     smtp_port: str = Form("465"),
-    user: User = Depends(get_current_user)
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     if user.role != "admin":
         raise HTTPException(status_code=403, detail="Access denied")
 
-    env_data = load_env_file(ENV_PATH)
-    updates = {
-        "SMTP_USER": smtp_user.strip(),
-        "SMTP_FROM": smtp_from.strip(),
-        "SMTP_HOST": smtp_host.strip() or "smtp.gmail.com",
-        "SMTP_PORT": smtp_port.strip() or "465"
-    }
-    if smtp_pass.strip():
-        updates["SMTP_PASS"] = smtp_pass.strip()
-    else:
-        updates["SMTP_PASS"] = env_data.get("SMTP_PASS", os.getenv("SMTP_PASS", ""))
+    settings = db.query(EmailSettings).order_by(EmailSettings.id.desc()).first()
+    if not settings:
+        settings = EmailSettings()
+        db.add(settings)
 
-    update_env_file(ENV_PATH, updates)
-    for key, value in updates.items():
-        os.environ[key] = value
+    settings.smtp_user = smtp_user.strip()
+    settings.smtp_from = smtp_from.strip()
+    settings.smtp_host = smtp_host.strip() or "smtp.gmail.com"
+    settings.smtp_port = smtp_port.strip() or "465"
+    if smtp_pass.strip():
+        settings.smtp_pass = smtp_pass.strip()
+    db.commit()
 
     return RedirectResponse("/admin/email_settings", status_code=303)
 
@@ -460,7 +688,7 @@ async def remove_employee(request: Request, employee_id: str = Form(...), user: 
     db.add(removed)
     db.delete(emp)
     db.commit()
-    return {"status": "removed", "message": "Employee removed"}
+    return RedirectResponse("/admin/manage_employees?removed=1", status_code=303)
 
 
 @app.post("/admin/set_base_salary")
@@ -490,6 +718,7 @@ async def set_base_salary(
 async def admin_manage_employees(request: Request,
                                  search: Optional[str] = None,
                                  department: Optional[str] = None,
+                                 page: int = 1,
                                  user: User = Depends(get_current_user),
                                  db: Session = Depends(get_db)):
     if user.role != "admin":
@@ -502,12 +731,24 @@ async def admin_manage_employees(request: Request,
         )
     if department:
         query = query.filter(User.department == department)
-    employees = query.all()
+    total_count = query.count()
+    page_size = 8
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
+    if page < 1:
+        page = 1
+    if page > total_pages:
+        page = total_pages
+    employees = query.order_by(User.name.asc()).offset((page - 1) * page_size).limit(page_size).all()
     return templates.TemplateResponse("admin/admin_manage.html",{
         "request": request,
         "user": user,
         "employees": employees,
         "search": search,
+        "department": department,
+        "page": page,
+        "total_pages": total_pages,
+        "total_count": total_count,
+        "page_size": page_size,
         "current_year": datetime.datetime.utcnow().year
         })
 
@@ -516,8 +757,20 @@ async def admin_update_employee(request: Request,
                                  employee_id: str = Form(...),
                                  name: Optional[str] = Form(None),
                                  email: Optional[str] = Form(None),
+                                 rfid_tag: Optional[str] = Form(None),
+                                 title: Optional[str] = Form(None),
+                                 date_of_birth: Optional[str] = Form(None),
                                  department: Optional[str] = Form(None),
                                  role: Optional[str] = Form(None),
+                                 hourly_rate: Optional[float] = Form(None),
+                                 allowances: Optional[float] = Form(None),
+                                 deductions: Optional[float] = Form(None),
+                                 notes: Optional[str] = Form(None),
+                                 team_id: Optional[int] = Form(None),
+                                 is_active: Optional[str] = Form(None),
+                                 can_manage: Optional[str] = Form(None),
+                                 active_leader: Optional[str] = Form(None),
+                                 photo: Optional[UploadFile] = File(None),
                                  base_salary: Optional[float] = Form(None),
                                  paid_leaves_allowed: Optional[int] = Form(None),
                                  tax_percentage: Optional[float] = Form(None),
@@ -534,11 +787,48 @@ async def admin_update_employee(request: Request,
     if name is not None:
         emp.name = name
     if email is not None:
+        existing_email = db.query(User).filter(User.email == email, User.id != emp.id).first()
+        if existing_email:
+            raise HTTPException(status_code=400, detail="Email already in use")
         emp.email = email
+    if rfid_tag is not None:
+        existing_rfid = db.query(User).filter(User.rfid_tag == rfid_tag, User.id != emp.id).first()
+        if existing_rfid:
+            raise HTTPException(status_code=400, detail="RFID tag already in use")
+        emp.rfid_tag = rfid_tag
+    if title is not None:
+        emp.title = title
+    if date_of_birth:
+        dob_raw = date_of_birth.strip()
+        try:
+            emp.date_of_birth = datetime.datetime.strptime(dob_raw, "%d-%m-%Y").date()
+        except Exception:
+            try:
+                emp.date_of_birth = datetime.date.fromisoformat(dob_raw)
+            except Exception:
+                pass
     if department is not None:
         emp.department = department
     if role is not None:
         emp.role = role
+    if notes is not None:
+        emp.notes = notes
+    if team_id is not None:
+        team_id_val = int(team_id) if str(team_id).isdigit() else None
+        if team_id_val:
+            team_exists = db.query(Team).filter(Team.id == team_id_val).first()
+            emp.current_team_id = team_id_val if team_exists else None
+        else:
+            emp.current_team_id = None
+    emp.is_active = True if is_active else False
+    emp.can_manage = True if can_manage else False
+    emp.active_leader = True if active_leader else False
+
+    if photo and photo.filename:
+        photo_blob = await photo.read()
+        if photo_blob:
+            emp.photo_blob = photo_blob
+            emp.photo_mime = photo.content_type or "image/jpeg"
 
     # Payroll related fields
     try:
@@ -559,8 +849,45 @@ async def admin_update_employee(request: Request,
     except Exception:
         pass
 
+    try:
+        if hourly_rate is not None:
+            emp.hourly_rate = float(hourly_rate)
+    except Exception:
+        pass
+
+    try:
+        if allowances is not None:
+            emp.allowances = float(allowances)
+    except Exception:
+        pass
+
+    try:
+        if deductions is not None:
+            emp.deductions = float(deductions)
+    except Exception:
+        pass
+
     db.commit()
     return RedirectResponse(url="/admin/manage_employees", status_code=303)
+
+
+@app.get("/admin/edit_employee", response_class=HTMLResponse)
+async def admin_edit_employee(request: Request, employee_id: str,
+                              user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    emp = db.query(User).filter(User.employee_id == employee_id).first()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    departments = db.query(Department).all()
+    teams = db.query(Team).order_by(Team.name.asc()).all()
+    return templates.TemplateResponse("admin/admin_edit_employee.html", {
+        "request": request,
+        "user": user,
+        "employee": emp,
+        "departments": departments,
+        "teams": teams,
+    })
 
 # ----------------------------------------
 # ADMIN TEAM MANAGEMENT ROUTES
@@ -683,13 +1010,195 @@ async def employee_details(request: Request, employee_id: Optional[str] = None, 
         query = query.filter(User.name.ilike(f"%{name}%"))
     emp = query.first()
     if not emp:
-        return templates.TemplateResponse("admin/admin_employee_details.html", {"request": request, "error": "Employee not found"})
+        return templates.TemplateResponse("admin/admin_employee_details.html", {
+            "request": request,
+            "user": user,
+            "error": "Employee not found"
+        })
     # Calculate total time (sum durations)
     total_time = db.query(Attendance).filter(Attendance.employee_id == emp.employee_id).with_entities(
         Attendance.duration).all()
     total_hours = sum(d[0] for d in total_time if d[0])
+    latest_payroll = db.query(Payroll).filter(
+        Payroll.employee_id == emp.employee_id
+    ).order_by(Payroll.year.desc(), Payroll.month.desc()).first()
+    payroll_amount = latest_payroll.net_salary if latest_payroll else None
+
+    def _format_inr(value: float | None) -> str:
+        if value is None:
+            value = 0.0
+        try:
+            num = float(value)
+        except Exception:
+            num = 0.0
+        whole, frac = f"{num:.2f}".split(".")
+        if len(whole) <= 3:
+            grouped = whole
+        else:
+            grouped = whole[-3:]
+            whole = whole[:-3]
+            while len(whole) > 2:
+                grouped = whole[-2:] + "," + grouped
+                whole = whole[:-2]
+            if whole:
+                grouped = whole + "," + grouped
+        return f"{grouped}.{frac}"
+    # Build tasks completed chart (last 12 months)
+    today = datetime.date.today()
+    month_labels = []
+    month_keys = []
+    for i in range(11, -1, -1):
+        d = today.replace(day=1) - datetime.timedelta(days=30 * i)
+        key = f"{d.year}-{d.month:02d}"
+        label = d.strftime("%b")
+        month_labels.append(label)
+        month_keys.append(key)
+
+    counts = {k: 0 for k in month_keys}
+    done_statuses = {"done", "completed", "complete"}
+
+    personal_tasks = db.query(Task).filter(
+        Task.user_id == emp.employee_id,
+        Task.status.in_(done_statuses)
+    ).all()
+    for t in personal_tasks:
+        dt = getattr(t, "due_date", None) or getattr(t, "created_at", None)
+        if not dt:
+            continue
+        if isinstance(dt, datetime.datetime):
+            key = f"{dt.year}-{dt.month:02d}"
+        elif isinstance(dt, datetime.date):
+            key = f"{dt.year}-{dt.month:02d}"
+        else:
+            continue
+        if key in counts:
+            counts[key] += 1
+
+    project_tasks = db.query(ProjectTask).join(ProjectTaskAssignee, ProjectTaskAssignee.task_id == ProjectTask.id).filter(
+        ProjectTaskAssignee.employee_id == emp.employee_id,
+        ProjectTask.status.in_(done_statuses)
+    ).all()
+    for pt in project_tasks:
+        dt = getattr(pt, "deadline", None) or getattr(pt, "created_at", None)
+        if not dt:
+            continue
+        if isinstance(dt, datetime.datetime):
+            key = f"{dt.year}-{dt.month:02d}"
+        elif isinstance(dt, datetime.date):
+            key = f"{dt.year}-{dt.month:02d}"
+        else:
+            continue
+        if key in counts:
+            counts[key] += 1
+
+    chart_counts = [counts[k] for k in month_keys]
+
     return templates.TemplateResponse("admin/admin_employee_details.html",
-                                      {"request": request, "employee": emp, "total_hours": total_hours})
+                                      {
+                                          "request": request,
+                                          "user": user,
+                                          "employee": emp,
+                                          "total_hours": total_hours,
+                                          "payroll_amount": payroll_amount,
+                                          "payroll_amount_inr": _format_inr(payroll_amount if payroll_amount is not None else (emp.base_salary or 0)),
+                                          "hourly_rate_inr": _format_inr(emp.hourly_rate or 0),
+                                          "allowances_inr": _format_inr(emp.allowances or 0),
+                                          "deductions_inr": _format_inr(emp.deductions or 0),
+                                          "task_chart_labels": month_labels,
+                                          "task_chart_counts": chart_counts,
+                                      })
+
+
+@app.get("/admin/employee_details/print", response_class=HTMLResponse)
+async def employee_details_print(request: Request, employee_id: str,
+                                 user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    emp = db.query(User).filter(User.is_active == True, User.employee_id == employee_id).first()
+    if not emp:
+        return templates.TemplateResponse("admin/admin_employee_details_print.html", {
+            "request": request,
+            "user": user,
+            "error": "Employee not found",
+        })
+
+    total_time = db.query(Attendance).filter(Attendance.employee_id == emp.employee_id).with_entities(
+        Attendance.duration).all()
+    total_hours = sum(d[0] for d in total_time if d[0])
+
+    latest_payroll = db.query(Payroll).filter(
+        Payroll.employee_id == emp.employee_id
+    ).order_by(Payroll.year.desc(), Payroll.month.desc()).first()
+    payroll_amount = latest_payroll.net_salary if latest_payroll else None
+
+    def _format_inr(value: float | None) -> str:
+        if value is None:
+            value = 0.0
+        try:
+            num = float(value)
+        except Exception:
+            num = 0.0
+        whole, frac = f"{num:.2f}".split(".")
+        if len(whole) <= 3:
+            grouped = whole
+        else:
+            grouped = whole[-3:]
+            whole = whole[:-3]
+            while len(whole) > 2:
+                grouped = whole[-2:] + "," + grouped
+                whole = whole[:-2]
+            if whole:
+                grouped = whole + "," + grouped
+        return f"{grouped}.{frac}"
+
+    return templates.TemplateResponse("admin/admin_employee_details_print.html", {
+        "request": request,
+        "employee": emp,
+        "total_hours": total_hours,
+        "payroll_amount_inr": _format_inr(payroll_amount if payroll_amount is not None else (emp.base_salary or 0)),
+        "hourly_rate_inr": _format_inr(emp.hourly_rate or 0),
+        "allowances_inr": _format_inr(emp.allowances or 0),
+        "deductions_inr": _format_inr(emp.deductions or 0),
+    })
+
+#-----------------------------------------
+# PUBLIC - EMPLOYEE QR PROFILE
+#-----------------------------------------
+
+@app.get("/public/employee/{employee_id}", response_class=HTMLResponse)
+async def public_employee_profile(request: Request, employee_id: str, db: Session = Depends(get_db)):
+    emp = db.query(User).filter(User.employee_id == employee_id, User.is_active == True).first()
+    if not emp:
+        return templates.TemplateResponse("admin/admin_employee_qr.html", {
+            "request": request,
+            "user": {
+                "role": "employee",
+                "name": "Public",
+                "employee_id": "",
+                "photo_blob": None,
+                "photo_path": None,
+            },
+            "error": "Employee not found",
+        })
+
+    total_time = db.query(Attendance).filter(Attendance.employee_id == emp.employee_id).with_entities(
+        Attendance.duration).all()
+    total_hours = sum(d[0] for d in total_time if d[0])
+
+    return templates.TemplateResponse("admin/admin_employee_qr.html", {
+        "request": request,
+        "user": emp,
+        "employee": emp,
+        "total_hours": total_hours,
+    })
+
+
+@app.get("/employee/photo/{employee_id}")
+async def employee_photo(employee_id: str, db: Session = Depends(get_db)):
+    emp = db.query(User).filter(User.employee_id == employee_id, User.is_active == True).first()
+    if not emp or not emp.photo_blob:
+        raise HTTPException(status_code=404, detail="Photo not found")
+    return Response(content=emp.photo_blob, media_type=emp.photo_mime or "image/jpeg")
 
 #-----------------------------------------
 #ADMIN - ADD ROOM & DEPARTMENT ROUTES
@@ -923,7 +1432,8 @@ async def update_leave_status(request: Request,
             str(leave.start_date),
             str(leave.end_date),
             leave.reason,
-            leave.status
+            leave.status,
+            employee.employee_id
         )
     return RedirectResponse("/admin/leave_requests", status_code=303)
 
@@ -1041,7 +1551,7 @@ async def create_meeting(
                     hashes.append(u.employee_id_hash)
                     assignee_user_ids.append(u.id)
                 if u and u.email:
-                    recipients.append({"email": u.email, "name": u.name})
+                    recipients.append({"email": u.email, "name": u.name, "employee_id": u.employee_id})
             except Exception as e:
                 print(f"Error adding assignee {emp_id}: {e}")
                 continue
@@ -1736,7 +2246,7 @@ async def apply_leave(request: Request,
                          reason=reason)
     db.add(leave)
     db.commit()
-    send_leave_requested_email(user.email, user.name, start_date, end_date, reason)
+    send_leave_requested_email(user.email, user.name, start_date, end_date, reason, user.employee_id)
     return RedirectResponse("/employee/leave", status_code=303)
 
 #----------------------------------------
@@ -1747,6 +2257,55 @@ async def apply_leave(request: Request,
 async def employee_profile(request: Request, user: User = Depends(get_current_user)):
     return templates.TemplateResponse("employee/employee_profile.html",
                                       {"request": request, "user": user,
+                                       "current_year": datetime.datetime.utcnow().year})
+
+
+@app.get("/employee/profile/details", response_class=HTMLResponse)
+async def employee_profile_details(request: Request, user: User = Depends(get_current_user)):
+    return templates.TemplateResponse("employee/employee_profile_details.html",
+                                      {"request": request, "user": user,
+                                       "current_year": datetime.datetime.utcnow().year})
+
+
+@app.get("/employee/profile/print", response_class=HTMLResponse)
+async def employee_profile_print(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    total_time = db.query(Attendance).filter(Attendance.employee_id == user.employee_id).with_entities(
+        Attendance.duration).all()
+    total_hours = sum(d[0] for d in total_time if d[0])
+
+    latest_payroll = db.query(Payroll).filter(
+        Payroll.employee_id == user.employee_id
+    ).order_by(Payroll.year.desc(), Payroll.month.desc()).first()
+    payroll_amount = latest_payroll.net_salary if latest_payroll else None
+
+    def _format_inr(value: float | None) -> str:
+        if value is None:
+            value = 0.0
+        try:
+            num = float(value)
+        except Exception:
+            num = 0.0
+        whole, frac = f"{num:.2f}".split(".")
+        if len(whole) <= 3:
+            grouped = whole
+        else:
+            grouped = whole[-3:]
+            whole = whole[:-3]
+            while len(whole) > 2:
+                grouped = whole[-2:] + "," + grouped
+                whole = whole[:-2]
+            if whole:
+                grouped = whole + "," + grouped
+        return f"{grouped}.{frac}"
+
+    return templates.TemplateResponse("employee/employee_profile_print.html",
+                                      {"request": request,
+                                       "employee": user,
+                                       "total_hours": total_hours,
+                                       "payroll_amount_inr": _format_inr(payroll_amount if payroll_amount is not None else (user.base_salary or 0)),
+                                       "hourly_rate_inr": _format_inr(user.hourly_rate or 0),
+                                       "allowances_inr": _format_inr(user.allowances or 0),
+                                       "deductions_inr": _format_inr(user.deductions or 0),
                                        "current_year": datetime.datetime.utcnow().year})
 
 @app.post("/employee/profile/update")
@@ -1762,7 +2321,30 @@ async def update_profile(
     user.email = email
     user.address = address
     db.commit()
-    return RedirectResponse(url="/employee/profile", status_code=303)
+    return RedirectResponse(url="/employee/profile/details", status_code=303)
+
+
+@app.post("/employee/password/change")
+async def employee_change_password(
+    request: Request,
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not verify_password(current_password, user.password_hash):
+        return RedirectResponse(url="/employee/profile/details?pw=invalid", status_code=303)
+    if len(new_password.strip()) < 6:
+        return RedirectResponse(url="/employee/profile/details?pw=weak", status_code=303)
+    if verify_password(new_password, user.password_hash):
+        return RedirectResponse(url="/employee/profile/details?pw=same", status_code=303)
+    if new_password != confirm_password:
+        return RedirectResponse(url="/employee/profile/details?pw=mismatch", status_code=303)
+
+    user.password_hash = hash_password(new_password)
+    db.commit()
+    return RedirectResponse(url="/employee/profile/details?pw=updated", status_code=303)
 
 @app.get("/employee/team", response_class=HTMLResponse)
 async def employee_team(
@@ -1848,6 +2430,182 @@ async def employee_payslips_page(request: Request,
                                        "current_year": current_year,
                                        "month": month,
                                        "year": year})
+
+
+@app.get("/employee/payslips/download")
+async def employee_payslip_download(
+    month: int,
+    year: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    if not month or not year:
+        raise HTTPException(status_code=400, detail="Month and year are required")
+    if month < 1 or month > 12:
+        raise HTTPException(status_code=400, detail="Invalid month")
+
+    payroll = calculate_monthly_payroll(db, user, month, year)
+    base_salary = payroll.get("base_salary") or 0.0
+    leave_deduction = payroll.get("leave_deduction") or 0.0
+    tax_deduction = payroll.get("tax") or 0.0
+    allowances = payroll.get("allowances") or 0.0
+    deductions = payroll.get("deductions") or 0.0
+    net_salary = payroll.get("net_salary") or 0.0
+    gross_salary = max(0.0, base_salary - leave_deduction)
+
+    start_date = datetime.datetime(year, month, 1)
+    end_date = datetime.datetime(year, month, monthrange(year, month)[1], 23, 59, 59)
+    total_hours = db.query(func.sum(Attendance.duration)).filter(
+        Attendance.employee_id == user.employee_id,
+        Attendance.entry_time >= start_date,
+        Attendance.entry_time <= end_date
+    ).scalar() or 0
+
+    def format_money(value: float) -> str:
+        return f"INR {value:,.2f}"
+
+    company_name = os.getenv("COMPANY_NAME", "TeamSync")
+    period_label = f"{month_name[month]} {year}"
+    period_end = datetime.date(year, month, monthrange(year, month)[1])
+
+    buffer = BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    width, height = A4
+    margin = 48
+
+    logo_path = BASE_DIR / "static" / "assets" / "logo.png"
+    if logo_path.exists():
+        pdf.drawImage(str(logo_path), margin, height - 84, width=36, height=36, mask="auto")
+
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 16)
+    pdf.drawString(margin + 48, height - 58, company_name)
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillColor(colors.HexColor("#64748b"))
+    pdf.drawString(margin + 48, height - 72, "Pay Statement")
+
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.drawRightString(width - margin, height - 58, f"Period: {period_label}")
+    pdf.setFillColor(colors.HexColor("#64748b"))
+    pdf.drawRightString(width - margin, height - 72, f"Pay Date: {period_end.strftime('%d %b %Y')}")
+
+    pdf.setStrokeColor(colors.HexColor("#e2e8f0"))
+    pdf.line(margin, height - 92, width - margin, height - 92)
+
+    photo_size = 60
+    photo_x = width - margin - photo_size
+    photo_y = height - 170
+    photo_drawn = False
+    if user.photo_blob:
+        try:
+            photo_reader = ImageReader(BytesIO(user.photo_blob))
+            pdf.drawImage(photo_reader, photo_x, photo_y, width=photo_size, height=photo_size, mask="auto")
+            photo_drawn = True
+        except Exception:
+            photo_drawn = False
+    elif user.photo_path and Path(user.photo_path).exists():
+        try:
+            pdf.drawImage(user.photo_path, photo_x, photo_y, width=photo_size, height=photo_size, mask="auto")
+            photo_drawn = True
+        except Exception:
+            photo_drawn = False
+
+    if photo_drawn:
+        pdf.setStrokeColor(colors.HexColor("#e2e8f0"))
+        pdf.rect(photo_x, photo_y, photo_size, photo_size, stroke=1, fill=0)
+    else:
+        pdf.setFillColor(colors.HexColor("#f1f5f9"))
+        pdf.rect(photo_x, photo_y, photo_size, photo_size, stroke=0, fill=1)
+        pdf.setFillColor(colors.HexColor("#334155"))
+        pdf.setFont("Helvetica-Bold", 18)
+        initial = (user.name or "?")[:1].upper()
+        pdf.drawCentredString(photo_x + (photo_size / 2), photo_y + (photo_size / 2) - 6, initial)
+        pdf.setStrokeColor(colors.HexColor("#e2e8f0"))
+        pdf.rect(photo_x, photo_y, photo_size, photo_size, stroke=1, fill=0)
+
+    y = height - 120
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(margin, y, "Employee Details")
+    y -= 16
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillColor(colors.HexColor("#334155"))
+    pdf.drawString(margin, y, f"Name: {user.name}")
+    y -= 14
+    pdf.drawString(margin, y, f"Employee ID: {user.employee_id}")
+    y -= 14
+    pdf.drawString(margin, y, f"Department: {user.department or 'N/A'}")
+    y -= 14
+    pdf.drawString(margin, y, f"Title: {user.title or 'N/A'}")
+
+    y -= 24
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(margin, y, "Statement Summary")
+    y -= 16
+    pdf.setFont("Helvetica", 9)
+    pdf.setFillColor(colors.HexColor("#334155"))
+    pdf.drawString(margin, y, f"Present Days: {payroll.get('present_days', 0)}")
+    y -= 14
+    pdf.drawString(margin, y, f"Leave Days: {payroll.get('leave_days', 0)}")
+    y -= 14
+    pdf.drawString(margin, y, f"Productive Hours: {total_hours:.2f}")
+
+    y -= 24
+
+    def draw_row(label: str, value: str, y_pos: float, value_color=colors.HexColor("#0f172a")):
+        pdf.setFont("Helvetica", 9)
+        pdf.setFillColor(colors.HexColor("#64748b"))
+        pdf.drawString(margin, y_pos, label)
+        pdf.setFont("Helvetica-Bold", 9)
+        pdf.setFillColor(value_color)
+        pdf.drawRightString(width - margin, y_pos, value)
+
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(margin, y, "Earnings")
+    y -= 16
+    draw_row("Base Salary", format_money(base_salary), y)
+    y -= 14
+    draw_row("Allowances", format_money(allowances), y)
+    y -= 14
+    draw_row("Gross After Leave", format_money(gross_salary), y)
+
+    y -= 22
+    pdf.setFillColor(colors.HexColor("#0f172a"))
+    pdf.setFont("Helvetica-Bold", 10)
+    pdf.drawString(margin, y, "Deductions")
+    y -= 16
+    draw_row("Leave Deduction", f"- {format_money(leave_deduction)}", y, colors.HexColor("#e11d48"))
+    y -= 14
+    draw_row("Tax", f"- {format_money(tax_deduction)}", y, colors.HexColor("#e11d48"))
+    y -= 14
+    draw_row("Other Deductions", f"- {format_money(deductions)}", y, colors.HexColor("#e11d48"))
+
+    y -= 44
+    pdf.setFillColor(colors.HexColor("#ecfdf5"))
+    pdf.setStrokeColor(colors.HexColor("#a7f3d0"))
+    pdf.rect(margin, y - 12, width - (margin * 2), 44, stroke=1, fill=1)
+    pdf.setFillColor(colors.HexColor("#065f46"))
+    pdf.setFont("Helvetica-Bold", 11)
+    pdf.drawString(margin + 10, y + 8, "Net Pay")
+    pdf.setFont("Helvetica-Bold", 12)
+    pdf.drawRightString(width - margin - 10, y + 8, format_money(net_salary))
+
+    pdf.setFillColor(colors.HexColor("#94a3b8"))
+    pdf.setFont("Helvetica", 8)
+    pdf.drawString(margin, 48, "This is a system-generated payslip and does not require a signature.")
+
+    pdf.showPage()
+    pdf.save()
+
+    pdf_bytes = buffer.getvalue()
+    buffer.close()
+
+    filename = f"payslip_{user.employee_id}_{year}_{month:02d}.pdf"
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(content=pdf_bytes, media_type="application/pdf", headers=headers)
 
 #----------------------------------------
 # RFID ATTENDANCE API

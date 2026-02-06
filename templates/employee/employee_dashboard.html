@@ -102,9 +102,15 @@
 <div class="dashboard-bg max-w-7xl mx-auto space-y-6 p-4">
 
   <header class="glass reveal rounded-[2rem] p-8 flex flex-col md:flex-row items-center gap-8">
-    <div class="w-20 h-20 avatar-ring rounded-3xl flex items-center justify-center text-3xl text-white font-black rotate-3">
-      <span class="-rotate-3">{{ user.name[0] }}</span>
-    </div>
+    {% if user.photo_blob %}
+      <img src="/employee/photo/{{ user.employee_id }}" alt="{{ user.name }}" class="w-20 h-20 avatar-ring rounded-3xl object-cover rotate-3" />
+    {% elif user.photo_path %}
+      <img src="{{ user.photo_path }}" alt="{{ user.name }}" class="w-20 h-20 avatar-ring rounded-3xl object-cover rotate-3" />
+    {% else %}
+      <div class="w-20 h-20 avatar-ring rounded-3xl flex items-center justify-center text-3xl text-white font-black rotate-3">
+        <span class="-rotate-3">{{ user.name[0] }}</span>
+      </div>
+    {% endif %}
 
     <div class="text-center md:text-left flex-1">
       <div class="flex flex-col md:flex-row md:items-center gap-3">
