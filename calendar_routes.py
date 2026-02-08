@@ -287,9 +287,9 @@ def register_calendar_routes(app: FastAPI, templates, get_current_user):
         # Add approved personal leaves (only for the current user)
         # Employee sees their own approved leaves after manager/admin approval
         # Manager sees their own approved leaves after admin approval
-        if hasattr(user, 'employee_id') and user.employee_id:
+        if hasattr(user, 'id') and user.id:
             leaves = db.query(LeaveRequest).filter(
-                LeaveRequest.employee_id == user.employee_id,
+                LeaveRequest.user_id == user.id,
                 LeaveRequest.status == "Approved",
             ).order_by(LeaveRequest.id.desc()).all()
             

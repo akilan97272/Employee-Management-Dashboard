@@ -143,14 +143,21 @@ class UnknownRFID(Base):
 class LeaveRequest(Base):
     __tablename__ = "leave_requests"
     id = Column(Integer, primary_key=True, index=True)
-    employee_id = Column(String(60), ForeignKey("users.employee_id"))
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # CRITICAL: Link to team and manager for authority scope
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
+    manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     start_date = Column(Date)
     end_date = Column(Date)
     reason = Column(String(255))
     status = Column(String(20), default="Pending")
     
-    # Relationship to access user department for Managers
-    user = relationship("User", foreign_keys=[employee_id], primaryjoin="User.employee_id == LeaveRequest.employee_id")
+    # Relationships
+    user = relationship("User", foreign_keys=[user_id])
+    team = relationship("Team")
+    manager = relationship("User", foreign_keys=[manager_id])
 
 class RemovedEmployee(Base):
     __tablename__ = "removed_employees"
@@ -179,6 +186,7 @@ class Project(Base):
 
     tasks = relationship("ProjectTask", back_populates="project")
     assignments = relationship("ProjectAssignment", back_populates="project")
+    personal_tasks = relationship("Task", back_populates="project")
 
 class ProjectTask(Base):
     __tablename__ = "project_tasks"
@@ -263,6 +271,9 @@ class Task(Base):
     # Maps to the employee_id string in the User table
     user_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False, index=True)
     
+    # CRITICAL: Link task to project for context and authority
+    project_id = Column(Integer, ForeignKey("projects.id"), nullable=True)
+    
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     status = Column(String(20), default="pending")  # pending / in-progress / done
@@ -271,8 +282,9 @@ class Task(Base):
     due_date = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-    # Relationship to access the user object
+    # Relationships to access the user and project objects
     user = relationship("User", back_populates="personal_tasks")
+    project = relationship("Project", back_populates="personal_tasks")
 
 
 class Payroll(Base):

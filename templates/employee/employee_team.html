@@ -99,12 +99,23 @@
 @keyframes slideUp {
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* 🔥 DEBUG FORCE VISIBILITY */
+.collaborators,
+.leadership-hub,
+.team-members,
+[data-team],
+[data-member] {
+  opacity: 1 !important;
+  transform: none !important;
+  visibility: visible !important;
+}
 </style>
 
 <div class="max-w-6xl mx-auto space-y-8 p-4">
 
 {% if team %}
-  <header class="team-banner reveal">
+  <header class="team-banner">
     <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 relative z-10">
       <div>
         <span class="badge-premium badge-leader mb-2 inline-block">Official Team</span>
@@ -127,7 +138,7 @@
     </div>
   </header>
 
-  <section class="space-y-4 reveal" style="animation-delay: 0.1s;">
+  <section class="space-y-4">
     <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Leadership Hub</h3>
     
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -152,22 +163,23 @@
     </div>
   </section>
 
-  <section class="space-y-4 reveal" style="animation-delay: 0.2s;">
+  <section class="space-y-4">
     <div class="flex items-center justify-between px-2">
       <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Collaborators</h3>
       <div class="h-px bg-slate-100 flex-1 mx-4"></div>
     </div>
 
+    {% if members %}
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       {% for m in members %}
-        {% if m.id != leader.id %}
+        {% if not leader or m.id != leader.id %}
         <div class="member-card p-5 rounded-2xl flex items-center gap-4">
           <div class="member-avatar {% if m.active_leader %}leader-avatar{% endif %}">
             {{ m.name[0] }}
           </div>
           <div>
             <p class="font-bold text-slate-900 text-sm tracking-tight">{{ m.name }}</p>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Member</p>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ m.role if m.role else 'Member' }}</p>
           </div>
           {% if m.active_leader %}
           <div class="ml-auto text-amber-500">
@@ -180,10 +192,13 @@
         {% endif %}
       {% endfor %}
     </div>
+    {% else %}
+    <p class="italic text-slate-400 py-6">No collaborators assigned</p>
+    {% endif %}
   </section>
 
 {% else %}
-  <div class="glass p-20 rounded-[3rem] text-center reveal">
+  <div class="glass p-20 rounded-[3rem] text-center">
     <div class="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6">
         <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />

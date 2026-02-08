@@ -76,27 +76,20 @@
 .badge-gray { background: #f8fafc; color: #64748b; border: 1px solid #f1f5f9; }
 .badge-purple { background: #faf5ff; color: #7e22ce; border: 1px solid #f3e8ff; }
 
-.reveal {
-  opacity: 0;
-  transform: translateY(10px);
-  animation: revealUp 0.5s ease forwards;
-}
-@keyframes revealUp { to { opacity: 1; transform: translateY(0); } }
-
 </style>
 
 <div class="max-w-6xl mx-auto space-y-6 p-4">
 
     <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
         
-        <div class="lg:col-span-2 glass rounded-3xl p-8 flex flex-col items-center justify-center reveal">
+        <div class="lg:col-span-2 glass rounded-3xl p-8 flex flex-col items-center justify-center">
             <h3 class="text-sm font-bold text-slate-400 uppercase tracking-widest mb-6">Efficiency Matrix</h3>
             <div class="relative">
                 <canvas id="taskChart" width="220" height="220"></canvas>
             </div>
         </div>
 
-        <div class="lg:col-span-3 glass rounded-3xl p-6 reveal delay-1">
+        <div class="lg:col-span-3 glass rounded-3xl p-6">
             <h3 class="text-lg font-bold text-slate-900 mb-4">Create New Task</h3>
             <form method="post" action="/employee/tasks/add" class="space-y-4">
                 <input name="title" placeholder="What needs to be done?" required
@@ -122,7 +115,7 @@
                     
                     <div class="flex-1 min-w-[200px]">
                         <label class="text-[10px] font-bold text-slate-400 uppercase ml-1">Assign To</label>
-                        <input id="taskAssigneeSearch" type="text" placeholder="Search employees..." class="form-input w-full mt-1 px-3 py-2 text-sm mb-2" />
+                        <input id="employeeTaskAssigneeSearch" type="text" placeholder="Search employees..." class="form-input w-full mt-1 px-3 py-2 text-sm mb-2" />
                         <select id="taskAssigneeSelect" name="assignee" class="form-input w-full mt-1 px-3 py-2 text-sm" size="6" style="max-height:180px; overflow:auto;">
                             <option value="">(Assign to self)</option>
                             {% for emp in (employees if employees is defined else []) %}
@@ -139,7 +132,7 @@
         </div>
     </div>
 
-    <div class="flex flex-col md:flex-row justify-between items-center gap-4 py-4 reveal delay-2">
+    <div class="flex flex-col md:flex-row justify-between items-center gap-4 py-4">
         <div class="flex gap-2 overflow-x-auto pb-2 w-full md:w-auto">
             <a href="?filter=all" class="tab-btn active text-xs font-bold uppercase tracking-wider">All</a>
             <a href="?filter=pending" class="tab-btn text-xs font-bold uppercase tracking-wider">Pending</a>
@@ -155,7 +148,7 @@
         </a>
     </div>
 
-    <div class="space-y-4 reveal delay-3">
+    <div class="space-y-4">
         {% for t in tasks %}
         <div class="task-card glass p-6 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 
                     {% if t.priority == 'high' %} border-l-red-500 {% elif t.priority == 'medium' %} border-l-blue-500 {% else %} border-l-slate-300 {% endif %}">
@@ -216,36 +209,29 @@
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    const pending = {{ pending }};
-    const inProgress = {{ in_progress }};
-    const done = {{ done }};
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('taskChart');
+  if (!canvas) return;
 
-    new Chart(document.getElementById('taskChart'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Pending', 'In-Progress', 'Completed'],
-            datasets: [{
-                data: [pending, inProgress, done],
-                backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
-                borderWidth: 0,
-                hoverOffset: 10
-            }]
-        },
-        options: {
-            cutout: '80%',
-            responsive: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: {
-                        usePointStyle: true,
-                        padding: 20,
-                        font: { size: 12, weight: '700', family: 'Inter' }
-                    }
-                }
-            }
-        }
-    });
+  const ctx = canvas.getContext('2d');
+
+  new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Pending', 'In-Progress', 'Completed'],
+      datasets: [{
+        data: [{{ pending }}, {{ in_progress }}, {{ done }}],
+        backgroundColor: ['#f59e0b', '#3b82f6', '#10b981'],
+        borderWidth: 0
+      }]
+    },
+    options: {
+      cutout: '80%',
+      responsive: false,
+      animation: false   // 🔥 IMPORTANT
+    }
+  });
+});
 </script>
 
 <script>

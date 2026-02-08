@@ -34,7 +34,7 @@
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-1" id="teamContainer">
         {% for item in team_data %}
-        {% set team = item.obj %}
+        {% set team = item.team %}
         <div class="border border-slate-200 bg-white p-8 group hover:border-slate-900 transition-all team-card relative" 
              data-search="{{ team.name }} {{ team.department }}">
             
@@ -71,7 +71,7 @@
                                 <span class="text-red-500">Unassigned</span>
                             {% endif %}
                         </div>
-                        <p class="executive-mono text-[9px] text-slate-400 uppercase">Primary Liaison</p>
+                        <p class="executive-mono text-[9px] text-slate-400 uppercase">Team Lead</p>
                     </div>
                 </div>
             </div>
@@ -86,11 +86,32 @@
                 </div>
             </div>
 
+            <div class="mt-6 border-t pt-4">
+              <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
+                Assigned Staff
+              </p>
+
+              {% if item.members %}
+                <ul class="space-y-1">
+                  {% for m in item.members %}
+                    <li class="text-xs font-bold text-slate-700">
+                      {{ m.name }} <span class="text-slate-400">({{ m.employee_id }})</span>
+                    </li>
+                  {% endfor %}
+                </ul>
+              {% else %}
+                <p class="text-xs italic text-slate-400">No staff assigned</p>
+              {% endif %}
+            </div>
+
             <div class="flex justify-between items-center pt-6 border-t border-slate-50">
                 <div class="executive-mono text-[10px] font-bold text-slate-400 uppercase">
                     Personnel Count: {{ item.member_count }}
                 </div>
-                <button class="text-[9px] font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900">View Roster</button>
+                <a href="/admin/team/{{ team.id }}/members"
+                   class="text-[9px] font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 hover:text-indigo-600 hover:border-indigo-600 transition-colors">
+                   View Members
+                </a>
             </div>
         </div>
         {% else %}
@@ -127,7 +148,7 @@
                 <select name="team_id" required class="w-full bg-slate-50 border border-slate-200 px-4 py-4 text-xs font-black uppercase outline-none focus:border-slate-900 appearance-none">
                     <option value="" disabled selected>-- Select Unit --</option>
                     {% for item in team_data %}
-                        <option value="{{ item.obj.id }}">{{ item.obj.name }}</option>
+                        <option value="{{ item.team.id }}">{{ item.team.name }}</option>
                     {% endfor %}
                 </select>
             </div>

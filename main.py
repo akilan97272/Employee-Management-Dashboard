@@ -13,6 +13,7 @@ from email_service import (
 )
 from auth import authenticate_user, hash_password, verify_password
 from sqlalchemy import func, extract, or_, inspect, text
+from decimal import Decimal
 import random
 import string
 import datetime
@@ -253,33 +254,39 @@ def calculate_monthly_payroll(db, emp, month, year):
             "generated_at": existing.created_at
         }
 
-    # 1️⃣ Present days (from AttendanceDaily)
-    present_days = db.query(func.count()).filter(
-        AttendanceDaily.user_id == emp.id,
-        AttendanceDaily.status.in_("PRESENT", "LATE") if False else AttendanceDaily.status.in_(["PRESENT", "LATE"]),
-        extract("month", AttendanceDaily.date) == month,
-        extract("year", AttendanceDaily.date) == year
+    # 1️⃣ Present days (from Attendance table)
+    present_days = db.query(func.count(func.distinct(Attendance.date))).filter(
+        Attendance.employee_id == emp.employee_id,
+        extract("month", Attendance.date) == month,
+        extract("year", Attendance.date) == year
     ).scalar() or 0
 
     # 2️⃣ Approved leaves
-    leave_days = db.query(func.count()).filter(
-        LeaveRequest.employee_id == emp.employee_id,
+    leave_days = db.query(func.sum(
+        func.datediff(LeaveRequest.end_date, LeaveRequest.start_date) + 1
+    )).filter(
+        LeaveRequest.user_id == emp.id,
         LeaveRequest.status == "Approved",
-        extract("month", LeaveRequest.start_date) == month,
+        or_(
+            extract("month", LeaveRequest.start_date) == month,
+            extract("month", LeaveRequest.end_date) == month
+        ),
         extract("year", LeaveRequest.start_date) == year
     ).scalar() or 0
 
     # 3️⃣ Salary rules
     WORKING_DAYS = 22
-    per_day_salary = (emp.base_salary or 0.0) / WORKING_DAYS if WORKING_DAYS else 0.0
+    base_salary = Decimal(emp.base_salary or 0)
+    tax_percentage = Decimal(emp.tax_percentage or 0)
+
+    per_day_salary = base_salary / Decimal(WORKING_DAYS)
 
     unpaid_leaves = max(0, (leave_days or 0) - (emp.paid_leaves_allowed or 0))
-    leave_deduction = unpaid_leaves * per_day_salary
-
-    gross_salary = (emp.base_salary or 0.0) - leave_deduction
-    tax = gross_salary * ((emp.tax_percentage or 0.0) / 100.0)
-    allowances = getattr(emp, 'allowances', 0) or 0
-    deductions = getattr(emp, 'deductions', 0) or 0
+    leave_deduction = Decimal(unpaid_leaves) * per_day_salary
+    gross_salary = base_salary - leave_deduction
+    tax = gross_salary * (tax_percentage / Decimal(100))
+    allowances = Decimal(emp.allowances or 0)
+    deductions = Decimal(emp.deductions or 0)
     net_salary = gross_salary - tax + allowances - deductions
 
     # Explanation text for UI
@@ -323,12 +330,12 @@ Tax ({tax_percentage}%): ₹{tax_val}
         "present_days": present_days,
         "leave_days": leave_days,
         "unpaid_leaves": unpaid_leaves,
-        "base_salary": base_salary_val,
-        "leave_deduction": leave_deduction_val,
-        "tax": tax_val,
-        "allowances": round(allowances, 2),
-        "deductions": round(deductions, 2),
-        "net_salary": round(net_salary, 2),
+        "base_salary": float(base_salary),
+        "leave_deduction": float(leave_deduction),
+        "tax": float(tax),
+        "allowances": float(allowances),
+        "deductions": float(deductions),
+        "net_salary": float(net_salary),
         "explanation": explanation,
         "locked": True,
         "generated_at": payroll_rec.created_at if hasattr(payroll_rec, 'created_at') else None
@@ -915,10 +922,14 @@ async def admin_manage_teams(request: Request, user: User = Depends(get_current_
             if total_tasks > 0:
                 completion = int((completed_tasks / total_tasks) * 100)
         
+        # Query members using current_team_id as single source of truth
+        members = db.query(User).filter(User.current_team_id == t.id).all()
+        
         team_data.append({
-            "obj": t,
+            "team": t,
             "completion": completion,
-            "member_count": len(t.memberships)
+            "member_count": len(members),
+            "members": members
         })
 
     return templates.TemplateResponse("admin/admin_manage_teams.html", {
@@ -928,6 +939,27 @@ async def admin_manage_teams(request: Request, user: User = Depends(get_current_
         "employees": employees,
         "departments": departments  # <--- PASSING THIS IS CRITICAL
     })
+
+@app.get("/admin/team/{team_id}/members", response_class=HTMLResponse)
+def view_team_members(team_id: int, request: Request, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
+    if user.role != "admin":
+        raise HTTPException(status_code=403, detail="Access denied")
+    
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=404, detail="Team not found")
+    
+    members = db.query(User).filter(User.current_team_id == team_id).all()
+    
+    return templates.TemplateResponse(
+        "admin/team_members.html",
+        {
+            "request": request,
+            "user": user,
+            "team": team,
+            "members": members
+        }
+    )
 
 @app.post("/admin/create_team")
 async def create_team(
@@ -940,6 +972,7 @@ async def create_team(
     if user.role != "admin": raise HTTPException(status_code=403)
     
     leader_id = None
+    leader = None
     if leader_employee_id:
         leader = db.query(User).filter(User.employee_id == leader_employee_id).first()
         if leader:
@@ -951,9 +984,9 @@ async def create_team(
     db.add(new_team)
     db.commit()
     
-    # If leader exists, add them to team_members too
-    if leader_id:
-        db.add(TeamMember(user_id=leader_id, team_id=new_team.id))
+    # If leader exists, set their current_team_id
+    if leader:
+        leader.current_team_id = new_team.id
         db.commit()
 
     return RedirectResponse("/admin/manage_teams", status_code=303)
@@ -983,13 +1016,11 @@ async def assign_team_member(
     if user.role != "admin": raise HTTPException(status_code=403)
 
     emp = db.query(User).filter(User.employee_id == employee_id).first()
-    
-    # Check if already in team
-    exists = db.query(TeamMember).filter(TeamMember.user_id == emp.id, TeamMember.team_id == team_id).first()
-    if not exists:
-        new_member = TeamMember(user_id=emp.id, team_id=team_id)
-        db.add(new_member)
-        db.commit()
+    if not emp:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    emp.current_team_id = team_id
+    db.commit()
 
     return RedirectResponse("/admin/manage_teams", status_code=303)
 # (Payroll update route removed)
@@ -1448,12 +1479,16 @@ async def manager_dashboard(request: Request, user: User = Depends(get_current_u
     # 1. Projects in Manager's Department
     projects = db.query(Project).filter(Project.department == user.department).all()
     
-    # 2. Leave Requests from Department Members
-    # Join LeaveRequest with User to filter by User.department
-    leave_requests = db.query(LeaveRequest).join(User).filter(
-        User.department == user.department,
-        User.id != user.id # Don't show own requests here
-    ).all()
+    # 2. Leave Requests from Team Members (not department-wide)
+    # CRITICAL: Filter directly by manager relationship for authority scope
+    leave_requests = (
+        db.query(LeaveRequest)
+        .filter(
+            LeaveRequest.manager == user,
+            LeaveRequest.status == "Pending"
+        )
+        .all()
+    )
 
     # 3. Teams in Department
     teams = db.query(Team).filter(Team.department == user.department).all()
@@ -1469,14 +1504,50 @@ async def manager_dashboard(request: Request, user: User = Depends(get_current_u
         .all()
     )
 
+    # Load employees (only role 'employee') and compute outstanding task counts
+    # CRITICAL: Filter by team membership, not department - managers assign to teams only
+    employees = db.query(User).filter(
+        User.current_team_id.in_(
+            db.query(Team.id).filter(Team.department == user.department)
+        ),
+        User.role == "employee"
+    ).all()
+    for emp in employees:
+        emp.task_count = db.query(Task).filter(
+            Task.user_id == emp.employee_id,
+            Task.status != "done"
+        ).count()
+
+    # Build team data with member counts and pending tasks
+    team_data = []
+    for team in teams:
+        members = db.query(User).filter(User.current_team_id == team.id).all()
+        
+        # Member count
+        member_count = len(members)
+        
+        # Pending tasks count
+        pending_tasks = db.query(Task).filter(
+            Task.user_id.in_([m.employee_id for m in members]),
+            Task.status != "done"
+        ).count()
+        
+        team_data.append({
+            "team": team,
+            "members": members,
+            "member_count": member_count,
+            "pending_tasks": pending_tasks
+        })
+
     return templates.TemplateResponse("/employee/employee_manager_dashboard.html", {
         "request": request,
         "user": user,
         "projects": projects,
         "leave_requests": leave_requests,
         "teams": teams,
+        "team_data": team_data,
         "is_also_lead": is_also_lead,
-        "employees": db.query(User).filter(User.department == user.department).all(),
+        "employees": employees,
         "meetings": meetings,
     })
 
@@ -1747,6 +1818,7 @@ async def create_task(
     description: str = Form(""),
     priority: str = Form("medium"),
     due_date: Optional[str] = Form(None),
+    project_id: Optional[str] = Form(None),
     assignees: Optional[List[str]] = Form(None),
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
@@ -1761,6 +1833,14 @@ async def create_task(
         except Exception:
             pass
 
+    # Convert project_id to int if provided
+    pid = None
+    if project_id:
+        try:
+            pid = int(project_id)
+        except (ValueError, TypeError):
+            pass
+
     # Create task for each selected employee
     if assignees:
         for emp_id in assignees:
@@ -1773,7 +1853,8 @@ async def create_task(
                     title=title,
                     description=description,
                     priority=priority,
-                    due_date=due_dt
+                    due_date=due_dt,
+                    project_id=pid  # CRITICAL: Link to project
                 )
                 db.add(new_task)
             except Exception:
@@ -1909,7 +1990,9 @@ async def assign_task(
 async def employee_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     # ... (Your existing logic) ...
     total_hours = 0
-    tasks = [] 
+    tasks = db.query(Task).filter(
+        Task.user_id == user.employee_id
+    ).order_by(Task.created_at.desc()).limit(5).all()
     return templates.TemplateResponse("employee/employee_dashboard.html", 
                                       {
                                         "request": request, 
@@ -1950,23 +2033,25 @@ async def employee_team(
     user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    led_teams = db.query(Team).filter(Team.leader_id == user.id).all()
-    membership_records = db.query(TeamMember).filter(TeamMember.user_id == user.id).all()
-    member_team_ids = [m.team_id for m in membership_records]
-    member_teams = db.query(Team).filter(Team.id.in_(member_team_ids)).all()
+    team = None
+    members = []
+    leader = None
+
     if user.current_team_id:
-        primary_team = db.query(Team).filter(Team.id == user.current_team_id).first()
-        if primary_team:
-            member_teams.append(primary_team)
-    all_teams_dict = {t.id: t for t in led_teams + member_teams}
-    my_teams = list(all_teams_dict.values())
+        team = db.query(Team).filter(Team.id == user.current_team_id).first()
+        if team:
+            # Query members using current_team_id as single source of truth
+            members = db.query(User).filter(User.current_team_id == team.id).all()
+            leader = team.leader
 
     return templates.TemplateResponse(
         "employee/employee_team.html",
         {
             "request": request,
             "user": user,
-            "teams": my_teams  
+            "team": team,
+            "members": members,
+            "leader": leader
         }
     )
 
@@ -2226,7 +2311,7 @@ async def meeting_room_any(
 
 @app.get("/employee/leave", response_class=HTMLResponse)
 async def employee_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    leaves = db.query(LeaveRequest).filter(LeaveRequest.employee_id == user.employee_id).order_by(LeaveRequest.id.desc()).all()
+    leaves = db.query(LeaveRequest).filter(LeaveRequest.user_id == user.id).order_by(LeaveRequest.id.desc()).all()
     return templates.TemplateResponse("employee/employee_leave.html",
                                       {"request": request, "user": user,
                                        "leaves": leaves,
@@ -2240,10 +2325,24 @@ async def apply_leave(request: Request,
                       user: User = Depends(get_current_user),
                       db: Session = Depends(get_db)):
     
-    leave = LeaveRequest(employee_id=user.employee_id,
-                         start_date=start_date,
-                         end_date=end_date,
-                         reason=reason)
+    # CRITICAL: Capture team and manager context when leave is submitted
+    team_id = user.current_team_id
+    manager_id = None
+    
+    if team_id:
+        team = db.query(Team).filter(Team.id == team_id).first()
+        if team:
+            manager_id = team.leader_id
+    
+    leave = LeaveRequest(
+        user_id=user.id,
+        team_id=team_id,
+        manager_id=manager_id,
+        start_date=start_date,
+        end_date=end_date,
+        reason=reason,
+        status="Pending"
+    )
     db.add(leave)
     db.commit()
     send_leave_requested_email(user.email, user.name, start_date, end_date, reason, user.employee_id)
@@ -2346,43 +2445,6 @@ async def employee_change_password(
     db.commit()
     return RedirectResponse(url="/employee/profile/details?pw=updated", status_code=303)
 
-@app.get("/employee/team", response_class=HTMLResponse)
-async def employee_team(
-    request: Request,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    team = None
-    leader = None
-    members = []
-
-    # Case 1: User is a member of a team
-    if user.current_team_id:
-        team = db.query(Team).filter(Team.id == user.current_team_id).first()
-    
-    # Case 2: User IS the leader of a team (and might not have current_team_id set)
-    if not team:
-        team = db.query(Team).filter(Team.leader_id == user.id).first()
-
-    if team:
-        leader = team.leader # Uses the relationship defined in models
-        members = team.members # Uses the relationship defined in models
-        
-        # Filter out the leader from the members list if they are in there
-        if leader:
-            members = [m for m in members if m.id != leader.id]
-
-    return templates.TemplateResponse(
-        "employee/employee_team.html",
-        {
-            "request": request,
-            "user": user,
-            "team": team,
-            "leader": leader,
-            "members": members
-        }
-    )
-
 #-----------------------------------------
 #EMPLOYEE PAYSLIPS PAGE
 #----------------------------------------
@@ -2400,6 +2462,23 @@ async def employee_payslips_page(request: Request,
                                            "current_year": current_year,
                                            "month": current_year,
                                            "year": current_year})
+    
+    # Block future months
+    today = datetime.date.today()
+    if (year > today.year) or (year == today.year and month > today.month):
+        return templates.TemplateResponse(
+            "employee/employee_payslips.html",
+            {
+                "request": request,
+                "user": user,
+                "computed": False,
+                "error": "Payslip for future months cannot be generated.",
+                "current_year": today.year,
+                "month": month,
+                "year": year
+            }
+        )
+    
     # Use the shared payroll engine
     payroll = calculate_monthly_payroll(db, user, month, year)
 
@@ -2443,6 +2522,14 @@ async def employee_payslip_download(
         raise HTTPException(status_code=400, detail="Month and year are required")
     if month < 1 or month > 12:
         raise HTTPException(status_code=400, detail="Invalid month")
+    
+    # Block future months
+    today = datetime.date.today()
+    if (year > today.year) or (year == today.year and month > today.month):
+        raise HTTPException(
+            status_code=400,
+            detail="Cannot download payslip for future months"
+        )
 
     payroll = calculate_monthly_payroll(db, user, month, year)
     base_salary = payroll.get("base_salary") or 0.0
