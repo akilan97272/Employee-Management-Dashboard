@@ -265,7 +265,7 @@ def calculate_monthly_payroll(db, emp, month, year):
     leave_days = db.query(func.sum(
         func.datediff(LeaveRequest.end_date, LeaveRequest.start_date) + 1
     )).filter(
-        LeaveRequest.user_id == emp.id,
+        LeaveRequest.employee_id == emp.employee_id,
         LeaveRequest.status == "Approved",
         or_(
             extract("month", LeaveRequest.start_date) == month,
@@ -1480,11 +1480,14 @@ async def manager_dashboard(request: Request, user: User = Depends(get_current_u
     projects = db.query(Project).filter(Project.department == user.department).all()
     
     # 2. Leave Requests from Team Members (not department-wide)
-    # CRITICAL: Filter directly by manager relationship for authority scope
+    # CRITICAL: Filter by team membership to establish manager authority scope
     leave_requests = (
         db.query(LeaveRequest)
+        .join(User)
         .filter(
-            LeaveRequest.manager == user,
+            User.current_team_id.in_(
+                db.query(Team.id).filter(Team.department == user.department)
+            ),
             LeaveRequest.status == "Pending"
         )
         .all()
@@ -2311,7 +2314,7 @@ async def meeting_room_any(
 
 @app.get("/employee/leave", response_class=HTMLResponse)
 async def employee_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    leaves = db.query(LeaveRequest).filter(LeaveRequest.user_id == user.id).order_by(LeaveRequest.id.desc()).all()
+    leaves = db.query(LeaveRequest).filter(LeaveRequest.employee_id == user.employee_id).order_by(LeaveRequest.id.desc()).all()
     return templates.TemplateResponse("employee/employee_leave.html",
                                       {"request": request, "user": user,
                                        "leaves": leaves,
@@ -2325,24 +2328,10 @@ async def apply_leave(request: Request,
                       user: User = Depends(get_current_user),
                       db: Session = Depends(get_db)):
     
-    # CRITICAL: Capture team and manager context when leave is submitted
-    team_id = user.current_team_id
-    manager_id = None
-    
-    if team_id:
-        team = db.query(Team).filter(Team.id == team_id).first()
-        if team:
-            manager_id = team.leader_id
-    
-    leave = LeaveRequest(
-        user_id=user.id,
-        team_id=team_id,
-        manager_id=manager_id,
-        start_date=start_date,
-        end_date=end_date,
-        reason=reason,
-        status="Pending"
-    )
+    leave = LeaveRequest(employee_id=user.employee_id,
+                         start_date=start_date,
+                         end_date=end_date,
+                         reason=reason)
     db.add(leave)
     db.commit()
     send_leave_requested_email(user.email, user.name, start_date, end_date, reason, user.employee_id)

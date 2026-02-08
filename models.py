@@ -143,21 +143,14 @@ class UnknownRFID(Base):
 class LeaveRequest(Base):
     __tablename__ = "leave_requests"
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    
-    # CRITICAL: Link to team and manager for authority scope
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=True)
-    manager_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    
+    employee_id = Column(String(60), ForeignKey("users.employee_id"))
     start_date = Column(Date)
     end_date = Column(Date)
     reason = Column(String(255))
     status = Column(String(20), default="Pending")
     
-    # Relationships
-    user = relationship("User", foreign_keys=[user_id])
-    team = relationship("Team")
-    manager = relationship("User", foreign_keys=[manager_id])
+    # Relationship to access user department for Managers
+    user = relationship("User", foreign_keys=[employee_id], primaryjoin="User.employee_id == LeaveRequest.employee_id")
 
 class RemovedEmployee(Base):
     __tablename__ = "removed_employees"
