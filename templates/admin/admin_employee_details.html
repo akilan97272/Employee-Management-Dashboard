@@ -141,28 +141,16 @@
           <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Payroll Details</div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-[12px] text-slate-600">
             <div>
-              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Hourly Rate</div>
-              <div>INR {{ hourly_rate_inr }}</div>
+              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Base Salary</div>
+              <div>INR {{ employee.base_salary or '-' }}</div>
             </div>
             <div>
-              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Base Salary</div>
+              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Net Salary</div>
               <div>INR {{ payroll_amount_inr }}</div>
             </div>
             <div>
               <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Tax %</div>
               <div>{{ employee.tax_percentage or 0 }}%</div>
-            </div>
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Paid Leaves</div>
-              <div>{{ employee.paid_leaves_allowed or 0 }}</div>
-            </div>
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Allowances</div>
-              <div>INR {{ allowances_inr }}</div>
-            </div>
-            <div>
-              <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Deductions</div>
-              <div>INR {{ deductions_inr }}</div>
             </div>
           </div>
         </div>
@@ -297,3 +285,22 @@
   });
 </script>
 {% endblock %}
+<script>
+// AJAX auto-update for employee details (every 10 seconds)
+function updateEmployeeDetails() {
+  const url = window.location.href;
+  fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+    .then(response => response.text())
+    .then(html => {
+      // Parse the returned HTML and update only the main content
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const newContent = doc.querySelector('.space-y-8');
+      const currentContent = document.querySelector('.space-y-8');
+      if (newContent && currentContent) {
+        currentContent.innerHTML = newContent.innerHTML;
+      }
+    });
+}
+setInterval(updateEmployeeDetails, 10000);
+</script>

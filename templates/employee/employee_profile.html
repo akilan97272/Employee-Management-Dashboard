@@ -78,6 +78,18 @@
     <div class="text-sm font-black text-blue-600 uppercase tracking-widest mt-1">{{ user.role|default('Staff') }}</div>
 
     <div class="mt-6 space-y-3">
+          <div class="pill-row">
+            <span class="pill-label">Base Salary</span>
+            <span>INR {{ user.base_salary or '-' }}</span>
+          </div>
+          <div class="pill-row">
+            <span class="pill-label">Net Salary</span>
+            <span>INR {{ payroll_amount_inr if payroll_amount_inr is defined else '-' }}</span>
+          </div>
+          <div class="pill-row">
+            <span class="pill-label">Tax %</span>
+            <span>{{ user.tax_percentage or 0 }}%</span>
+          </div>
       <div class="pill-row">
         <span class="pill-label">Employee ID</span>
         <span>{{ user.employee_id }}</span>

@@ -11,7 +11,7 @@ from .database import SessionLocal
 from .models import EmailSettings, User
 
 BASE_DIR = Path(__file__).resolve().parent
-TEMPLATES_DIR = BASE_DIR / "templates"
+TEMPLATES_DIR = BASE_DIR.parent / "templates"
 LOGO_PATH = BASE_DIR / "static" / "assets" / "logo.png"
 
 _jinja_env = Environment(

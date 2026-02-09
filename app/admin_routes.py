@@ -10,15 +10,104 @@ from .database import get_db
 from .models import (
     User, Attendance, RemovedEmployee, UnknownRFID, Room, Department,
     Task, LeaveRequest, Team, TeamMember, Payroll, ProjectTask, ProjectTaskAssignee,
-    EmailSettings
+    ProjectMeetingAssignee, EmailSettings
 )
 from .auth import hash_password
 from .email_service import send_welcome_email, send_leave_status_email
+import threading
 from .app_context import templates, get_current_user, create_notification
 from .payroll_utils import calculate_monthly_payroll
 
 
 def register_admin_routes(app):
+
+    @app.post("/admin/update_employee")
+    async def update_employee(
+        request: Request,
+        employee_id: str = Form(...),
+        name: str = Form(...),
+        email: str = Form(...),
+        phone: Optional[str] = Form(None),
+        rfid_tag: str = Form(...),
+        role: str = Form(...),
+        department: str = Form(...),
+        title: Optional[str] = Form(None),
+        date_of_birth: Optional[str] = Form(None),
+        notes: Optional[str] = Form(None),
+        team_id: Optional[int] = Form(None),
+        is_active: Optional[str] = Form(None),
+        can_manage: Optional[str] = Form(None),
+        active_leader: Optional[str] = Form(None),
+        base_salary: Optional[float] = Form(None),
+        tax_percentage: Optional[float] = Form(None),
+        paid_leaves_allowed: Optional[int] = Form(None),
+        photo: Optional[UploadFile] = File(None),
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db),
+    ):
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+        emp = db.query(User).filter(User.employee_id == employee_id).first()
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
+
+        # Check for unique fields (email, rfid_tag) if changed
+        if emp.email != email:
+            existing_email = db.query(User).filter(User.email == email).first()
+            if existing_email:
+                raise HTTPException(status_code=400, detail=f"Email '{email}' already exists in the system")
+        if emp.rfid_tag != rfid_tag:
+            existing_rfid = db.query(User).filter(User.rfid_tag == rfid_tag).first()
+            if existing_rfid:
+                raise HTTPException(status_code=400, detail=f"RFID tag '{rfid_tag}' is already assigned to another employee")
+
+        emp.name = name
+        emp.email = email
+        emp.phone = phone
+        emp.rfid_tag = rfid_tag
+        emp.role = role
+        emp.department = department
+        emp.title = title
+        emp.notes = notes
+        emp.is_active = True if is_active else False
+        emp.can_manage = True if can_manage else False
+        emp.active_leader = True if active_leader else False
+        if base_salary is not None:
+            emp.base_salary = base_salary
+        if tax_percentage is not None:
+            emp.tax_percentage = tax_percentage
+        if paid_leaves_allowed is not None:
+            emp.paid_leaves_allowed = paid_leaves_allowed
+
+        # Date of birth
+        if date_of_birth:
+            dob_raw = date_of_birth.strip()
+            try:
+                emp.date_of_birth = datetime.datetime.strptime(dob_raw, "%d-%m-%Y").date()
+            except Exception:
+                try:
+                    emp.date_of_birth = datetime.date.fromisoformat(dob_raw)
+                except Exception:
+                    emp.date_of_birth = None
+
+        # Team assignment
+        team_id_val = int(team_id) if team_id else None
+        if team_id_val:
+            team_exists = db.query(Team).filter(Team.id == team_id_val).first()
+            if team_exists:
+                emp.current_team_id = team_id_val
+            else:
+                emp.current_team_id = None
+        else:
+            emp.current_team_id = None
+
+        # Photo upload
+        if photo and photo.filename:
+            emp.photo_blob = await photo.read()
+            emp.photo_mime = photo.content_type or "image/jpeg"
+
+        db.commit()
+        return RedirectResponse("/admin/manage_employees?updated=1", status_code=303)
     @app.get("/admin/select_dashboard", response_class=HTMLResponse)
     async def admin_choice(request: Request, user: User = Depends(get_current_user)):
         return templates.TemplateResponse("admin/admin_select_dashboard.html", {"request": request, "user": user})
@@ -28,15 +117,15 @@ def register_admin_routes(app):
         if user.role != "admin":
             raise HTTPException(status_code=403)
         return templates.TemplateResponse("admin/admin_dashboard.html",
-                                           {"request": request,
-                                            "user": user,
-                                            "blocks": [],
-                                            "employees": [],
-                                            "unknown_rfids": [],
-                                            "admins": [],
-                                            "removed_employees": []
-                                            }
-                                            )
+                                          {"request": request,
+                                           "user": user,
+                                           "blocks": [],
+                                           "employees": [],
+                                           "unknown_rfids": [],
+                                           "admins": [],
+                                           "removed_employees": []
+                                           }
+                                           )
 
     @app.get("/admin/register_employee", response_class=HTMLResponse)
     async def admin_register_employee(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -154,8 +243,11 @@ def register_admin_routes(app):
         new_user.active_leader = True if active_leader else False
         db.add(new_user)
         db.commit()
-        email_sent = send_welcome_email(email, name, employee_id, password)
-        return {"employee_id": employee_id, "password": password, "email_sent": email_sent}
+        # Send welcome email in a background thread
+        def send_email_bg():
+            send_welcome_email(email, name, employee_id, password)
+        threading.Thread(target=send_email_bg, daemon=True).start()
+        return {"employee_id": employee_id, "password": password, "email_sent": True}
 
     @app.get("/admin/settings", response_class=HTMLResponse)
     async def admin_settings_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -224,6 +316,8 @@ def register_admin_routes(app):
         emp = db.query(User).filter(User.employee_id == employee_id).first()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
+        # Remove all project meeting assignees for this employee to avoid FK constraint
+        db.query(ProjectMeetingAssignee).filter(ProjectMeetingAssignee.employee_id == emp.employee_id).delete(synchronize_session=False)
         db.query(TeamMember).filter(TeamMember.user_id == emp.id).delete(synchronize_session=False)
         db.query(Team).filter(Team.leader_id == emp.id).update({Team.leader_id: None}, synchronize_session=False)
         db.query(Team).filter(Team.permanent_leader_id == emp.id).update(

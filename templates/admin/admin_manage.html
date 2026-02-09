@@ -5,6 +5,13 @@
 {% block page_title %}PERSONNEL_MANAGEMENT{% endblock %}
 
 {% block content %}
+{% if request.query_params.get('updated') == '1' %}
+<script>
+  window.onload = function() {
+    alert('Employee updated successfully!');
+  };
+</script>
+{% endif %}
 <div class="space-y-8">
   {% if request.query_params.get('removed') %}
     <div class="hidden" id="employeeRemovedFlag"></div>
