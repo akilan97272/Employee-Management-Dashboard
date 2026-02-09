@@ -384,7 +384,7 @@ canvas {
       </div>
       <div class="space-y-1">
           <label class="label-mono">Target Deadline</label>
-          <input type="date" name="deadline" required class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm">
+          <input type="date" name="deadline" required class="w-full px-4 py-3 border border-slate-200 focus:border-indigo-500 outline-none text-sm" min="{{ now().strftime('%Y-%m-%d') }}">
       </div>
       <div class="flex justify-end gap-4 pt-4">
         <button type="button" onclick="closeModal('createProjectModal')" class="label-mono hover:text-red-600 transition">Discard</button>
@@ -482,7 +482,7 @@ canvas {
           </div>
           <div class="space-y-1">
             <label class="label-mono">Due Date</label>
-            <input type="date" name="due_date" required class="w-full px-4 py-3 border border-slate-200 outline-none text-sm">
+            <input type="date" name="due_date" required class="w-full px-4 py-3 border border-slate-200 outline-none text-sm" min="{{ now().strftime('%Y-%m-%d') }}">
           </div>
         </div>
         <div class="space-y-1">

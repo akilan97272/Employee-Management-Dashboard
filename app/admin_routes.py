@@ -371,21 +371,17 @@ def register_admin_routes(app):
                 emp.photo_blob = photo_blob
                 emp.photo_mime = photo.content_type or "image/jpeg"
 
+        # Update salary, tax, and paid leaves (robustly)
         try:
-            if base_salary is not None:
-                emp.base_salary = float(base_salary)
+            emp.base_salary = float(request.form().get("base_salary", emp.base_salary))
         except Exception:
             pass
-
         try:
-            if paid_leaves_allowed is not None:
-                emp.paid_leaves_allowed = int(paid_leaves_allowed)
+            emp.tax_percentage = float(request.form().get("tax_percentage", emp.tax_percentage))
         except Exception:
             pass
-
         try:
-            if tax_percentage is not None:
-                emp.tax_percentage = float(tax_percentage)
+            emp.paid_leaves_allowed = int(request.form().get("paid_leaves_allowed", emp.paid_leaves_allowed))
         except Exception:
             pass
 
@@ -780,10 +776,16 @@ def register_admin_routes(app):
     async def admin_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
-        pending = db.query(LeaveRequest).order_by(LeaveRequest.id.desc()).all()
-        return templates.TemplateResponse("admin/admin_leave_requests.html",
-                                          {"request": request, "user": user, "pending": pending,
-                                           "current_year": datetime.datetime.utcnow().year})
+        all_requests = (
+            db.query(LeaveRequest)
+            .order_by(LeaveRequest.id.desc())
+            .all()
+        )
+        return templates.TemplateResponse(
+            "admin/admin_leave_requests.html",
+            {"request": request, "user": user, "leave_requests": all_requests,
+             "current_year": datetime.datetime.utcnow().year}
+        )
 
     @app.post("/admin/leave/update")
     async def update_leave_status(request: Request,

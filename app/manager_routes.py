@@ -168,6 +168,55 @@ def register_manager_routes(app):
             raise HTTPException(status_code=404, detail="Team not found")
 
         members = db.query(User).filter(User.current_team_id == team_id).all()
+        member_task_status = {}
+        member_employee_ids = [m.employee_id for m in members if m.employee_id]
+
+        if member_employee_ids and team.project_id:
+            task_rows = (
+                db.query(
+                    ProjectTaskAssignee.employee_id,
+                    ProjectTask.title,
+                    ProjectTask.status,
+                    ProjectTask.created_at,
+                    ProjectTask.deadline,
+                    ProjectTask.completed_at
+                )
+                .join(ProjectTask, ProjectTask.id == ProjectTaskAssignee.task_id)
+                .filter(
+                    ProjectTask.project_id == team.project_id,
+                    ProjectTaskAssignee.employee_id.in_(member_employee_ids)
+                )
+                .order_by(ProjectTask.created_at.desc())
+                .all()
+            )
+
+            tasks_by_emp = {}
+            for employee_id, title, status, created_at, deadline, completed_at in task_rows:
+                entry = tasks_by_emp.setdefault(employee_id, {"tasks": [], "completed": 0})
+                entry["tasks"].append({
+                    "title": title,
+                    "status": status,
+                    "created_at": created_at.isoformat() if created_at else None,
+                    "deadline": deadline.isoformat() if deadline else None,
+                    "completed_at": completed_at.isoformat() if completed_at else None
+                })
+                if status == "completed":
+                    entry["completed"] += 1
+
+            for member in members:
+                emp_id = member.employee_id
+                if not emp_id:
+                    continue
+                data = tasks_by_emp.get(emp_id, {"tasks": [], "completed": 0})
+                total = len(data["tasks"])
+                completed = data["completed"]
+                percent = int((completed / total) * 100) if total else 0
+                member_task_status[emp_id] = {
+                    "tasks": data["tasks"],
+                    "total": total,
+                    "completed": completed,
+                    "percent": percent
+                }
 
         return templates.TemplateResponse(
             "admin/team_members.html",
@@ -175,7 +224,8 @@ def register_manager_routes(app):
                 "request": request,
                 "user": user,
                 "team": team,
-                "members": members
+                "members": members,
+                "member_task_status": member_task_status
             }
         )
 

@@ -63,9 +63,41 @@
                     <span class="executive-mono text-[9px] font-black text-blue-600 uppercase tracking-widest mt-1 block">
                         Division: {{ team.department }}
                     </span>
+                    {% if team.project %}
                     <a href="/manager/projects" class="executive-mono text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 block hover:text-indigo-600">
-                        Project: {{ team.project.name if team.project else 'Not linked' }}
+                        Project: {{ team.project.name }}
                     </a>
+                    {% else %}
+                    <span id="projectNotLinkedLabel" class="executive-mono text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1 block hover:text-red-600 cursor-pointer">
+                        Project: Not linked
+                    </span>
+                    {% endif %}
+                                        <!-- Error Modal for Project Not Linked -->
+                                        <div id="projectNotLinkedModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+                                            <div class="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full text-center">
+                                                <div class="text-2xl text-red-600 mb-4">&#9888;</div>
+                                                <div class="font-bold text-lg mb-2">Project Not Linked</div>
+                                                <div class="text-slate-600 text-sm mb-6">This team has no project linked. Please assign a project to the team before managing projects.</div>
+                                                <button onclick="closeProjectNotLinkedModal()" class="px-6 py-2 bg-slate-900 text-white text-xs font-black uppercase rounded hover:bg-blue-600">OK</button>
+                                            </div>
+                                        </div>
+                <script>
+                    function openProjectNotLinkedModal() {
+                        document.getElementById('projectNotLinkedModal').classList.remove('hidden');
+                    }
+                    function closeProjectNotLinkedModal() {
+                        document.getElementById('projectNotLinkedModal').classList.add('hidden');
+                    }
+                    document.addEventListener('DOMContentLoaded', function() {
+                        var label = document.getElementById('projectNotLinkedLabel');
+                        if (label) {
+                            label.addEventListener('click', function(e) {
+                                e.preventDefault();
+                                openProjectNotLinkedModal();
+                            });
+                        }
+                    });
+                </script>
                 </div>
                 
                 <form action="/manager/delete_team" method="POST" data-confirm="Disband {{ team.name }}?" class="team-action">
@@ -98,88 +130,17 @@
                 </div>
             </div>
             
-            <div class="mb-10">
-                <div class="flex justify-between text-[9px] font-black uppercase tracking-widest mb-3">
-                    <span class="text-slate-500 text-[11px] font-black tracking-tight text-slate-900">Division Operations</span>
-                    <span class="executive-mono text-blue-600">{{ item.completion }}%</span>
-                </div>
-                <div class="w-full bg-slate-100 h-1">
-                    <div class="bg-slate-900 h-full transition-all duration-700" style="width: {{ item.completion }}%"></div>
-                </div>
-                <div class="mt-2 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                    Task Progress: {{ item.task_done }} / {{ item.task_total }}
-                </div>
-            </div>
-
-                        <div class="mt-6 border-t pt-4">
-              <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                Assigned Staff
-              </p>
-
-              {% if item.members %}
-                                <ul class="space-y-1 max-h-28 overflow-auto pr-1">
-                  {% for m in item.members %}
-                    <li class="text-xs font-bold text-slate-700">
-                      {{ m.name }} <span class="text-slate-400">({{ m.employee_id }})</span>
-                    </li>
-                  {% endfor %}
-                </ul>
-              {% else %}
-                <p class="text-xs italic text-slate-400">No staff assigned</p>
-              {% endif %}
-            </div>
-
-                        <div class="mt-4 border-t pt-4">
-                            <p class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                                Member Task Status
-                            </p>
-
-                            {% if item.member_task_status %}
-                                <div class="space-y-2 max-h-44 overflow-auto pr-1">
-                                    {% for stat in item.member_task_status %}
-                                        <div class="border border-slate-200 rounded px-3 py-2 cursor-pointer hover:border-slate-400"
-                                             data-member-task='{{ stat | tojson }}'
-                                             onclick="openMemberTaskDetails(this)">
-                                            <div class="flex items-center justify-between text-[10px] font-bold text-slate-700">
-                                                <span>{{ stat.name }} ({{ stat.employee_id }})</span>
-                                                <span class="text-slate-400 uppercase tracking-widest">
-                                                    {{ stat.completed }}/{{ stat.total }} • {{ stat.percent }}%
-                                                </span>
-                                            </div>
-                                            {% if stat.tasks %}
-                                                <ul class="mt-2 space-y-1 text-[10px] text-slate-600">
-                                                    {% for task in stat.tasks %}
-                                                        <li class="flex items-center justify-between">
-                                                            <span>{{ task.title }}</span>
-                                                            <span class="text-slate-400 uppercase tracking-widest">{{ task.status }}</span>
-                                                        </li>
-                                                    {% endfor %}
-                                                </ul>
-                                            {% else %}
-                                                <p class="mt-2 text-[10px] italic text-slate-400">No tasks assigned</p>
-                                            {% endif %}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                <p class="text-xs italic text-slate-400">No tasks assigned</p>
-                            {% endif %}
-                        </div>
-
             <div class="flex justify-between items-center pt-6 border-t border-slate-50">
                 <div class="executive-mono text-[10px] font-bold text-slate-400 uppercase">
                     Personnel Count: {{ item.member_count }}
                 </div>
                 <div class="flex items-center gap-4">
-                            <button type="button" class="team-action text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-slate-900"
-                                onclick="openTeamTaskModal(event, this); return false;">
-                        Assign Task
-                    </button>
                     <a href="/manager/team/{{ team.id }}/members" class="team-action text-[9px] font-black text-slate-900 uppercase tracking-widest border-b-2 border-slate-900 hover:text-indigo-600 hover:border-indigo-600 transition-colors">
                         View Members
                     </a>
                 </div>
             </div>
+
         </div>
         {% else %}
         <div class="col-span-3 py-32 text-center border border-dashed border-slate-200">
@@ -417,10 +378,25 @@
                 </select>
             </div>
 
-            <div>
-                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Project Due Date</label>
-                <input type="date" name="deadline" required class="w-full bg-slate-50 border border-slate-200 px-4 py-4 text-xs font-black uppercase outline-none focus:border-slate-900">
-            </div>
+
+                        <div>
+                                <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Project Due Date</label>
+                                <input type="date" name="deadline" id="projectInitiationDueDate" required class="w-full bg-slate-50 border border-slate-200 px-4 py-4 text-xs font-black uppercase outline-none focus:border-slate-900">
+                        </div>
+                        <script>
+                        // Block all past dates for project initiation due date
+                        (function() {
+                            var dueDateInput = document.getElementById('projectInitiationDueDate');
+                            if (dueDateInput) {
+                                var today = new Date();
+                                var yyyy = today.getFullYear();
+                                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                                var dd = String(today.getDate()).padStart(2, '0');
+                                var minDate = yyyy + '-' + mm + '-' + dd;
+                                dueDateInput.setAttribute('min', minDate);
+                            }
+                        })();
+                        </script>
 
             <div>
                 <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Unit Linkage</label>
@@ -473,16 +449,30 @@
                 </div>
                 <div>
                     <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Due Date</label>
-                    <input type="date" name="due_date" class="w-full bg-slate-50 border border-slate-200 px-4 py-4 text-xs font-black uppercase outline-none focus:border-slate-900">
+                    <input type="date" name="due_date" id="teamAssignDueDate" class="w-full bg-slate-50 border border-slate-200 px-4 py-4 text-xs font-black uppercase outline-none focus:border-slate-900">
                 </div>
             </div>
 
-            <div>
                 <label class="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 mb-2 block">Assign To</label>
                 <div id="teamTaskAssignees" class="grid grid-cols-1 sm:grid-cols-2 gap-2"></div>
                 <p id="teamTaskAssigneesEmpty" class="text-xs italic text-slate-400 hidden">No members available for this team.</p>
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Select multiple employees if needed.</p>
             </div>
+
+                        <script>
+                        // Block all past dates for due date input
+                        (function() {
+                            var dueDateInput = document.getElementById('teamAssignDueDate');
+                            if (dueDateInput) {
+                                var today = new Date();
+                                var yyyy = today.getFullYear();
+                                var mm = String(today.getMonth() + 1).padStart(2, '0');
+                                var dd = String(today.getDate()).padStart(2, '0');
+                                var minDate = yyyy + '-' + mm + '-' + dd;
+                                dueDateInput.setAttribute('min', minDate);
+                            }
+                        })();
+                        </script>
 
             <div class="flex justify-end gap-6 pt-2">
                 <button type="button" onclick="closeTeamTaskModal()" class="text-[10px] font-black uppercase tracking-widest text-slate-400">Abort</button>

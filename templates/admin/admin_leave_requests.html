@@ -48,7 +48,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-[var(--border)]">
-                    {% for l in pending %}
+                    {% for l in leave_requests %}
                     <tr class="hover:bg-slate-50 transition-colors group" data-status="{{ l.status|lower }}">
                         <td class="py-5 px-2">
                             <p class="font-bold text-sm">{{ l.user.name }}</p>
@@ -90,11 +90,11 @@
                         </td>
                     </tr>
                     {% endfor %}
-                    
-                    {% if not pending %}
+
+                    {% if not leave_requests %}
                     <tr>
                         <td colspan="5" class="py-12 text-center">
-                            <p class="executive-mono text-slate-400 text-[10px] uppercase tracking-widest">No pending requests in queue</p>
+                            <p class="executive-mono text-slate-400 text-[10px] uppercase tracking-widest">No leave requests found</p>
                         </td>
                     </tr>
                     {% endif %}

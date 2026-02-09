@@ -162,7 +162,7 @@ def register_api_routes(app):
     async def leave_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
-        pending = db.query(Notification).filter(Notification.title == "Leave request updated").count()
+        pending = db.query(LeaveRequest).filter(LeaveRequest.status == "Pending").count()
         return {"count": pending}
 
     @app.get("/api/month-hours")

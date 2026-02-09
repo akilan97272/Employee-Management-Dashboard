@@ -523,6 +523,9 @@ setInterval(updateClock, 1000);
             if (data.count > 0) {
                 badge.textContent = data.count;
                 badge.classList.remove("hidden");
+        } else {
+          badge.textContent = "0";
+          badge.classList.add("hidden");
             }
         });
     }
