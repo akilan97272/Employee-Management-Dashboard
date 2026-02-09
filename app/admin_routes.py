@@ -294,36 +294,37 @@ def register_admin_routes(app):
             "current_year": datetime.datetime.utcnow().year
             })
 
-    @app.post("/admin/update_employee")
-    async def admin_update_employee(request: Request,
-                                     employee_id: str = Form(...),
-                                     name: Optional[str] = Form(None),
-                                     email: Optional[str] = Form(None),
-                                     rfid_tag: Optional[str] = Form(None),
-                                     title: Optional[str] = Form(None),
-                                     date_of_birth: Optional[str] = Form(None),
-                                     department: Optional[str] = Form(None),
-                                     role: Optional[str] = Form(None),
-                                     hourly_rate: Optional[float] = Form(None),
-                                     allowances: Optional[float] = Form(None),
-                                     deductions: Optional[float] = Form(None),
-                                     notes: Optional[str] = Form(None),
-                                     team_id: Optional[int] = Form(None),
-                                     is_active: Optional[str] = Form(None),
-                                     can_manage: Optional[str] = Form(None),
-                                     active_leader: Optional[str] = Form(None),
-                                     photo: Optional[UploadFile] = File(None),
-                                     base_salary: Optional[float] = Form(None),
-                                     paid_leaves_allowed: Optional[int] = Form(None),
-                                     tax_percentage: Optional[float] = Form(None),
-                                     user: User = Depends(get_current_user),
-                                     db: Session = Depends(get_db)):
-        if user.role != "admin":
-            raise HTTPException(status_code=403, detail="Access denied")
-
-        emp = db.query(User).filter(User.employee_id == employee_id).first()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
+    @app.post("/admin/add_employee")
+    async def admin_add_employee(request: Request,
+                                name: str = Form(...),
+                                email: str = Form(...),
+                                rfid_tag: str = Form(...),
+                                role: str = Form(...),
+                                department: str = Form(...),
+                                password: str = Form(...),
+                                base_salary: Optional[float] = Form(None),
+                                tax_percentage: Optional[float] = Form(None),
+                                paid_leaves_allowed: Optional[int] = Form(None),
+                                hourly_rate: Optional[float] = Form(None),
+                                allowances: Optional[float] = Form(None),
+                                deductions: Optional[float] = Form(None),
+                                notes: Optional[str] = Form(None),
+                                team_id: Optional[int] = Form(None),
+                                is_active: Optional[str] = Form(None),
+                                can_manage: Optional[str] = Form(None),
+                                active_leader: Optional[str] = Form(None),
+                                photo: Optional[UploadFile] = File(None),
+                                user: User = Depends(get_current_user),
+                                db: Session = Depends(get_db)):
+        # ...existing code...
+        form = await request.form()
+        emp = User(
+            # ...existing code...
+            base_salary=float(form.get("base_salary", 0.0)),
+            tax_percentage=float(form.get("tax_percentage", 0.0)),
+            paid_leaves_allowed=int(form.get("paid_leaves_allowed", 0)),
+            # ...existing code...
+        )
 
         if name is not None:
             emp.name = name
