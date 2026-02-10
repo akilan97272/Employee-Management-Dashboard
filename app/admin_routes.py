@@ -9,7 +9,7 @@ import pandas as pd
 
 from .database import get_db
 from .models import (
-    User, Attendance, RemovedEmployee, UnknownRFID, Room, Department,
+    ProjectMeetingAssignee, User, Attendance, RemovedEmployee, UnknownRFID, Room, Department,
     Task, LeaveRequest, Team, TeamMember, Payroll, ProjectTask, ProjectTaskAssignee,
     EmailSettings, InappropriateEntry
 )
@@ -305,6 +305,8 @@ def register_admin_routes(app):
         emp = db.query(User).filter(User.employee_id == employee_id).first()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
+        # Remove all project meeting assignees for this employee to avoid FK constraint
+        db.query(ProjectMeetingAssignee).filter(ProjectMeetingAssignee.employee_id == emp.employee_id).delete(synchronize_session=False)
         db.query(TeamMember).filter(TeamMember.user_id == emp.id).delete(synchronize_session=False)
         db.query(Team).filter(Team.leader_id == emp.id).update({Team.leader_id: None}, synchronize_session=False)
         db.query(Team).filter(Team.permanent_leader_id == emp.id).update(

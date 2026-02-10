@@ -5,31 +5,7 @@ from .models import Attendance, LeaveRequest, Payroll
 
 
 def calculate_monthly_payroll(db, emp, month, year):
-    # First, check for an existing persisted payroll for this employee/month/year
-    try:
-        existing = db.query(Payroll).filter(
-            Payroll.employee_id == emp.employee_id,
-            Payroll.month == month,
-            Payroll.year == year
-        ).first()
-    except Exception:
-        existing = None
-
-    if existing:
-        return {
-            "present_days": existing.present_days,
-            "leave_days": existing.leave_days,
-            "unpaid_leaves": existing.unpaid_leaves,
-            "base_salary": round(existing.base_salary, 2),
-            "leave_deduction": round(existing.leave_deduction, 2),
-            "tax": round(existing.tax, 2),
-            "allowances": round(existing.allowances or 0.0, 2),
-            "deductions": round(existing.deductions or 0.0, 2),
-            "net_salary": round(existing.net_salary, 2),
-            "explanation": existing.explanation,
-            "locked": bool(existing.locked),
-            "generated_at": existing.created_at
-        }
+    # Always recalculate payroll for latest leave status (ignore cached Payroll table)
 
     # Present days
     present_days = db.query(func.count(func.distinct(Attendance.date))).filter(
