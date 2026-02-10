@@ -302,20 +302,6 @@ body {
                   </div>
                 </form>
                 <div id="detail-tasks-list"></div>
-                <script>
-                // Block all past dates for project task deadline
-                (function() {
-                  var deadlineInput = document.getElementById('projectTaskDeadline');
-                  if (deadlineInput) {
-                    var today = new Date();
-                    var yyyy = today.getFullYear();
-                    var mm = String(today.getMonth() + 1).padStart(2, '0');
-                    var dd = String(today.getDate()).padStart(2, '0');
-                    var minDate = yyyy + '-' + mm + '-' + dd;
-                    deadlineInput.setAttribute('min', minDate);
-                  }
-                })();
-                </script>
               </div>
             </div>
         </div>
@@ -330,13 +316,6 @@ let allProjects = [];
 let selectedProjectId = null;
 
 document.addEventListener('DOMContentLoaded', function() {
-
-  // Robust fallback: Set min date for all date pickers to today
-  const today = new Date().toISOString().split('T')[0];
-  document.querySelectorAll('input[type="date"]').forEach(input => {
-    input.min = today;
-  });
-
   // Set up project card click/touch handlers
   document.querySelectorAll('.project-option').forEach(card => {
     const selectHandler = function() {

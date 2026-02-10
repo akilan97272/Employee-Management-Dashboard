@@ -10,104 +10,15 @@ from .database import get_db
 from .models import (
     User, Attendance, RemovedEmployee, UnknownRFID, Room, Department,
     Task, LeaveRequest, Team, TeamMember, Payroll, ProjectTask, ProjectTaskAssignee,
-    ProjectMeetingAssignee, EmailSettings
+    EmailSettings, InappropriateEntry
 )
 from .auth import hash_password
 from .email_service import send_welcome_email, send_leave_status_email
-import threading
 from .app_context import templates, get_current_user, create_notification
 from .payroll_utils import calculate_monthly_payroll
 
 
 def register_admin_routes(app):
-
-    @app.post("/admin/update_employee")
-    async def update_employee(
-        request: Request,
-        employee_id: str = Form(...),
-        name: str = Form(...),
-        email: str = Form(...),
-        phone: Optional[str] = Form(None),
-        rfid_tag: str = Form(...),
-        role: str = Form(...),
-        department: str = Form(...),
-        title: Optional[str] = Form(None),
-        date_of_birth: Optional[str] = Form(None),
-        notes: Optional[str] = Form(None),
-        team_id: Optional[int] = Form(None),
-        is_active: Optional[str] = Form(None),
-        can_manage: Optional[str] = Form(None),
-        active_leader: Optional[str] = Form(None),
-        base_salary: Optional[float] = Form(None),
-        tax_percentage: Optional[float] = Form(None),
-        paid_leaves_allowed: Optional[int] = Form(None),
-        photo: Optional[UploadFile] = File(None),
-        user: User = Depends(get_current_user),
-        db: Session = Depends(get_db),
-    ):
-        if user.role != "admin":
-            raise HTTPException(status_code=403, detail="Access denied")
-        emp = db.query(User).filter(User.employee_id == employee_id).first()
-        if not emp:
-            raise HTTPException(status_code=404, detail="Employee not found")
-
-        # Check for unique fields (email, rfid_tag) if changed
-        if emp.email != email:
-            existing_email = db.query(User).filter(User.email == email).first()
-            if existing_email:
-                raise HTTPException(status_code=400, detail=f"Email '{email}' already exists in the system")
-        if emp.rfid_tag != rfid_tag:
-            existing_rfid = db.query(User).filter(User.rfid_tag == rfid_tag).first()
-            if existing_rfid:
-                raise HTTPException(status_code=400, detail=f"RFID tag '{rfid_tag}' is already assigned to another employee")
-
-        emp.name = name
-        emp.email = email
-        emp.phone = phone
-        emp.rfid_tag = rfid_tag
-        emp.role = role
-        emp.department = department
-        emp.title = title
-        emp.notes = notes
-        emp.is_active = True if is_active else False
-        emp.can_manage = True if can_manage else False
-        emp.active_leader = True if active_leader else False
-        if base_salary is not None:
-            emp.base_salary = base_salary
-        if tax_percentage is not None:
-            emp.tax_percentage = tax_percentage
-        if paid_leaves_allowed is not None:
-            emp.paid_leaves_allowed = paid_leaves_allowed
-
-        # Date of birth
-        if date_of_birth:
-            dob_raw = date_of_birth.strip()
-            try:
-                emp.date_of_birth = datetime.datetime.strptime(dob_raw, "%d-%m-%Y").date()
-            except Exception:
-                try:
-                    emp.date_of_birth = datetime.date.fromisoformat(dob_raw)
-                except Exception:
-                    emp.date_of_birth = None
-
-        # Team assignment
-        team_id_val = int(team_id) if team_id else None
-        if team_id_val:
-            team_exists = db.query(Team).filter(Team.id == team_id_val).first()
-            if team_exists:
-                emp.current_team_id = team_id_val
-            else:
-                emp.current_team_id = None
-        else:
-            emp.current_team_id = None
-
-        # Photo upload
-        if photo and photo.filename:
-            emp.photo_blob = await photo.read()
-            emp.photo_mime = photo.content_type or "image/jpeg"
-
-        db.commit()
-        return RedirectResponse("/admin/manage_employees?updated=1", status_code=303)
     @app.get("/admin/select_dashboard", response_class=HTMLResponse)
     async def admin_choice(request: Request, user: User = Depends(get_current_user)):
         return templates.TemplateResponse("admin/admin_select_dashboard.html", {"request": request, "user": user})
@@ -116,16 +27,96 @@ def register_admin_routes(app):
     async def admin_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403)
+        
+        # Fetch live blocks data (occupancy by room)
+        from sqlalchemy import func
+        import datetime as dt
+
+        # Identify rooms registered in Room table
+        rooms = db.query(Room).all()
+        valid_rooms = {(r.location_name, r.room_no) for r in rooms}
+
+        # Detect any attendance records today that reference invalid rooms and log them
+        today = dt.date.today()
+        start_of_day = dt.datetime.combine(today, dt.time.min)
+        invalid_attendances = db.query(Attendance).filter(Attendance.date == today).all()
+        for a in invalid_attendances:
+            if (a.location_name, a.room_no) not in valid_rooms:
+                # avoid duplicate logs for same employee/location/room within same day
+                exists = db.query(InappropriateEntry).filter(
+                    InappropriateEntry.employee_id == a.employee_id,
+                    InappropriateEntry.location_name == a.location_name,
+                    InappropriateEntry.room_no == a.room_no,
+                    InappropriateEntry.timestamp >= start_of_day
+                ).first()
+                if not exists:
+                    db.add(InappropriateEntry(
+                        employee_id=a.employee_id,
+                        rfid_tag=(a.user.rfid_tag if getattr(a, 'user', None) else ''),
+                        location_name=a.location_name,
+                        room_no=a.room_no,
+                        reason=f"Recorded in non-registered room",
+                        timestamp=a.entry_time or dt.datetime.utcnow()
+                    ))
+        db.commit()
+
+        # Now aggregate only rooms that exist in Room table
+        blocks_data = (
+            db.query(
+                Attendance.location_name,
+                Attendance.room_no,
+                func.count(Attendance.id).label("count")
+            )
+            .join(Room, (Room.location_name == Attendance.location_name) & (Room.room_no == Attendance.room_no))
+            .filter(
+                Attendance.exit_time.is_(None),
+                Attendance.date == today
+            )
+            .group_by(Attendance.location_name, Attendance.room_no)
+            .all()
+        )
+        blocks = [
+            {
+                "location_name": b.location_name,
+                "room_no": b.room_no,
+                "count": b.count
+            }
+            for b in blocks_data
+        ]
+
+        # Fetch inappropriate entries (invalid rooms)
+        inappropriate_entries = db.query(InappropriateEntry).order_by(InappropriateEntry.timestamp.desc()).limit(20).all()
+        
+        # Other dashboard datasets
+        employees = db.query(User).filter(User.is_active == True).all()
+        total_active = len(employees)
+        # Number of employees currently inside campus: distinct open attendances today
+        present_count = db.query(func.count(func.distinct(Attendance.employee_id))).filter(
+            Attendance.exit_time.is_(None),
+            Attendance.date == today
+        ).scalar() or 0
+        try:
+            present_count = int(present_count)
+        except Exception:
+            present_count = 0
+        absentee_count = max(0, total_active - present_count)
+        unknown_rfids = db.query(UnknownRFID).order_by(UnknownRFID.timestamp.desc()).limit(5).all()
+        admins = db.query(User).filter(User.role == "admin").all()
+        removed_employees = db.query(RemovedEmployee).order_by(RemovedEmployee.removed_at.desc()).limit(5).all()
+
         return templates.TemplateResponse("admin/admin_dashboard.html",
-                                          {"request": request,
-                                           "user": user,
-                                           "blocks": [],
-                                           "employees": [],
-                                           "unknown_rfids": [],
-                                           "admins": [],
-                                           "removed_employees": []
-                                           }
-                                           )
+                           {"request": request,
+                            "user": user,
+                            "blocks": blocks,
+                            "employees": employees,
+                            "unknown_rfids": unknown_rfids,
+                            "admins": admins,
+                            "removed_employees": removed_employees,
+                            "inappropriate_entries": inappropriate_entries,
+                            "present_count": present_count,
+                            "absentee_count": absentee_count
+                            }
+                            )
 
     @app.get("/admin/register_employee", response_class=HTMLResponse)
     async def admin_register_employee(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -243,11 +234,8 @@ def register_admin_routes(app):
         new_user.active_leader = True if active_leader else False
         db.add(new_user)
         db.commit()
-        # Send welcome email in a background thread
-        def send_email_bg():
-            send_welcome_email(email, name, employee_id, password)
-        threading.Thread(target=send_email_bg, daemon=True).start()
-        return {"employee_id": employee_id, "password": password, "email_sent": True}
+        email_sent = send_welcome_email(email, name, employee_id, password)
+        return {"employee_id": employee_id, "password": password, "email_sent": email_sent}
 
     @app.get("/admin/settings", response_class=HTMLResponse)
     async def admin_settings_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -316,8 +304,6 @@ def register_admin_routes(app):
         emp = db.query(User).filter(User.employee_id == employee_id).first()
         if not emp:
             raise HTTPException(status_code=404, detail="Employee not found")
-        # Remove all project meeting assignees for this employee to avoid FK constraint
-        db.query(ProjectMeetingAssignee).filter(ProjectMeetingAssignee.employee_id == emp.employee_id).delete(synchronize_session=False)
         db.query(TeamMember).filter(TeamMember.user_id == emp.id).delete(synchronize_session=False)
         db.query(Team).filter(Team.leader_id == emp.id).update({Team.leader_id: None}, synchronize_session=False)
         db.query(Team).filter(Team.permanent_leader_id == emp.id).update(
@@ -388,37 +374,36 @@ def register_admin_routes(app):
             "current_year": datetime.datetime.utcnow().year
             })
 
-    @app.post("/admin/add_employee")
-    async def admin_add_employee(request: Request,
-                                name: str = Form(...),
-                                email: str = Form(...),
-                                rfid_tag: str = Form(...),
-                                role: str = Form(...),
-                                department: str = Form(...),
-                                password: str = Form(...),
-                                base_salary: Optional[float] = Form(None),
-                                tax_percentage: Optional[float] = Form(None),
-                                paid_leaves_allowed: Optional[int] = Form(None),
-                                hourly_rate: Optional[float] = Form(None),
-                                allowances: Optional[float] = Form(None),
-                                deductions: Optional[float] = Form(None),
-                                notes: Optional[str] = Form(None),
-                                team_id: Optional[int] = Form(None),
-                                is_active: Optional[str] = Form(None),
-                                can_manage: Optional[str] = Form(None),
-                                active_leader: Optional[str] = Form(None),
-                                photo: Optional[UploadFile] = File(None),
-                                user: User = Depends(get_current_user),
-                                db: Session = Depends(get_db)):
-        # ...existing code...
-        form = await request.form()
-        emp = User(
-            # ...existing code...
-            base_salary=float(form.get("base_salary", 0.0)),
-            tax_percentage=float(form.get("tax_percentage", 0.0)),
-            paid_leaves_allowed=int(form.get("paid_leaves_allowed", 0)),
-            # ...existing code...
-        )
+    @app.post("/admin/update_employee")
+    async def admin_update_employee(request: Request,
+                                     employee_id: str = Form(...),
+                                     name: Optional[str] = Form(None),
+                                     email: Optional[str] = Form(None),
+                                     rfid_tag: Optional[str] = Form(None),
+                                     title: Optional[str] = Form(None),
+                                     date_of_birth: Optional[str] = Form(None),
+                                     department: Optional[str] = Form(None),
+                                     role: Optional[str] = Form(None),
+                                     hourly_rate: Optional[float] = Form(None),
+                                     allowances: Optional[float] = Form(None),
+                                     deductions: Optional[float] = Form(None),
+                                     notes: Optional[str] = Form(None),
+                                     team_id: Optional[int] = Form(None),
+                                     is_active: Optional[str] = Form(None),
+                                     can_manage: Optional[str] = Form(None),
+                                     active_leader: Optional[str] = Form(None),
+                                     photo: Optional[UploadFile] = File(None),
+                                     base_salary: Optional[float] = Form(None),
+                                     paid_leaves_allowed: Optional[int] = Form(None),
+                                     tax_percentage: Optional[float] = Form(None),
+                                     user: User = Depends(get_current_user),
+                                     db: Session = Depends(get_db)):
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+
+        emp = db.query(User).filter(User.employee_id == employee_id).first()
+        if not emp:
+            raise HTTPException(status_code=404, detail="Employee not found")
 
         if name is not None:
             emp.name = name
@@ -466,17 +451,21 @@ def register_admin_routes(app):
                 emp.photo_blob = photo_blob
                 emp.photo_mime = photo.content_type or "image/jpeg"
 
-        # Update salary, tax, and paid leaves (robustly)
         try:
-            emp.base_salary = float(request.form().get("base_salary", emp.base_salary))
+            if base_salary is not None:
+                emp.base_salary = float(base_salary)
         except Exception:
             pass
+
         try:
-            emp.tax_percentage = float(request.form().get("tax_percentage", emp.tax_percentage))
+            if paid_leaves_allowed is not None:
+                emp.paid_leaves_allowed = int(paid_leaves_allowed)
         except Exception:
             pass
+
         try:
-            emp.paid_leaves_allowed = int(request.form().get("paid_leaves_allowed", emp.paid_leaves_allowed))
+            if tax_percentage is not None:
+                emp.tax_percentage = float(tax_percentage)
         except Exception:
             pass
 
@@ -867,20 +856,48 @@ def register_admin_routes(app):
         db.commit()
         return RedirectResponse("/admin/unknown_rfid", status_code=303)
 
+    @app.get("/admin/inappropriate_entries", response_class=HTMLResponse)
+    async def admin_inappropriate_entries(
+        request: Request,
+        search: Optional[str] = None,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ):
+        if user.role != "admin":
+            raise HTTPException(status_code=403, detail="Access denied")
+        query = db.query(InappropriateEntry)
+        if search:
+            query = query.filter(
+                (InappropriateEntry.employee_id.like(f"%{search}%")) |
+                (InappropriateEntry.room_no.like(f"%{search}%")) |
+                (InappropriateEntry.location_name.ilike(f"%{search}%"))
+            )
+        entries = query.order_by(InappropriateEntry.timestamp.desc()).all()
+        return templates.TemplateResponse(
+            "admin/admin_inappropriate_entries.html",
+            {
+                "request": request,
+                "user": user,
+                "search": search,
+                "entries": entries,
+                "current_year": datetime.datetime.utcnow().year
+            }
+        )
+
+    @app.post("/admin/delete_inappropriate_entry")
+    async def delete_inappropriate_entry(request: Request, entry_id: int = Form(...), db: Session = Depends(get_db)):
+        db.query(InappropriateEntry).filter(InappropriateEntry.id == entry_id).delete()
+        db.commit()
+        return RedirectResponse("/admin/inappropriate_entries", status_code=303)
+
     @app.get("/admin/leave_requests", response_class=HTMLResponse)
     async def admin_leave_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
-        all_requests = (
-            db.query(LeaveRequest)
-            .order_by(LeaveRequest.id.desc())
-            .all()
-        )
-        return templates.TemplateResponse(
-            "admin/admin_leave_requests.html",
-            {"request": request, "user": user, "leave_requests": all_requests,
-             "current_year": datetime.datetime.utcnow().year}
-        )
+        pending = db.query(LeaveRequest).order_by(LeaveRequest.id.desc()).all()
+        return templates.TemplateResponse("admin/admin_leave_requests.html",
+                                          {"request": request, "user": user, "pending": pending,
+                                           "current_year": datetime.datetime.utcnow().year})
 
     @app.post("/admin/leave/update")
     async def update_leave_status(request: Request,
@@ -919,3 +936,43 @@ def register_admin_routes(app):
             )
             db.commit()
         return RedirectResponse("/admin/leave_requests", status_code=303)
+    
+    @app.get("/admin/attendance-intelligence", response_class=HTMLResponse)
+    async def admin_attendance_intelligence(
+        request: Request,
+        employee_id: Optional[str] = None,
+        db: Session = Depends(get_db),
+        user: User = Depends(get_current_user)
+    ):
+        # Admins and managers may view organization-wide intelligence; others denied
+        if user.role not in ("admin", "manager"):
+            raise HTTPException(status_code=403)
+
+        from .analytics.attendance_intelligence import (
+            get_attendance_dataframe,
+            compute_behavior_metrics,
+            detect_attendance_anomalies
+        )
+
+        df = get_attendance_dataframe(db, employee_id=employee_id)
+
+        # Debug logging to help verify access and data filtering
+        try:
+            import logging
+            logging.getLogger("attendance_intel").info(
+                f"admin_attendance_intelligence: user={user.employee_id} role={user.role} employee_id_param={employee_id} records={len(df)}"
+            )
+        except Exception:
+            pass
+        metrics = compute_behavior_metrics(df)
+        anomalies = detect_attendance_anomalies(df)
+
+        return templates.TemplateResponse(
+            "admin/admin_attendance_intelligence.html",
+            {
+                "request": request,
+                "user": user,
+                "metrics": metrics,
+                "anomalies": anomalies
+            }
+        )

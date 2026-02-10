@@ -101,9 +101,8 @@ DATABASE_URL=" <-- your database url --> "
 
 ```bash
 # Start with auto-reload for development
- uvicorn app.main:app --reload
+uvicorn app.main:app --reload
 ```
-
 
 Open your browser and go to: `http://127.0.0.1:8000`
 
