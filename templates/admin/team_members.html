@@ -1,0 +1,423 @@
+{% extends "common/layout_base.html" %}
+
+{% block page_title %}Team Members - {{ team.name }}{% endblock %}
+
+{% block content %}
+<style>
+:root {
+  --sidebar-dark: #020617;
+  --bg-main: #f8fafc;
+  --border-color: #e2e8f0;
+  --accent-navy: #1b2552;
+  --accent-emerald: #10b981;
+  --radius-standard: 0.75rem;
+}
+
+body {
+  background-color: var(--bg-main);
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #1e293b;
+}
+
+.header-section {
+  background: white;
+  border-bottom: 1px solid var(--border-color);
+  padding: 2.5rem 2rem;
+  sticky top: 0;
+  z-index: 40;
+}
+
+.header-title {
+  font-size: 2.5rem;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #000;
+}
+
+.label-mono {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #64748b;
+}
+
+.member-card {
+  background: white;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-standard);
+  padding: 1.5rem;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.member-card:hover {
+  border-color: #cbd5e1;
+  box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05);
+}
+
+.avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 0.875rem;
+}
+
+.btn-back {
+  padding: 0.75rem 1.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: var(--radius-standard);
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--accent-navy);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btn-back:hover {
+  background: #f1f5f9;
+  border-color: var(--accent-navy);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 2rem;
+  color: #cbd5e1;
+}
+
+.empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  opacity: 0.5;
+}
+
+</style>
+
+<div class="header-section flex justify-between items-end">
+  <div>
+    <p class="label-mono mb-2">Team Roster</p>
+    <h1 class="header-title">{{ team.name }}</h1>
+  </div>
+  <a href="/manager/manage_teams" class="btn-back">
+    ← Back to Teams
+  </a>
+</div>
+
+<div class="max-w-[1200px] mx-auto p-8">
+  
+  {% if members %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {% for member in members %}
+       <div class="member-card p-0 overflow-hidden"
+         data-team-id="{{ team.id }}"
+         data-team-project-id="{{ team.project_id or '' }}"
+         data-team-project-name="{{ team.project.name if team.project else '' }}"
+         data-employee-id="{{ member.employee_id }}"
+         data-employee-name="{{ member.name }}"
+         onclick="openMemberTaskModal(this)">
+        <div class="flex flex-col">
+          <div class="p-6">
+            <div class="flex items-start justify-between mb-4">
+              <div class="flex items-center gap-3">
+                <div class="avatar bg-indigo-100 text-indigo-700">
+                  {{ member.name[0]|upper }}
+                </div>
+                <div>
+                  <p class="text-sm font-bold text-slate-900">{{ member.name }}</p>
+                  <p class="text-xs text-slate-400 font-mono">{{ member.employee_id }}</p>
+                </div>
+              </div>
+              {% if member.role == "admin" %}
+                <span class="px-2 py-1 bg-red-100 text-red-700 text-[9px] font-black uppercase rounded">Admin</span>
+              {% elif member.role == "manager" %}
+                <span class="px-2 py-1 bg-blue-100 text-blue-700 text-[9px] font-black uppercase rounded">Manager</span>
+              {% else %}
+                <span class="px-2 py-1 bg-slate-100 text-slate-600 text-[9px] font-black uppercase rounded">Staff</span>
+              {% endif %}
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <div class="flex justify-between">
+                <span class="text-slate-500">Email:</span>
+                <span class="text-slate-900 font-medium">{{ member.email or 'N/A' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Department:</span>
+                <span class="text-slate-900 font-medium">{{ member.department or 'N/A' }}</span>
+              </div>
+              <div class="flex justify-between">
+                <span class="text-slate-500">Status:</span>
+                <span class="font-medium">
+                  {% if member.is_active %}
+                    <span class="text-emerald-600">Active</span>
+                  {% else %}
+                    <span class="text-slate-400">Inactive</span>
+                  {% endif %}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {% set task_status = member_task_status.get(member.employee_id) if member_task_status else None %}
+          <div class="p-6 border-t border-slate-200 bg-slate-50/40" onclick="openMemberTaskDetails(event, this)" data-member-task='{{ task_status | tojson if task_status else "{}" }}'>
+            <p class="label-mono mb-2">Member Task Status</p>
+            {% if task_status and task_status.total > 0 %}
+              <div class="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>{{ task_status.completed }}/{{ task_status.total }} completed</span>
+                <span class="text-slate-400 uppercase tracking-widest">{{ task_status.percent }}%</span>
+              </div>
+              <ul class="mt-2 space-y-1 text-[11px] text-slate-600 max-h-24 overflow-auto pr-1">
+                {% for task in task_status.tasks %}
+                  <li class="flex items-center justify-between">
+                    <span>{{ task.title }}</span>
+                    <span class="text-slate-400 uppercase tracking-widest">{{ task.status }}</span>
+                  </li>
+                {% endfor %}
+              </ul>
+            {% else %}
+              <p class="text-[11px] italic text-slate-400">No tasks assigned</p>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="mt-12 p-6 bg-slate-50 border border-slate-200 rounded">
+      <p class="text-sm text-slate-600">
+        <span class="font-bold text-slate-900">{{ members|length }}</span>
+        total staff member{{ 's' if members|length != 1 else '' }} assigned to this team
+      </p>
+    </div>
+
+  {% else %}
+    <div class="empty-state">
+      <div class="empty-state-icon">👥</div>
+      <p class="text-lg font-bold text-slate-400 mb-2">No team members</p>
+      <p class="text-sm text-slate-400">This team doesn't have any assigned staff yet.</p>
+    </div>
+  {% endif %}
+
+</div>
+
+<div id="memberTaskModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-xl p-10 border border-slate-200 relative">
+    <div class="h-2 w-full bg-slate-900 absolute top-0 left-0"></div>
+    <button onclick="closeMemberTaskModal()" class="absolute top-6 right-6 text-slate-300 hover:text-slate-900">
+      <i class="bi bi-x-lg text-2xl"></i>
+    </button>
+    <!-- Error Modal for Project Not Linked (inside memberTaskModal for z-index) -->
+    <div id="projectNotLinkedModal" class="fixed inset-0 z-60 flex items-center justify-center bg-black bg-opacity-40 hidden">
+      <div class="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full text-center">
+        <div class="text-2xl text-red-600 mb-4">&#9888;</div>
+        <div class="font-bold text-lg mb-2">Project Not Linked</div>
+        <div class="text-slate-600 text-sm mb-6">This team has no project linked. Please assign a project to the team before adding tasks.</div>
+        <button onclick="closeProjectNotLinkedModal()" class="px-6 py-2 bg-slate-900 text-white text-xs font-black uppercase rounded hover:bg-blue-600">OK</button>
+      </div>
+    </div>
+
+    <h3 class="text-2xl font-black uppercase tracking-tighter text-slate-900 mb-2">Assign Project Task</h3>
+    <p id="memberTaskMeta" class="label-mono mb-2"></p>
+    <p id="memberTaskProject" class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-6 cursor-pointer"></p>
+
+    <!-- Error Modal for Project Not Linked -->
+    <div id="projectNotLinkedModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40 hidden">
+      <div class="bg-white rounded-lg shadow-lg p-8 max-w-xs w-full text-center">
+        <div class="text-2xl text-red-600 mb-4">&#9888;</div>
+        <div class="font-bold text-lg mb-2">Project Not Linked</div>
+        <div class="text-slate-600 text-sm mb-6">This team has no project linked. Please assign a project to the team before adding tasks.</div>
+        <button onclick="closeProjectNotLinkedModal()" class="px-6 py-2 bg-slate-900 text-white text-xs font-black uppercase rounded hover:bg-blue-600">OK</button>
+      </div>
+    </div>
+
+    <form action="/manager/team_tasks/create" method="POST" class="space-y-6" id="memberTaskForm" onsubmit="return checkProjectLinked(event)">
+      <input type="hidden" name="team_id" id="memberTaskTeamId">
+      <input type="hidden" name="assignees" id="memberTaskAssignee">
+
+      <div>
+        <label class="label-mono mb-2 block">Task Title</label>
+        <input type="text" name="title" required placeholder="E.G. Division Report" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-black uppercase outline-none focus:border-slate-900">
+      </div>
+
+      <div>
+        <label class="label-mono mb-2 block">Description</label>
+        <textarea name="description" rows="3" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium outline-none focus:border-slate-900"></textarea>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="label-mono mb-2 block">Priority</label>
+          <select name="priority" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-black uppercase outline-none focus:border-slate-900 appearance-none">
+            <option value="low">Low</option>
+            <option value="medium" selected>Medium</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div>
+          <label class="label-mono mb-2 block">Due Date</label>
+          <input type="date" name="due_date" id="assignDueDate" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-black uppercase outline-none focus:border-slate-900">
+        </div>
+      </div>
+
+      <p id="memberTaskProjectNote" class="text-[11px] font-bold text-amber-600 hidden">
+        This team has no project linked. Assign a project to the team first.
+      </p>
+
+      <div class="flex justify-end gap-6 pt-2">
+        <script>
+        // Block all past dates for due date input
+        (function() {
+          var dueDateInput = document.getElementById('assignDueDate');
+          if (dueDateInput) {
+            var today = new Date();
+            var yyyy = today.getFullYear();
+            var mm = String(today.getMonth() + 1).padStart(2, '0');
+            var dd = String(today.getDate()).padStart(2, '0');
+            var minDate = yyyy + '-' + mm + '-' + dd;
+            dueDateInput.setAttribute('min', minDate);
+          }
+        })();
+        </script>
+        <button type="button" onclick="closeMemberTaskModal()" class="text-[10px] font-black uppercase tracking-widest text-slate-400">Abort</button>
+        <button type="submit" id="memberTaskSubmit" class="px-10 py-4 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">Assign Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+  let currentProjectId = '';
+  function openMemberTaskModal(card) {
+    const teamId = card.getAttribute('data-team-id') || '';
+    const projectId = card.getAttribute('data-team-project-id') || '';
+    currentProjectId = projectId;
+      function checkProjectLinked(event) {
+        if (!currentProjectId) {
+          openProjectNotLinkedModal();
+          event.preventDefault();
+          return false;
+        }
+        return true;
+      }
+    const projectName = card.getAttribute('data-team-project-name') || '';
+    const employeeId = card.getAttribute('data-employee-id') || '';
+    const employeeName = card.getAttribute('data-employee-name') || '';
+
+    document.getElementById('memberTaskTeamId').value = teamId;
+    document.getElementById('memberTaskAssignee').value = employeeId;
+    document.getElementById('memberTaskMeta').textContent = `Assigning to: ${employeeName} (${employeeId})`;
+    const memberTaskProject = document.getElementById('memberTaskProject');
+    memberTaskProject.textContent = projectName
+      ? `Project: ${projectName}`
+      : 'Project: Not linked';
+    // Attach click handler after modal is open
+    setTimeout(function() {
+      memberTaskProject.onclick = function() {
+        if (!projectId) {
+          openProjectNotLinkedModal();
+        }
+      };
+    }, 0);
+  function openProjectNotLinkedModal() {
+    document.getElementById('projectNotLinkedModal').classList.remove('hidden');
+  }
+
+  function closeProjectNotLinkedModal() {
+    document.getElementById('projectNotLinkedModal').classList.add('hidden');
+  }
+
+    const projectNote = document.getElementById('memberTaskProjectNote');
+    const submitBtn = document.getElementById('memberTaskSubmit');
+    if (!projectId) {
+      projectNote.classList.remove('hidden');
+      submitBtn.disabled = true;
+      submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+    } else {
+      projectNote.classList.add('hidden');
+      submitBtn.disabled = false;
+      submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+    }
+
+    document.getElementById('memberTaskModal').classList.remove('hidden');
+  }
+
+  function closeMemberTaskModal() {
+    document.getElementById('memberTaskModal').classList.add('hidden');
+  }
+
+  function openMemberTaskDetails(event, panel) {
+    event.stopPropagation();
+    let payload = null;
+    try {
+      payload = JSON.parse(panel.getAttribute('data-member-task') || '{}');
+    } catch (e) {
+      payload = null;
+    }
+
+    if (!payload || !payload.tasks || !payload.tasks.length) {
+      return;
+    }
+
+    const list = document.getElementById('memberTaskDetailList');
+    list.innerHTML = '';
+
+    payload.tasks.forEach(task => {
+      const assignedLabel = task.created_at ? task.created_at.split('T')[0] : 'N/A';
+      const completedLabel = task.completed_at ? task.completed_at.split('T')[0] : 'N/A';
+      const deadlineLabel = task.deadline ? task.deadline.split('T')[0] : 'N/A';
+
+      const cardEl = document.createElement('div');
+      cardEl.className = 'border border-slate-200 rounded-lg p-4 bg-white';
+      cardEl.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="font-bold text-slate-900">${task.title || 'Untitled'}</div>
+          <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">${task.status || 'pending'}</span>
+        </div>
+        <div class="mt-2 text-[10px] text-slate-500 uppercase tracking-widest">
+          Assigned: ${assignedLabel} • Deadline: ${deadlineLabel}
+        </div>
+        <div class="mt-1 text-[10px] text-slate-500 uppercase tracking-widest">
+          Completed: ${completedLabel}
+        </div>
+      `;
+      list.appendChild(cardEl);
+    });
+
+    document.getElementById('memberTaskDetailModal').classList.remove('hidden');
+  }
+
+  function closeMemberTaskDetails() {
+    document.getElementById('memberTaskDetailModal').classList.add('hidden');
+  }
+</script>
+
+<div id="memberTaskDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
+  <div class="bg-white w-full max-w-2xl p-10 border border-slate-200 relative">
+    <div class="h-2 w-full bg-slate-900 absolute top-0 left-0"></div>
+    <button onclick="closeMemberTaskDetails()" class="absolute top-6 right-6 text-slate-300 hover:text-slate-900">
+      <i class="bi bi-x-lg text-2xl"></i>
+    </button>
+
+    <div class="space-y-6">
+      <div>
+        <h3 class="text-2xl font-black uppercase tracking-tighter text-slate-900">Assigned Task Details</h3>
+        <p class="label-mono mt-2">Assigned dates and completion timestamps</p>
+      </div>
+
+      <div id="memberTaskDetailList" class="space-y-3 max-h-[60vh] overflow-auto pr-1"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
