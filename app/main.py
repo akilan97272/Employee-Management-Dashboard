@@ -1,8 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from h11 import Request
 from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy import inspect, text
@@ -27,7 +26,6 @@ BASE_DIR = Path(__file__).resolve().parent
 scheduler = BackgroundScheduler()
 
 Base.metadata.create_all(bind=engine)
-
 
 
 def auto_sync_schema() -> None:
@@ -245,7 +243,9 @@ register_employee_routes(app)
 register_api_routes(app)
 
 
-
+#======================================================================================================
+# DO NOT TOUCH THIS PART NO MATTER WHO YOU ARE--------------------------------------------------------
+#======================================================================================================
 @app.middleware("http")
 async def add_no_cache_headers(request: Request, call_next):
     response = await call_next(request)
@@ -259,13 +259,14 @@ async def add_no_cache_headers(request: Request, call_next):
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(request: Request, exc: HTTPException):
     if exc.status_code == 401:
-        return templates.TemplateResponse(
-            "auth/401.html",
-            {"request": request},
-            status_code=401
-        )
-
+        return templates.TemplateResponse("auth/401.html", {"request": request}, status_code=401)
+    
+    # Use the imported default handler for all other errors
     return await http_exception_handler(request, exc)
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
 
 @app.get("/")
 def root_redirect():
