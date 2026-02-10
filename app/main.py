@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
@@ -240,6 +241,31 @@ register_admin_routes(app)
 register_manager_routes(app)
 register_employee_routes(app)
 register_api_routes(app)
+
+
+#======================================================================================================
+# DO NOT TOUCH THIS PART NO MATTER WHO YOU ARE--------------------------------------------------------
+#======================================================================================================
+@app.middleware("http")
+async def add_no_cache_headers(request: Request, call_next):
+    response = await call_next(request)
+    # Only apply to protected routes (admin and employee)
+    if request.url.path.startswith("/admin") or request.url.path.startswith("/employee"):
+        response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 401:
+        return templates.TemplateResponse("auth/401.html", {"request": request}, status_code=401)
+    
+    # Use the imported default handler for all other errors
+    return await http_exception_handler(request, exc)
+
+#++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 
 @app.get("/")

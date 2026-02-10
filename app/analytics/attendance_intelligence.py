@@ -1,193 +1,265 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from app.models import Attendance, User, LeaveRequest
+from app.models import Attendance, AttendanceDaily, User, LeaveRequest
 import pandas as pd
 import datetime
 
+# =========================================================
+# 1. DATA INGESTION
+# =========================================================
+def get_attendance_dataframe(db: Session, employee_id: str | None = None, days: int = 30):
+    cutoff_date = datetime.date.today() - datetime.timedelta(days=days)
+    
+    query = db.query(
+        Attendance.date,
+        Attendance.entry_time,
+        Attendance.duration,
+        Attendance.employee_id,
+        User.name.label("employee_name"),
+        User.department.label("department")
+    ).join(User, Attendance.employee_id == User.employee_id)\
+     .filter(Attendance.date >= cutoff_date)
 
-def get_attendance_dataframe(db: Session, employee_id: str | None = None):
-    """Fetch attendance data, excluding admins if no specific employee is requested."""
-    admin_employee_ids = [
-        row[0] for row in db.query(User.employee_id).filter(User.role == "admin").all()
-    ]
-    
-    
-    query = db.query(Attendance)
     if employee_id:
         query = query.filter(Attendance.employee_id == employee_id)
-    else:
-        query = query.filter(~Attendance.employee_id.in_(admin_employee_ids))
 
-    records = query.all()
+    rows = query.all()
+
+    if not rows:
+        return pd.DataFrame(columns=["date", "entry_time", "duration", "employee_id", "name", "department", "login_hour"])
+
     data = []
-    for r in records:
-        if r.entry_time:
-            data.append({
-                "employee_id": r.employee_id,
-                "date": r.date,
-                "entry_time": r.entry_time,
-                "exit_time": r.exit_time,
-                "duration": float(r.duration or 0),
-                "status": r.status
-            })
-    return pd.DataFrame(data)
+    for r in rows:
+        data.append({
+            "date": r.date,
+            "entry_time": r.entry_time,
+            "duration": float(r.duration) if r.duration else 0.0,
+            "employee_id": r.employee_id,
+            "name": r.employee_name,
+            "department": r.department
+        })
 
+    df = pd.DataFrame(data)
+    
+    if not df.empty and "entry_time" in df.columns:
+        df["login_hour"] = pd.to_datetime(df["entry_time"]).dt.hour + (pd.to_datetime(df["entry_time"]).dt.minute / 60)
+    
+    return df
 
-def compute_behavior_metrics(df: pd.DataFrame, db: Session = None, employee_id: str = None):
-    """Compute BI metrics: late arrivals, absences, avg hours, department comparison."""
-    if df.empty:
-        return {
-            "average_login_hour": 0,
-            "late_arrival_days": 0,
-            "absent_days": 0,
-            "average_work_hours": 0,
-            "total_days_analyzed": 0,
-            "absence_trend": "stable",
-            "department_comparison": None
-        }
-
-    df = df.copy()
-    df["login_hour"] = pd.to_datetime(df["entry_time"]).dt.hour
-    df["day_of_week"] = pd.to_datetime(df["date"]).dt.day_name()
-
+# =========================================================
+# 2. METRICS ENGINE
+# =========================================================
+def compute_behavior_metrics(db: Session, df: pd.DataFrame, employee_id: str | None = None):
     metrics = {
-        "average_login_hour": round(df["login_hour"].mean(), 2),
-        "late_arrival_days": int((df["login_hour"] > 10).sum()),
-        "absent_days": int((df["status"] == "ABSENT").sum()),
-        "average_work_hours": round(df["duration"].mean(), 2),
-        "total_days_analyzed": int(len(df)),
-        "min_work_hours": round(df["duration"].min(), 2),
-        "max_work_hours": round(df["duration"].max(), 2),
+        "average_login_hour": 0,
+        "average_work_hours": 0,
+        "late_arrival_days": 0,
+        "present_days": 0,
+        "absent_days": 0,
+        "leave_days": 0,
+        "upcoming_leave_days": 0,
+        "leaves_allowed": 0,
+        "leaves_remaining": 0,
+        "total_days_analyzed": 0, 
+        "attendance_score": 100,
+        "risk_level": "low",
+        "alerts": [],
+        "chart_breakdown": {"labels": ["Present", "Absent", "Leave", "Late"], "values": [0, 0, 0, 0]}
     }
 
-    # Absence trend: compare this month vs last month
-    if employee_id and db:
-        now = datetime.datetime.utcnow()
-        current_month_start = datetime.datetime(now.year, now.month, 1).date()
-        last_month_start = (current_month_start - datetime.timedelta(days=1)).replace(day=1)
-        
-        this_month_absents = db.query(Attendance).filter(
-            Attendance.employee_id == employee_id,
-            Attendance.status == "ABSENT",
-            Attendance.date >= current_month_start
-        ).count()
-        last_month_absents = db.query(Attendance).filter(
-            Attendance.employee_id == employee_id,
-            Attendance.status == "ABSENT",
-            Attendance.date >= last_month_start,
-            Attendance.date < current_month_start
-        ).count()
-        
-        if last_month_absents == 0:
-            metrics["absence_trend"] = "stable" if this_month_absents == 0 else "increasing"
-        elif this_month_absents > last_month_absents * 1.2:
-            metrics["absence_trend"] = "increasing"
-        elif this_month_absents < last_month_absents * 0.8:
-            metrics["absence_trend"] = "decreasing"
-        else:
-            metrics["absence_trend"] = "stable"
+    target_user_id = None
+    if employee_id:
+        user_obj = db.query(User).filter(User.employee_id == employee_id).first()
+        if user_obj:
+            target_user_id = user_obj.id
+            metrics["leaves_allowed"] = user_obj.paid_leaves_allowed
 
-    # Department-wise comparison (if org-wide data, compute avg per department)
-    if not employee_id and db:
-        dept_stats = db.query(
-            User.department,
-            func.count(func.distinct(Attendance.employee_id)).label("emp_count"),
-            func.avg(Attendance.duration).label("avg_duration")
-        ).join(Attendance, User.employee_id == Attendance.employee_id).filter(
-            User.is_active == True,
-            User.role != "admin"
-        ).group_by(User.department).all()
-        
-        metrics["department_comparison"] = [
-            {
-                "department": d[0] or "Unknown",
-                "employees": d[1] or 0,
-                "avg_work_hours": round(float(d[2]) if d[2] else 0, 2)
-            }
-            for d in dept_stats
-        ]
+    # --- B. Database Counts ---
+    cutoff_date = datetime.date.today() - datetime.timedelta(days=30)
+    query = db.query(AttendanceDaily.status, func.count(AttendanceDaily.id)).filter(AttendanceDaily.date >= cutoff_date)
 
+    if target_user_id:
+        query = query.filter(AttendanceDaily.user_id == target_user_id)
+        
+    daily_stats = query.group_by(AttendanceDaily.status).all()
+    stat_map = {s[0]: s[1] for s in daily_stats}
+
+    metrics["present_days"] = stat_map.get("PRESENT", 0)
+    metrics["absent_days"] = stat_map.get("ABSENT", 0)
+    metrics["leave_days"] = stat_map.get("LEAVE", 0)
+    metrics["late_arrival_days"] = stat_map.get("LATE", 0)
+
+    # --- C. DataFrame Analytics ---
+    if not df.empty:
+        metrics["average_work_hours"] = round(df["duration"].mean(), 2)
+        metrics["average_login_hour"] = round(df["login_hour"].mean(), 2)
+        metrics["total_days_analyzed"] = len(df)
+
+    # --- D. Future Leaves ---
+    if employee_id:
+        metrics["leaves_remaining"] = max(0, metrics["leaves_allowed"] - metrics["leave_days"])
+        upcoming_reqs = db.query(LeaveRequest).filter(
+            LeaveRequest.employee_id == employee_id,
+            LeaveRequest.status == 'Approved',
+            LeaveRequest.start_date > datetime.date.today()
+        ).all()
+        future_days = sum([(req.end_date - req.start_date).days + 1 for req in upcoming_reqs])
+        metrics["upcoming_leave_days"] = future_days
+        if future_days > 0:
+            metrics["alerts"].append(f"ℹ️ Scheduled for {future_days} days of leave soon")
+    else:
+        # Organization View
+        all_upcoming = db.query(LeaveRequest).filter(
+            LeaveRequest.status == 'Approved',
+            LeaveRequest.start_date > datetime.date.today()
+        ).all()
+        total_future = sum([(req.end_date - req.start_date).days + 1 for req in all_upcoming])
+        metrics["upcoming_leave_days"] = total_future
+        if total_future > 5:
+            metrics["alerts"].append(f"ℹ️ {total_future} total man-days of leave upcoming")
+
+    # --- E. Scoring ---
+    score = 100
+    if employee_id:
+        score -= (metrics["absent_days"] * 5)
+        score -= (metrics["late_arrival_days"] * 2)
+        score -= (metrics["leave_days"] * 1)
+        
+        if metrics["absent_days"] >= 3: metrics["alerts"].append("⚠ Sudden absence spike")
+        if metrics["late_arrival_days"] >= 5: metrics["alerts"].append("⚠ Frequent late arrivals")
+        if metrics["average_work_hours"] > 0 and metrics["average_work_hours"] < 6.0: metrics["alerts"].append("⚠ Low average work hours")
+    else:
+        total_users = db.query(User).filter(User.is_active == True).count() or 1
+        score -= ((metrics["absent_days"] / total_users) * 5)
+        score -= ((metrics["late_arrival_days"] / total_users) * 2)
+        if (metrics["late_arrival_days"] / total_users) > 3: metrics["alerts"].append("⚠ High organization-wide lateness")
+
+    metrics["attendance_score"] = max(0, min(100, int(score)))
+
+    if metrics["attendance_score"] >= 85: metrics["risk_level"] = "low"
+    elif metrics["attendance_score"] >= 65: metrics["risk_level"] = "medium"
+    else: metrics["risk_level"] = "high"
+
+    metrics["chart_breakdown"]["values"] = [metrics["present_days"], metrics["absent_days"], metrics["leave_days"], metrics["late_arrival_days"]]
     return metrics
 
-
-def detect_attendance_anomalies(df: pd.DataFrame, db: Session = None, employee_id: str = None):
-    """Detect anomalies: unusual hours, late arrivals, absence spikes."""
-    if df.empty:
-        return []
-
-    df = df.copy()
+# =========================================================
+# 3. ANOMALY DETECTION
+# =========================================================
+def detect_attendance_anomalies(df: pd.DataFrame):
     anomalies = []
+    if df.empty or len(df) < 5:
+        return anomalies
 
-    # Anomaly 1: Unusual work hours (z-score > 2 or < -2)
-    if df["duration"].std() > 0:
-        df["z_score_duration"] = (df["duration"] - df["duration"].mean()) / df["duration"].std()
-        unusual_hours = df[abs(df["z_score_duration"]) > 2]
-        for _, row in unusual_hours.iterrows():
-            if row["duration"] < 1:
-                reason = f"⚠ Very short work hours: {row['duration']:.2f}h (unusual)"
-            else:
-                reason = f"⚠ Very long work hours: {row['duration']:.2f}h (unusual)"
+    std_dev = df["duration"].std()
+    mean_val = df["duration"].mean()
+
+    if std_dev > 0:
+        df["z_score"] = (df["duration"] - mean_val) / std_dev
+        outliers = df[abs(df["z_score"]) > 1.8]
+
+        for _, row in outliers.iterrows():
+            reason = "Shift too long (>12h)" if row["duration"] > 12 else \
+                     "Shift too short (<4h)" if row["duration"] < 4 else "Unusual duration"
+            
             anomalies.append({
-                "employee_id": row["employee_id"],
-                "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else str(row["date"]),
-                "type": "unusual_hours",
-                "value": row["duration"],
-                "reason": reason
+                "date": row["date"],
+                "name": row.get("name", "Unknown"), 
+                "id": row.get("employee_id", ""),
+                "dept": row.get("department", ""),
+                "val": f"{row['duration']:.1f}h",
+                "reason": reason,
+                "severity": "high" if abs(row["z_score"]) > 2.5 else "medium"
             })
 
-    # Anomaly 2: Sudden late arrivals (beyond typical)
-    if len(df) > 5:
-        df["login_hour"] = pd.to_datetime(df["entry_time"]).dt.hour
-        usual_login = df["login_hour"].quantile(0.5)  # median
-        late_threshold = usual_login + 2  # More than 2 hours later than usual
-        very_late = df[df["login_hour"] > late_threshold]
-        for _, row in very_late.iterrows():
-            anomalies.append({
-                "employee_id": row["employee_id"],
-                "date": row["date"].isoformat() if hasattr(row["date"], "isoformat") else str(row["date"]),
-                "type": "late_arrival",
-                "value": int(row["login_hour"]),
-                "reason": f"⚠ Late arrival at {int(row['login_hour'])}:00 (usually ~{int(usual_login)}:00)"
-            })
+    if "login_hour" in df.columns:
+        org_mean_entry = df["login_hour"].mean()
+        late_entries = df[df["login_hour"] > (org_mean_entry + 1.5)]
 
-    # Anomaly 3: Absence spikes (if employee_id provided)
-    if employee_id and db:
-        now = datetime.datetime.utcnow()
-        month_start = datetime.datetime(now.year, now.month, 1).date()
-        this_month_absents = db.query(Attendance).filter(
-            Attendance.employee_id == employee_id,
-            Attendance.status == "ABSENT",
-            Attendance.date >= month_start
+        for _, row in late_entries.iterrows():
+            h = int(row["login_hour"])
+            m = int((row["login_hour"] % 1) * 60)
+            if not any(a['date'] == row['date'] and a['id'] == row['employee_id'] for a in anomalies):
+                anomalies.append({
+                    "date": row["date"],
+                    "name": row.get("name", "Unknown"),
+                    "id": row.get("employee_id", ""),
+                    "dept": row.get("department", ""),
+                    "val": f"{h:02d}:{m:02d}",
+                    "reason": "Late Arrival",
+                    "severity": "medium"
+                })
+
+    return sorted(anomalies, key=lambda x: x["date"], reverse=True)[:20]
+
+# =========================================================
+# 4. DEPARTMENT STATS
+# =========================================================
+def compute_department_stats(db: Session):
+    depts = db.query(User.department).filter(User.is_active==True).distinct().all()
+    dept_stats = []
+
+    for (d_name,) in depts:
+        if not d_name: continue
+        
+        users = db.query(User).filter(User.department == d_name, User.is_active==True).all()
+        ids = [u.employee_id for u in users]
+        if not ids: continue
+
+        absents = db.query(AttendanceDaily).filter(
+            AttendanceDaily.user_id.in_([u.id for u in users]),
+            AttendanceDaily.status == 'ABSENT',
+            AttendanceDaily.date >= datetime.date.today() - datetime.timedelta(days=30)
         ).count()
         
-        # Compare with average over past 3 months
-        three_months_ago = month_start - datetime.timedelta(days=90)
-        past_avg = db.query(func.avg(
-            func.count(Attendance.id)
-        )).filter(
-            Attendance.employee_id == employee_id,
-            Attendance.status == "ABSENT",
-            Attendance.date >= three_months_ago,
-            Attendance.date < month_start
-        ).scalar() or 0
+        lates = db.query(AttendanceDaily).filter(
+            AttendanceDaily.user_id.in_([u.id for u in users]),
+            AttendanceDaily.status == 'LATE',
+            AttendanceDaily.date >= datetime.date.today() - datetime.timedelta(days=30)
+        ).count()
         
-        if this_month_absents > (past_avg * 1.5):
-            anomalies.append({
-                "employee_id": employee_id,
-                "date": str(now.date()),
-                "type": "absence_spike",
-                "value": this_month_absents,
-                "reason": f"⚠ Sudden absence spike: {this_month_absents} absences this month (avg was {int(past_avg)})"
-            })
+        base = 100
+        penalty = (absents * 5) + (lates * 2)
+        avg_penalty = penalty / len(users)
+        dept_score = max(0, int(base - avg_penalty))
+        
+        dept_stats.append({
+            "name": d_name,
+            "headcount": len(users),
+            "score": dept_score,
+            "status": "Excellent" if dept_score > 85 else "Risk" if dept_score < 65 else "Good"
+        })
 
-    return anomalies
+    return sorted(dept_stats, key=lambda x: x["score"])
 
-
-def get_employee_list(db: Session, department: str = None, exclude_admins: bool = True):
-    """Get list of employees (optionally filtered by department)."""
-    query = db.query(User).filter(User.is_active == True)
-    if exclude_admins:
-        query = query.filter(User.role != "admin")
-    if department:
-        query = query.filter(User.department == department)
-    return query.order_by(User.name.asc()).all()
+# =========================================================
+# 5. LEADERBOARD (FIXED)
+# =========================================================
+def compute_performer_lists(db: Session):
+    top, low = [], []
+    users = db.query(User).filter(User.is_active == True, User.role != 'admin').all()
+    
+    df = get_attendance_dataframe(db, days=30)
+    
+    for user in users:
+        u_df = df[df["employee_id"] == user.employee_id] if not df.empty else pd.DataFrame()
+        metrics = compute_behavior_metrics(db, u_df, user.employee_id)
+        
+        # --- CRITICAL FIX ---
+        # 1. Skip if 'total_days_analyzed' key is missing (KeyError fix)
+        # 2. Skip if they have ZERO present days (Fixes "Ghost Employee" issue)
+        #    If you have never been present, you shouldn't be on the Top/Low list.
+        if metrics.get("present_days", 0) == 0:
+            continue
+        
+        rec = {
+            "name": user.name, 
+            "employee_id": user.employee_id, 
+            "score": metrics["attendance_score"],
+            "dept": user.department
+        }
+        
+        if metrics["attendance_score"] >= 90: top.append(rec)
+        elif metrics["attendance_score"] < 70: low.append(rec)
+            
+    return sorted(top, key=lambda x: x["score"], reverse=True)[:5], sorted(low, key=lambda x: x["score"])[:5]

@@ -1,184 +1,182 @@
 {% extends "common/layout_base.html" %}
-{% block page_title %}Attendance Intelligence{% endblock %}
+
+{% block page_title %}Workforce Intelligence{% endblock %}
 
 {% block content %}
-<div class="max-w-7xl mx-auto p-8 space-y-8">
+<div class="max-w-7xl mx-auto p-6 space-y-8">
 
-  <h1 class="text-3xl font-black text-slate-900">
-    Attendance Behavior Intelligence
-  </h1>
-
-  
-  <p class="text-sm text-slate-500">
-    Analytics derived from RFID attendance logs
-  </p>
-
-  <!-- METRICS -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="bg-white border p-6">
-      <p class="text-xs uppercase text-slate-400">Average Login Hour</p>
-      <p class="text-2xl font-black">{{ metrics.average_login_hour }}</p>
-    </div>
-    {% if user.role in ('admin', 'manager') %}
-      <div class="w-72">
-        <form method="get" action="/admin/attendance-intelligence" class="flex gap-2">
-          <select name="employee_id" class="flex-1 px-4 py-2 border border-slate-300 rounded-lg text-sm" onchange="this.form.submit()">
-            <option value="">-- Organization-wide View --</option>
-            {% for emp in employee_list %}
-              <option value="{{ emp.employee_id }}" {% if emp.employee_id == selected_employee_id %}selected{% endif %}>
-                {{ emp.name }} ({{ emp.employee_id }})
-              </option>
-            {% endfor %}
-          </select>
-        </form>
-      </div>
-    {% endif %}
-  </div>
-
-  {% if selected_employee %}
-    <div class="border-l-4 border-blue-600 bg-blue-50 p-6 rounded-lg">
-      <h3 class="text-lg font-bold text-blue-900">{{ selected_employee.name }}</h3>
-      <p class="text-sm text-blue-700">Employee ID: {{ selected_employee.employee_id }} | Department: {{ selected_employee.department }}</p>
-    </div>
-  {% endif %}
-
-  <!-- PRIMARY METRICS (BI Layer) -->
-  <div>
-    <h2 class="text-xl font-black uppercase tracking-wider text-slate-900 mb-6">Attendance Analytics</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-
-      <!-- Average Login Hour -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Average Login Hour</p>
-        <p class="text-4xl font-black text-slate-900">{{ metrics.average_login_hour|int }}:00</p>
-        <p class="text-xs text-slate-500 mt-2">Typical daily entry time</p>
-      </div>
-
-      <!-- Late Arrival Frequency -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Late Arrivals</p>
-        <p class="text-4xl font-black text-orange-600">{{ metrics.late_arrival_days }}</p>
-        <p class="text-xs text-slate-500 mt-2">Days with late entry (>10:00)</p>
-      </div>
-
-      <!-- Absent Days -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Absent Days</p>
-        <p class="text-4xl font-black text-red-600">{{ metrics.absent_days }}</p>
-        <p class="text-xs text-slate-500 mt-2">Days marked absent</p>
-      </div>
-
-      <!-- Average Work Hours -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Average Work Hours</p>
-        <p class="text-4xl font-black text-blue-600">{{ metrics.average_work_hours }}</p>
-        <p class="text-xs text-slate-500 mt-2">Daily average productivity</p>
-      </div>
-
-      <!-- Work Hours Range -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Min Work Hours</p>
-        <p class="text-4xl font-black text-slate-900">{{ metrics.min_work_hours }}</p>
-        <p class="text-xs text-slate-500 mt-2">Minimum daily hours</p>
-      </div>
-
-      <!-- Work Hours Range -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Max Work Hours</p>
-        <p class="text-4xl font-black text-slate-900">{{ metrics.max_work_hours }}</p>
-        <p class="text-xs text-slate-500 mt-2">Maximum daily hours</p>
-      </div>
-
-      <!-- Total Days Analyzed -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Days Analyzed</p>
-        <p class="text-4xl font-black text-slate-900">{{ metrics.total_days_analyzed }}</p>
-        <p class="text-xs text-slate-500 mt-2">Record count for analysis</p>
-      </div>
-
-      <!-- Absence Trend -->
-      <div class="border border-slate-200 bg-white p-6 rounded-lg hover:shadow-md transition">
-        <p class="text-[11px] uppercase tracking-widest font-black text-slate-400 mb-3">Absence Trend</p>
-        <p class="text-lg font-bold {% if metrics.absence_trend == 'increasing' %}text-red-600{% elif metrics.absence_trend == 'decreasing' %}text-green-600{% else %}text-slate-600{% endif %}">
-          {% if metrics.absence_trend == 'increasing' %} ↑ Increasing {% elif metrics.absence_trend == 'decreasing' %} ↓ Decreasing {% else %} → Stable {% endif %}
-        </p>
-        <p class="text-xs text-slate-500 mt-2">Month-over-month change</p>
-      </div>
-
-    </div>
-  </div>
-
-  <!-- DEPARTMENT COMPARISON (if org-wide) -->
-  {% if not selected_employee and metrics.department_comparison %}
-  <div>
-    <h2 class="text-xl font-black uppercase tracking-wider text-slate-900 mb-6">Department Comparison</h2>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {% for dept in metrics.department_comparison %}
-      <div class="border border-slate-300 bg-gradient-to-br from-slate-50 to-slate-100 p-6 rounded-lg">
-        <h3 class="text-lg font-bold text-slate-900">{{ dept.department }}</h3>
-        <div class="mt-4 space-y-3">
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-slate-600">Employees</span>
-            <span class="font-bold text-slate-900">{{ dept.employees }}</span>
-          </div>
-          <div class="flex justify-between items-center">
-            <span class="text-sm text-slate-600">Avg Work Hours</span>
-            <span class="font-bold text-blue-600">{{ dept.avg_work_hours }}h</span>
-          </div>
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center">
+        <div>
+            <h1 class="text-3xl font-black text-gray-900 tracking-tight">Workforce Intelligence</h1>
+            <p class="text-gray-500 mt-1">Organization-wide attendance health and risk analysis.</p>
         </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- ANOMALIES & ALERTS 🔥 -->
-  <div>
-    <h2 class="text-xl font-black uppercase tracking-wider text-slate-900 mb-6">
-      Anomaly Detection & Alerts
-    </h2>
-
-    {% if anomalies %}
-      <div class="space-y-4">
-        {% for anomaly in anomalies %}
-        <div class="border-l-4 {% if anomaly.type == 'unusual_hours' %}border-red-600 bg-red-50{% elif anomaly.type == 'late_arrival' %}border-orange-600 bg-orange-50{% elif anomaly.type == 'absence_spike' %}border-red-700 bg-red-50{% endif %} p-5 rounded-r-lg">
-          <div class="flex items-start gap-4">
-            <div class="text-2xl">
-              {% if anomaly.type == 'unusual_hours' %}⏱️{% elif anomaly.type == 'late_arrival' %}⏰{% elif anomaly.type == 'absence_spike' %}📊{% endif %}
-            </div>
-            <div class="flex-1">
-              <p class="font-bold text-slate-900">{{ anomaly.reason }}</p>
-              <div class="mt-2 flex gap-4 text-xs text-slate-600">
-                <span><strong>Employee:</strong> {{ anomaly.employee_id }}</span>
-                <span><strong>Date:</strong> {{ anomaly.date }}</span>
-                {% if anomaly.type == 'unusual_hours' %}
-                  <span><strong>Hours:</strong> {{ anomaly.value }}h</span>
-                {% elif anomaly.type == 'late_arrival' %}
-                  <span><strong>Login:</strong> {{ anomaly.value }}:00</span>
-                {% elif anomaly.type == 'absence_spike' %}
-                  <span><strong>Absences:</strong> {{ anomaly.value }}</span>
-                {% endif %}
-              </div>
-            </div>
-          </div>
+        
+        {% if metrics.risk_level == 'high' %}
+        <div class="mt-4 md:mt-0 bg-red-100 text-red-800 px-4 py-2 rounded-lg flex items-center shadow-sm animate-pulse">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+            <span class="font-bold">Critical: High Global Lateness Detected</span>
         </div>
-        {% endfor %}
-      </div>
-    {% else %}
-      <div class="border border-dashed border-slate-300 bg-slate-50 p-8 rounded-lg text-center">
-        <p class="text-slate-500 font-medium">✓ No anomalies detected</p>
-        <p class="text-xs text-slate-400 mt-1">Attendance patterns are within normal range</p>
-      </div>
-    {% endif %}
-  </div>
+        {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm relative overflow-hidden group">
+            <div class="absolute top-0 right-0 p-4 opacity-10 transform group-hover:scale-110 transition-transform">
+                <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path><path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path></svg>
+            </div>
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Org Health Score</p>
+            <div class="mt-2 text-5xl font-black 
+                {% if metrics.risk_level == 'low' %}text-green-600
+                {% elif metrics.risk_level == 'medium' %}text-yellow-600
+                {% else %}text-red-600{% endif %}">
+                {{ metrics.attendance_score }}
+            </div>
+            <p class="text-sm text-gray-400 mt-2">Target: > 85</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Late Arrivals (30d)</p>
+            <div class="mt-2 text-4xl font-black text-red-500">{{ metrics.late_arrival_days }}</div>
+            <p class="text-xs text-red-400 mt-1">Across all depts</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Absences (30d)</p>
+            <div class="mt-2 text-4xl font-black text-gray-800">{{ metrics.absent_days }}</div>
+            <p class="text-xs text-gray-400 mt-1">Unscheduled</p>
+        </div>
+
+        <div class="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-widest">Avg Work Hours</p>
+            <div class="mt-2 text-4xl font-black text-indigo-600">{{ metrics.average_work_hours }}</div>
+            <p class="text-xs text-indigo-400 mt-1">Per active employee</p>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <div class="lg:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                <h3 class="font-bold text-gray-800">Department Health</h3>
+                <span class="text-xs bg-white border px-2 py-1 rounded text-gray-500">Sorted by Risk</span>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm text-left">
+                    <thead class="text-gray-500 font-medium border-b border-gray-100">
+                        <tr>
+                            <th class="px-6 py-3">Department</th>
+                            <th class="px-6 py-3">Headcount</th>
+                            <th class="px-6 py-3">Health Score</th>
+                            <th class="px-6 py-3">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100">
+                        {% for dept in dept_stats %}
+                        <tr class="hover:bg-gray-50 transition">
+                            <td class="px-6 py-4 font-bold text-gray-800">{{ dept.name }}</td>
+                            <td class="px-6 py-4 text-gray-500">{{ dept.headcount }}</td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center gap-3">
+                                    <span class="font-mono font-bold">{{ dept.score }}%</span>
+                                    <div class="w-24 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                                        <div class="h-full rounded-full 
+                                            {% if dept.score > 85 %}bg-green-500
+                                            {% elif dept.score < 65 %}bg-red-500
+                                            {% else %}bg-yellow-400{% endif %}" 
+                                            style="width: {{ dept.score }}%"></div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <span class="px-2 py-1 rounded-md text-xs font-bold uppercase
+                                    {% if dept.status == 'Risk' %}bg-red-100 text-red-700
+                                    {% elif dept.status == 'Excellent' %}bg-green-100 text-green-700
+                                    {% else %}bg-yellow-100 text-yellow-700{% endif %}">
+                                    {{ dept.status }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-gray-400">No department data available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-gray-200 shadow-sm flex flex-col h-[500px]">
+            <div class="px-6 py-4 border-b border-gray-100 bg-gray-50">
+                <h3 class="font-bold text-gray-800">Anomaly Feed</h3>
+                <p class="text-xs text-gray-500">Live detection stream</p>
+            </div>
+            
+            <div class="overflow-y-auto p-4 space-y-3 flex-1">
+                {% for a in anomalies %}
+                <div class="p-3 rounded-lg border border-gray-100 hover:border-blue-200 hover:shadow-sm transition bg-white">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold
+                                {% if a.severity == 'high' %}bg-red-100 text-red-600{% else %}bg-amber-100 text-amber-600{% endif %}">
+                                !
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-gray-900">{{ a.name }}</p>
+                                <p class="text-xs text-gray-500">{{ a.dept }} • {{ a.date }}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-mono bg-gray-100 px-1.5 py-0.5 rounded">{{ a.val }}</span>
+                    </div>
+                    <div class="mt-2 pl-11">
+                        <p class="text-xs font-medium 
+                            {% if a.severity == 'high' %}text-red-600{% else %}text-amber-600{% endif %}">
+                            {{ a.reason }}
+                        </p>
+                    </div>
+                </div>
+                {% else %}
+                <div class="text-center text-gray-400 mt-10">No recent anomalies.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
+        <div class="bg-white rounded-xl border border-red-100 shadow-sm">
+            <div class="px-6 py-4 border-b border-red-50 bg-red-50/50">
+                <h3 class="font-bold text-red-800">Requires Attention (Low Score)</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for u in low_performers %}
+                <div class="px-6 py-3 flex justify-between items-center hover:bg-red-50/30 transition">
+                    <div>
+                        <p class="font-bold text-gray-800">{{ u.name }}</p>
+                        <p class="text-xs text-gray-500">{{ u.dept }}</p>
+                    </div>
+                    <span class="font-black text-red-600">{{ u.score }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl border border-green-100 shadow-sm">
+            <div class="px-6 py-4 border-b border-green-50 bg-green-50/50">
+                <h3 class="font-bold text-green-800">Top Consistent Employees</h3>
+            </div>
+            <div class="divide-y divide-gray-100">
+                {% for u in top_performers %}
+                <div class="px-6 py-3 flex justify-between items-center hover:bg-green-50/30 transition">
+                    <div>
+                        <p class="font-bold text-gray-800">{{ u.name }}</p>
+                        <p class="text-xs text-gray-500">{{ u.dept }}</p>
+                    </div>
+                    <span class="font-black text-green-600">{{ u.score }}</span>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
 
 </div>
-
-<style>
-  /* Smooth transitions */
-  * { transition: all 0.2s ease; }
-</style>
-
-{% endblock %}
-
-
+{% endblock %} 
