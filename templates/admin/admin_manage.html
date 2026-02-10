@@ -2,235 +2,209 @@
 
 {% block title %}Personnel Directory | TeamSync{% endblock %}
 
-{% block page_title %}PERSONNEL_MANAGEMENT{% endblock %}
+{% block page_title %}Personnel Management{% endblock %}
 
 {% block content %}
-
-<div class="space-y-8">
+<div class="max-w-7xl mx-auto space-y-6 pb-12">
+  
+  {# Status Notification #}
   {% if request.query_params.get('removed') %}
-    <div class="hidden" id="employeeRemovedFlag"></div>
+    <div class="bg-emerald-50 border-l-4 border-emerald-500 p-4 mb-4" id="employeeRemovedFlag">
+      <p class="text-sm text-emerald-800 font-medium">Employee record has been successfully removed from the system.</p>
+    </div>
   {% endif %}
 
-  <div class="border border-[var(--border)] bg-[var(--panel)] p-6">
-    <form method="get" action="/admin/manage_employees" class="flex flex-wrap md:flex-nowrap gap-4">
-      <div class="flex-1 relative">
-        <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
-        <input name="search" placeholder="Search by name or employee ID..."
-               class="w-full pl-11 pr-4 py-3 bg-[var(--bg)] border border-[var(--border)] text-sm font-bold outline-none focus:border-blue-600 transition-colors" 
-               value="{{ search or '' }}"/>
+  {# Search and Filter Bar #}
+  <div class="bg-white border border-slate-200 shadow-sm p-5">
+    <form method="get" action="/admin/manage_employees" class="grid grid-cols-1 md:grid-cols-12 gap-4">
+      <div class="md:col-span-6 relative">
+        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Search Directory</label>
+        <div class="relative">
+          <i class="bi bi-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+          <input name="search" placeholder="Name, Email, or ID..."
+                 class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-300 text-sm focus:ring-0 focus:border-slate-900 transition-all rounded-none" 
+                 value="{{ search or '' }}"/>
+        </div>
       </div>
 
-      <select name="department" class="px-4 py-3 bg-[var(--bg)] border border-[var(--border)] text-[10px] font-black uppercase tracking-widest outline-none focus:border-blue-600">
-        <option value="">All Departments</option>
-        <option value="IT" {% if department == 'IT' %}selected{% endif %}>IT Department</option>
-        <option value="HR" {% if department == 'HR' %}selected{% endif %}>HR Department</option>
-        <option value="Finance" {% if department == 'Finance' %}selected{% endif %}>Finance</option>
-      </select>
+      <div class="md:col-span-3">
+        <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Department</label>
+        <select name="department" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 text-sm focus:border-slate-900 rounded-none">
+          <option value="">All Departments</option>
+          <option value="IT" {% if department == 'IT' %}selected{% endif %}>Information Technology</option>
+          <option value="HR" {% if department == 'HR' %}selected{% endif %}>Human Resources</option>
+          <option value="Finance" {% if department == 'Finance' %}selected{% endif %}>Finance</option>
+        </select>
+      </div>
 
-      <button class="px-8 py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
-        Apply Filter
-      </button>
+      <div class="md:col-span-3 flex items-end">
+        <button class="w-full py-2 bg-slate-800 text-white text-xs font-bold uppercase tracking-wider hover:bg-slate-700 transition-colors rounded-none">
+          Update Results
+        </button>
+      </div>
     </form>
   </div>
 
-  <div id="deleteEmployeeModal" class="fixed inset-0 hidden items-center justify-center bg-slate-900/40 z-50">
-    <div class="bg-white rounded-2xl w-[92%] max-w-md shadow-2xl border border-slate-200">
-      <div class="p-5 border-b border-slate-100 flex items-center justify-between">
-        <div>
-          <div class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Confirm Delete</div>
-          <div class="text-lg font-black text-slate-900">Remove Employee</div>
-        </div>
-        <button type="button" id="closeDeleteEmployeeModal" class="w-9 h-9 rounded-full border border-slate-200 text-slate-500 hover:bg-slate-50">
-          <i class="bi bi-x"></i>
-        </button>
-      </div>
-      <div class="p-6 space-y-3 text-sm text-slate-600">
-        <p>This will remove the employee record from the active directory.</p>
-        <p class="text-xs text-slate-500">You can still access removed records from audit logs if needed.</p>
-      </div>
-      <div class="p-6 pt-0 flex flex-col sm:flex-row gap-3 justify-end">
-        <button type="button" id="cancelDeleteEmployeeModal" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold uppercase tracking-widest text-slate-600 hover:bg-slate-50">
-          Cancel
-        </button>
-        <button type="button" id="confirmDeleteEmployeeModal" class="px-4 py-2 rounded-xl bg-red-600 text-white text-xs font-bold uppercase tracking-widest hover:bg-red-700">
-          Delete
-        </button>
-      </div>
+  {# Directory Header #}
+  <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div>
+      <h2 class="text-xl font-bold text-slate-900">Active Directory</h2>
+      <p class="text-sm text-slate-500">Managing {{ total_count }} total employee records</p>
     </div>
+    <a href="/admin/register_employee" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-indigo-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-indigo-700 transition-all rounded-none">
+      <i class="bi bi-plus-lg"></i>
+      Add New Employee
+    </a>
   </div>
 
-  <div class="border border-[var(--border)] bg-[var(--panel)] p-8">
-    <div class="flex items-center justify-between gap-3 mb-6">
-      <div class="flex items-center gap-3">
-        <div class="h-5 w-1 bg-blue-600"></div>
-        <h3 class="text-xs font-black uppercase tracking-[0.2em]">Active Employee Directory</h3>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          {{ total_count }} records
-        </div>
-        <a href="/admin/register_employee" class="inline-flex items-center gap-2 px-3 py-2 border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all">
-          <i class="bi bi-person-plus"></i>
-          Add Employee
-        </a>
-      </div>
+  {# Directory Table-Style List #}
+  <div class="border border-slate-200 bg-white shadow-sm overflow-hidden">
+    {# Header Row (Hidden on Mobile) #}
+    <div class="hidden md:grid grid-cols-12 gap-4 px-6 py-3 bg-slate-50 border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+      <div class="col-span-1">Photo</div>
+      <div class="col-span-4">Employee Details</div>
+      <div class="col-span-2">ID Number</div>
+      <div class="col-span-2">Department</div>
+      <div class="col-span-2">Access Role</div>
+      <div class="col-span-1 text-right">Actions</div>
     </div>
 
-    <div class="space-y-4">
+    <div class="divide-y divide-slate-100">
       {% for emp in employees %}
-      <div class="group border border-slate-200/70 bg-white shadow-[0_6px_18px_rgba(15,23,42,0.06)] hover:shadow-[0_18px_40px_rgba(15,23,42,0.12)] transition-all rounded-2xl overflow-hidden">
-        <div class="h-1 w-full bg-gradient-to-r from-blue-600 via-sky-500 to-emerald-400 opacity-80"></div>
-        <div class="grid grid-cols-12 gap-4 p-5 items-center cursor-pointer" data-employee-card data-detail-url="/admin/employee_details?employee_id={{ emp.employee_id }}">
-          <div class="col-span-2 sm:col-span-1">
-            {% if emp.photo_blob %}
-              <img src="/employee/photo/{{ emp.employee_id }}" alt="{{ emp.name }}" class="w-12 h-12 rounded-2xl object-cover border border-slate-200 shadow-sm" />
-            {% elif emp.photo_path %}
-              <img src="{{ emp.photo_path }}" alt="{{ emp.name }}" class="w-12 h-12 rounded-2xl object-cover border border-slate-200 shadow-sm" />
+      <div class="group hover:bg-slate-50 transition-colors cursor-pointer" data-employee-card data-detail-url="/admin/employee_details?employee_id={{ emp.employee_id }}">
+        <div class="grid grid-cols-12 gap-4 px-6 py-5 items-center">
+          
+          {# Photo #}
+          <div class="col-span-3 md:col-span-1">
+            {% if emp.photo_blob or emp.photo_path %}
+              <img src="{{ '/employee/photo/' ~ emp.employee_id if emp.photo_blob else emp.photo_path }}" 
+                   class="w-10 h-10 object-cover border border-slate-200 rounded-none" />
             {% else %}
-              <div class="w-12 h-12 rounded-2xl bg-slate-900 text-white flex items-center justify-center text-xs font-black uppercase shadow-sm">
-                {{ emp.name[:1] }}{{ emp.name.split(' ')[-1][:1] if emp.name and ' ' in emp.name else '' }}
+              <div class="w-10 h-10 bg-slate-200 text-slate-600 flex items-center justify-center text-[10px] font-bold rounded-none">
+                {{ emp.name[:1] }}{{ emp.name.split(' ')[-1][:1] if ' ' in emp.name else '' }}
               </div>
             {% endif %}
           </div>
-          <div class="col-span-10 sm:col-span-4">
+
+          {# Name & Email #}
+          <div class="col-span-9 md:col-span-4">
             <div class="flex items-center gap-2">
-              <div class="text-sm font-black text-slate-900">{{ emp.name }}</div>
+              <span class="text-sm font-bold text-slate-900">{{ emp.name }}</span>
               {% if emp.is_active %}
-                <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">Active</span>
+                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-emerald-100 text-emerald-700">Active</span>
               {% else %}
-                <span class="text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">Inactive</span>
+                <span class="text-[9px] font-bold uppercase px-1.5 py-0.5 bg-slate-100 text-slate-500">Inactive</span>
               {% endif %}
             </div>
-            <div class="text-[10px] text-slate-400 font-semibold">{{ emp.email }}</div>
+            <div class="text-xs text-slate-500">{{ emp.email }}</div>
           </div>
-          <div class="col-span-6 sm:col-span-2">
-            <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Employee ID</div>
-            <div class="executive-mono text-xs font-bold text-blue-600 uppercase">{{ emp.employee_id }}</div>
+
+          {# ID #}
+          <div class="col-span-6 md:col-span-2">
+            <span class="md:hidden block text-[10px] font-bold text-slate-400 uppercase">ID</span>
+            <span class="text-xs font-medium text-slate-700 font-mono">{{ emp.employee_id }}</span>
           </div>
-          <div class="col-span-6 sm:col-span-2">
-            <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Department</div>
-            <div class="text-[11px] font-bold text-slate-700 uppercase">{{ emp.department }}</div>
+
+          {# Department #}
+          <div class="col-span-6 md:col-span-2">
+            <span class="md:hidden block text-[10px] font-bold text-slate-400 uppercase">Dept</span>
+            <span class="text-xs text-slate-600 uppercase">{{ emp.department }}</span>
           </div>
-          <div class="col-span-6 sm:col-span-2">
-            <div class="text-[10px] uppercase tracking-widest text-slate-400 font-black">Role</div>
-            <span class="inline-block mt-1 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest border {% if emp.role == 'admin' %}border-blue-600 text-blue-600 bg-blue-50{% elif emp.role == 'manager' %}border-amber-400 text-amber-700 bg-amber-50{% else %}border-slate-200 text-slate-500 bg-slate-50{% endif %}">
+
+          {# Role #}
+          <div class="col-span-6 md:col-span-2">
+            <span class="md:hidden block text-[10px] font-bold text-slate-400 uppercase">Role</span>
+            <span class="text-[10px] font-bold text-slate-600 uppercase border border-slate-200 px-2 py-0.5 inline-block">
               {{ emp.role }}
             </span>
           </div>
-          <div class="col-span-6 sm:col-span-1 flex justify-end gap-2">
-            <a class="px-3 py-2 border border-slate-200 bg-white text-[10px] font-black uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all rounded-lg" data-stop-card
-               href="/admin/edit_employee?employee_id={{ emp.employee_id }}">
+
+          {# Actions #}
+          <div class="col-span-6 md:col-span-1 flex justify-end gap-1">
+            <a href="/admin/edit_employee?employee_id={{ emp.employee_id }}" 
+               class="p-2 text-slate-400 hover:text-indigo-600 transition-colors" data-stop-card title="Edit">
               <i class="bi bi-pencil-square"></i>
             </a>
-            <form action="/admin/remove_employee" method="post" data-confirm="Confirm removal of this employee record?" data-stop-card>
+            <form action="/admin/remove_employee" method="post" class="inline" data-stop-card>
               <input type="hidden" name="employee_id" value="{{ emp.employee_id }}">
-              <button class="px-3 py-2 bg-red-50 text-red-600 border border-red-100 text-[10px] font-black uppercase tracking-widest hover:bg-red-600 hover:text-white transition-all rounded-lg">
+              <button class="p-2 text-slate-400 hover:text-red-600 transition-colors" title="Delete">
                 <i class="bi bi-trash3"></i>
               </button>
             </form>
           </div>
+
         </div>
       </div>
       {% endfor %}
     </div>
-
-    {% if total_pages > 1 %}
-    <div class="flex items-center justify-between mt-6 text-[10px] font-black uppercase tracking-widest">
-      <div class="text-slate-400">Page {{ page }} of {{ total_pages }}</div>
-      <div class="flex items-center gap-2">
-        {% if page > 1 %}
-        <a class="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition-all"
-           href="/admin/manage_employees?search={{ search or '' }}&department={{ department or '' }}&page={{ page - 1 }}">Prev</a>
-        {% endif %}
-        {% if page < total_pages %}
-        <a class="px-3 py-2 border border-slate-200 bg-white hover:bg-slate-900 hover:text-white transition-all"
-           href="/admin/manage_employees?search={{ search or '' }}&department={{ department or '' }}&page={{ page + 1 }}">Next</a>
-        {% endif %}
-      </div>
-    </div>
-    {% endif %}
   </div>
 
+  {# Pagination #}
+  {% if total_pages > 1 %}
+  <div class="flex items-center justify-between border-t border-slate-200 pt-6">
+    <div class="text-xs font-medium text-slate-500">Showing page {{ page }} of {{ total_pages }}</div>
+    <div class="flex gap-px bg-slate-200">
+      {% if page > 1 %}
+      <a class="px-4 py-2 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 border border-slate-200"
+         href="/admin/manage_employees?search={{ search or '' }}&department={{ department or '' }}&page={{ page - 1 }}">Previous</a>
+      {% endif %}
+      {% if page < total_pages %}
+      <a class="px-4 py-2 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 border border-slate-200"
+         href="/admin/manage_employees?search={{ search or '' }}&department={{ department or '' }}&page={{ page + 1 }}">Next</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# Minimal Professional Modal #}
+<div id="deleteEmployeeModal" class="fixed inset-0 hidden items-center justify-center bg-slate-900/60 z-50 backdrop-blur-sm">
+  <div class="bg-white rounded-none w-full max-w-md shadow-xl">
+    <div class="p-6 border-b border-slate-100">
+      <h3 class="text-lg font-bold text-slate-900">Confirm Removal</h3>
+      <p class="text-sm text-slate-500 mt-1">Are you sure you want to remove this employee? This action is recorded in the system audit logs.</p>
+    </div>
+    <div class="p-6 flex justify-end gap-3">
+      <button type="button" id="cancelDeleteEmployeeModal" class="px-5 py-2 text-xs font-bold uppercase text-slate-500 hover:text-slate-800 transition-colors">
+        Cancel
+      </button>
+      <button type="button" id="confirmDeleteEmployeeModal" class="px-5 py-2 bg-red-600 text-white text-xs font-bold uppercase tracking-wider hover:bg-red-700 transition-colors">
+        Delete Record
+      </button>
+    </div>
+  </div>
+</div>
+
 <script>
+// Logic remains similar but cleaned up for the new UI selectors
 document.querySelectorAll('[data-employee-card]').forEach(card => {
-  card.addEventListener('click', () => {
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('[data-stop-card]')) return;
     const url = card.getAttribute('data-detail-url');
     if (url) window.location.href = url;
   });
 });
-document.querySelectorAll('[data-stop-card]').forEach(el => {
-  el.addEventListener('click', (e) => {
-    e.stopPropagation();
-  });
-});
-
-if (document.getElementById('employeeRemovedFlag')) {
-  window.showToast?.('Employee removed successfully.', 'success');
-}
 
 const deleteModal = document.getElementById('deleteEmployeeModal');
-const closeDeleteModal = document.getElementById('closeDeleteEmployeeModal');
-const cancelDeleteModal = document.getElementById('cancelDeleteEmployeeModal');
-const confirmDeleteModal = document.getElementById('confirmDeleteEmployeeModal');
-let pendingDeleteForm = null;
-
-function hideDeleteModal() {
-  if (!deleteModal) {
-    return;
-  }
-  deleteModal.classList.add('hidden');
-  deleteModal.classList.remove('flex');
-}
-
-function showDeleteModal(form) {
-  pendingDeleteForm = form;
-  if (!deleteModal) {
-    return;
-  }
-  deleteModal.classList.remove('hidden');
-  deleteModal.classList.add('flex');
-}
+const confirmBtn = document.getElementById('confirmDeleteEmployeeModal');
+const cancelBtn = document.getElementById('cancelDeleteEmployeeModal');
+let activeForm = null;
 
 document.querySelectorAll('form[action="/admin/remove_employee"]').forEach(form => {
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    showDeleteModal(form);
+    activeForm = form;
+    deleteModal.classList.remove('hidden');
+    deleteModal.classList.add('flex');
   });
 });
 
-if (closeDeleteModal) {
-  closeDeleteModal.addEventListener('click', hideDeleteModal);
-}
+cancelBtn.addEventListener('click', () => {
+  deleteModal.classList.add('hidden');
+});
 
-if (cancelDeleteModal) {
-  cancelDeleteModal.addEventListener('click', hideDeleteModal);
-}
-
-if (confirmDeleteModal) {
-  confirmDeleteModal.addEventListener('click', () => {
-    const ok = window.showConfirm ? window.showConfirm('Confirm delete?') : confirm('Confirm delete?');
-    if (!ok) {
-      return;
-    }
-    if (pendingDeleteForm) {
-      pendingDeleteForm.submit();
-    }
-  });
-}
-
-if (deleteModal) {
-  deleteModal.addEventListener('click', (event) => {
-    if (event.target === deleteModal) {
-      hideDeleteModal();
-    }
-  });
-}
-
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape') {
-    hideDeleteModal();
-  }
+confirmBtn.addEventListener('click', () => {
+  if (activeForm) activeForm.submit();
 });
 </script>
-
 {% endblock %}

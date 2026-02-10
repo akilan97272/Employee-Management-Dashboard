@@ -2,94 +2,94 @@
 
 {% block title %}Attendance Overview | TeamSync{% endblock %}
 
-{% block page_title %}ATTENDANCE_REPORT{% endblock %}
+{% block page_title %}Operational / Attendance Registry{% endblock %}
 
 {% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8 space-y-10">
 
-<div class="space-y-8">
-
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-    <div class="border border-[var(--border)] p-6 bg-[var(--panel)]">
-      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Currently Present</p>
-      <div class="flex items-end gap-2">
-        <p class="text-4xl font-black tracking-tighter text-blue-600">{{ present_count }}</p>
-        <p class="text-xs font-bold text-slate-400 pb-1">Personnel</p>
+  {# Key Metrics Bar #}
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-px bg-slate-200 border border-slate-200 shadow-sm">
+    <div class="bg-white p-8">
+      <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-4">Confirmed Presence</p>
+      <div class="flex items-baseline gap-3">
+        <span class="text-5xl font-light text-slate-900 tracking-tighter">{{ present_count }}</span>
+        <span class="text-xs font-bold text-emerald-600 uppercase tracking-widest">Active</span>
       </div>
     </div>
 
-    <div class="border border-[var(--border)] p-6 bg-[var(--panel)]">
-      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Currently Absent</p>
-      <div class="flex items-end gap-2">
-        <p class="text-4xl font-black tracking-tighter text-red-500">{{ absent_count }}</p>
-        <p class="text-xs font-bold text-slate-400 pb-1">Personnel</p>
+    <div class="bg-white p-8 border-l border-slate-100">
+      <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-4">Current Absentees</p>
+      <div class="flex items-baseline gap-3">
+        <span class="text-5xl font-light text-slate-900 tracking-tighter">{{ absent_count }}</span>
+        <span class="text-xs font-bold text-rose-500 uppercase tracking-widest">Missing</span>
       </div>
     </div>
 
-    <div class="border border-[var(--border)] p-6 bg-[var(--panel)]">
-      <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Unrecognized Entry</p>
-      <div class="flex items-end gap-2">
-        <p class="text-4xl font-black tracking-tighter text-orange-400">{{ unknown_rfids|length }}</p>
-        <p class="text-xs font-bold text-slate-400 pb-1">Events</p>
+    <div class="bg-white p-8 border-l border-slate-100">
+      <p class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400 mb-4">Unrecognized Entries</p>
+      <div class="flex items-baseline gap-3">
+        <span class="text-5xl font-light text-slate-900 tracking-tighter">{{ unknown_rfids|length }}</span>
+        <span class="text-xs font-bold text-amber-500 uppercase tracking-widest">Flagged</span>
       </div>
     </div>
   </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+  <div class="grid grid-cols-1 lg:grid-cols-12 gap-10">
     
-    <div class="lg:col-span-1 border border-[var(--border)] bg-[var(--panel)] p-8">
-      <div class="flex justify-between items-center mb-8">
-        <div class="flex items-center gap-3">
-            <div class="h-5 w-1 bg-red-500"></div>
-            <h3 class="text-xs font-black uppercase tracking-[0.2em]">Absentee List</h3>
-        </div>
-        <select id="departmentSelect" class="bg-[var(--bg)] border border-[var(--border)] text-[10px] font-bold uppercase px-2 py-1 outline-none focus:border-blue-600">
-          <option value="IT">IT Dept</option>
-          <option value="HR">HR Dept</option>
-          <option value="Finance">Finance</option>
+    {# Absentee Sidebar #}
+    <div class="lg:col-span-4 space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-900 pb-3">
+        <h3 class="text-xs font-black uppercase tracking-widest text-slate-900">Absentee Registry</h3>
+        <select id="departmentSelect" class="bg-transparent border-none text-[10px] font-bold uppercase tracking-wider text-slate-500 focus:ring-0 cursor-pointer">
+          <option value="IT">Engineering</option>
+          <option value="HR">People Ops</option>
+          <option value="Finance">Accounting</option>
         </select>
       </div>
 
-      <div class="max-h-[500px] overflow-y-auto pr-2">
-        <ul id="absenteeList" class="space-y-3">
-            </ul>
+      <div class="max-h-[600px] overflow-y-auto custom-scrollbar">
+        <ul id="absenteeList" class="space-y-px bg-slate-100 border border-slate-100">
+          {# Populated via JS #}
+        </ul>
       </div>
     </div>
 
-    <div class="lg:col-span-2 border border-[var(--border)] bg-[var(--panel)] p-8">
-      <div class="flex items-center gap-3 mb-8">
-          <div class="h-5 w-1 bg-blue-600"></div>
-          <h3 class="text-xs font-black uppercase tracking-[0.2em]">Live Presence Log</h3>
+    {# Live Presence Table #}
+    <div class="lg:col-span-8 space-y-6">
+      <div class="flex items-center justify-between border-b border-slate-900 pb-3">
+        <h3 class="text-xs font-black uppercase tracking-widest text-slate-900">Live Access Log</h3>
+        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Real-time Sync</span>
       </div>
 
-      <div class="overflow-x-auto">
-        <table class="w-full text-left">
+      <div class="bg-white border border-slate-200 overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse">
           <thead>
-            <tr class="border-b border-[var(--border)] text-[10px] font-black uppercase tracking-widest text-slate-400">
-              <th class="pb-4">Name</th>
-              <th class="pb-4 text-center">Dept</th>
-              <th class="pb-4 text-center">Room</th>
-              <th class="pb-4 text-center">Checked In</th>
-              <th class="pb-4 text-right">Action</th>
+            <tr class="bg-slate-50 border-b border-slate-200">
+              <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Personnel</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Sector</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Location</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Check-in</th>
+              <th class="px-6 py-4 text-[10px] font-bold uppercase tracking-wider text-slate-900 text-right">Data</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-[var(--border)]">
+          <tbody class="divide-y divide-slate-100">
             {% for e in present %}
             <tr class="hover:bg-slate-50 transition-colors group">
-              <td class="py-4">
-                <p class="font-bold text-sm">{{ e.name }}</p>
-                <p class="executive-mono text-[9px] text-slate-400 uppercase">UID: {{ e.employee_id }}</p>
+              <td class="px-6 py-4">
+                <div class="text-sm font-bold text-slate-900">{{ e.name }}</div>
+                <div class="text-[10px] font-medium text-slate-400 font-mono">ID: {{ e.employee_id }}</div>
               </td>
-              <td class="py-4 text-center executive-mono text-xs">{{ e.department }}</td>
-              <td class="py-4 text-center">
-                <span class="px-2 py-1 bg-slate-100 text-[10px] font-bold text-slate-600 border border-slate-200">
-                    RM_{{ e.room_no }}
+              <td class="px-6 py-4 text-xs font-bold text-slate-600 uppercase">{{ e.department }}</td>
+              <td class="px-6 py-4">
+                <span class="text-[10px] font-bold text-slate-700 border border-slate-200 px-2 py-0.5 inline-block">
+                  ROOM {{ e.room_no }}
                 </span>
               </td>
-              <td class="py-4 text-center executive-mono text-xs font-bold">{{ e.entry_time.strftime("%H:%M") }}</td>
-              <td class="py-4 text-right">
-                <button class="px-3 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all"
+              <td class="px-6 py-4 text-xs font-bold text-slate-900">{{ e.entry_time.strftime("%H:%M") }}</td>
+              <td class="px-6 py-4 text-right">
+                <button class="text-[10px] font-black uppercase tracking-tighter text-indigo-600 hover:text-slate-900 transition-colors underline decoration-2 underline-offset-4"
                         onclick="showLogs('{{e.employee_id}}','{{e.name}}')">
-                  History
+                  View History
                 </button>
               </td>
             </tr>
@@ -101,20 +101,36 @@
   </div>
 </div>
 
-<div id="logsModal" class="fixed inset-0 bg-black/60 hidden items-center justify-center p-4 z-[200] backdrop-blur-sm">
-  <div class="bg-[var(--panel)] border border-[var(--border)] p-10 w-full max-w-md relative">
-    <div class="h-1 w-full bg-blue-600 absolute top-0 left-0"></div>
-    <h3 id="modalTitle" class="text-xs font-black uppercase tracking-widest mb-6 text-blue-600"></h3>
-    <ul id="modalBody" class="space-y-3 mb-8">
-        </ul>
-    <button onclick="closeModal()" class="w-full py-4 bg-slate-900 text-white font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all">
-      Close Window
+{# Sharp Professional Modal #}
+<div id="logsModal" class="fixed inset-0 bg-slate-900/80 hidden items-center justify-center p-4 z-[200] backdrop-blur-sm">
+  <div class="bg-white p-10 w-full max-w-lg relative shadow-2xl">
+    <div class="flex justify-between items-start mb-8">
+        <div>
+            <h3 id="modalTitle" class="text-xl font-light text-slate-900 leading-tight"></h3>
+            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Daily Access Transcript</p>
+        </div>
+        <button onclick="closeModal()" class="text-slate-300 hover:text-slate-900 transition-colors">
+            <i class="bi bi-x-lg text-2xl"></i>
+        </button>
+    </div>
+    
+    <div id="modalBody" class="space-y-4 max-h-[400px] overflow-y-auto mb-10 pr-4">
+        {# Logs populated via JS #}
+    </div>
+
+    <button onclick="closeModal()" class="w-full py-4 bg-slate-900 text-white font-bold text-xs uppercase tracking-[0.2em] hover:bg-indigo-600 transition-all">
+      Return to Dashboard
     </button>
   </div>
 </div>
 
+<style>
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; }
+</style>
+
 <script>
-// Absentee fetch logic
 function loadAbsentees(){
   let dept = document.getElementById("departmentSelect").value;
   fetch(`/api/absentees?department=${dept}`)
@@ -123,16 +139,19 @@ function loadAbsentees(){
     let ul = document.getElementById("absenteeList");
     ul.innerHTML = "";
     if(data.absentees.length === 0){
-      ul.innerHTML = "<div class='py-4 text-center border border-dashed border-slate-200 executive-mono text-slate-400 text-[10px] uppercase'>No absentees reported</div>";
+      ul.innerHTML = "<div class='py-12 text-center bg-white border border-dashed border-slate-200 text-slate-400 text-[10px] uppercase font-bold tracking-widest'>No Absentees Detected</div>";
     } else {
       data.absentees.forEach(a=>{
         ul.innerHTML += `
-            <li class="flex items-center justify-between p-3 border border-[var(--border)] bg-[var(--bg)]">
+            <li class="flex items-center justify-between p-4 bg-white hover:bg-slate-50 transition-colors">
                 <div>
-                    <p class="text-xs font-bold uppercase">${a.name}</p>
-                    <p class="executive-mono text-[9px] text-slate-500 uppercase">ID: ${a.employee_id}</p>
+                    <p class="text-xs font-bold text-slate-900 uppercase">${a.name}</p>
+                    <p class="text-[9px] font-bold text-slate-400 font-mono tracking-tighter">REF: ${a.employee_id}</p>
                 </div>
-                <span class="w-2 h-2 rounded-full bg-red-500"></span>
+                <div class="flex items-center gap-2">
+                    <span class="text-[9px] font-black text-rose-500 uppercase">OFF-SITE</span>
+                    <span class="w-1.5 h-1.5 bg-rose-500"></span>
+                </div>
             </li>`;
       });
     }
@@ -141,9 +160,9 @@ function loadAbsentees(){
 document.getElementById("departmentSelect").addEventListener("change", loadAbsentees);
 loadAbsentees();
 
-// Logs modal logic
 function showLogs(id, name){
-  document.getElementById("modalTitle").innerText = `${name} // DAILY_LOGS`;
+  const modal = document.getElementById("logsModal");
+  document.getElementById("modalTitle").innerHTML = `Activity for <span class="font-bold">${name}</span>`;
 
   fetch(`/api/employee_logs?employee_id=${id}`)
   .then(r=>r.json())
@@ -151,22 +170,24 @@ function showLogs(id, name){
     let body = document.getElementById("modalBody");
     body.innerHTML = "";
     if(data.logs.length === 0){
-      body.innerHTML = "<li class='executive-mono text-slate-400 text-center uppercase py-4'>No log history found</li>";
+      body.innerHTML = "<div class='text-center py-8 text-slate-400 text-xs italic border border-dashed border-slate-200'>No activity recorded for this period.</div>";
     } else {
       data.logs.forEach(l=>{
         body.innerHTML += `
-            <li class="p-3 border border-[var(--border)] flex justify-between items-center group hover:border-blue-500 transition-colors">
-                <span class="executive-mono text-xs font-bold text-blue-600">${l.in} — ${l.out}</span>
-                <span class="executive-mono text-[10px] text-slate-500 uppercase font-bold">ROOM ${l.room}</span>
-            </li>`;
+            <div class="p-4 border border-slate-100 bg-slate-50/50 flex justify-between items-center group hover:border-slate-300 transition-all">
+                <div class="flex items-center gap-4">
+                    <i class="bi bi-clock-history text-slate-300"></i>
+                    <span class="text-xs font-bold text-slate-700 font-mono tracking-tight">${l.in} <span class="text-slate-300 mx-1">—</span> ${l.out}</span>
+                </div>
+                <span class="text-[10px] font-black text-slate-900 uppercase border-b-2 border-slate-200">RM ${l.room}</span>
+            </div>`;
       });
     }
-    document.getElementById("logsModal").classList.replace("hidden","flex");
+    modal.classList.replace("hidden","flex");
   });
 }
 function closeModal(){
   document.getElementById("logsModal").classList.replace("flex","hidden");
 }
 </script>
-
 {% endblock %}
