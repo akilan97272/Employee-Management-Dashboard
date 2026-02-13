@@ -106,7 +106,7 @@ def compute_behavior_metrics(db: Session, df: pd.DataFrame, employee_id: str | N
         future_days = sum([(req.end_date - req.start_date).days + 1 for req in upcoming_reqs])
         metrics["upcoming_leave_days"] = future_days
         if future_days > 0:
-            metrics["alerts"].append(f"ℹ️ Scheduled for {future_days} days of leave soon")
+            metrics["alerts"].append(f"Scheduled for {future_days} days of leave soon")
     else:
         # Organization View
         all_upcoming = db.query(LeaveRequest).filter(
@@ -116,7 +116,7 @@ def compute_behavior_metrics(db: Session, df: pd.DataFrame, employee_id: str | N
         total_future = sum([(req.end_date - req.start_date).days + 1 for req in all_upcoming])
         metrics["upcoming_leave_days"] = total_future
         if total_future > 5:
-            metrics["alerts"].append(f"ℹ️ {total_future} total man-days of leave upcoming")
+            metrics["alerts"].append(f"{total_future} total man-days of leave upcoming")
 
     # --- E. Scoring ---
     score = 100

@@ -1,385 +1,363 @@
 {% extends "common/layout_base.html" %}
 
-{% block page_title %}Assign Task{% endblock %}
+{% block page_title %}Management Console{% endblock %}
 
 {% block content %}
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
 
 :root {
-  --ink: #111827;
-  --muted: #6b7280;
-  --card: #ffffff;
-  --surface: #f9fafb;
-  --line: rgba(148, 163, 184, 0.35);
-  --accent: #1d4ed8;
-  --accent-strong: #1e40af;
-  --accent-soft: rgba(59, 130, 246, 0.12);
+  --brand: #6366f1;
+  --brand-hover: #4f46e5;
+  --brand-soft: rgba(99, 102, 241, 0.1);
+  --bg-main: #fcfcfd;
+  --surface: #ffffff;
+  --text-main: #1e293b;
+  --text-muted: #64748b;
+  --border-light: #f1f5f9;
+  --border-subtle: #e2e8f0;
+  --radius-lg: 16px;
+  --radius-md: 12px;
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.03), 0 2px 4px -2px rgb(0 0 0 / 0.03);
 }
 
 body {
-  font-family: 'Space Grotesk', sans-serif;
-  background:
-    radial-gradient(900px 600px at 15% 5%, rgba(59, 130, 246, 0.08), transparent),
-    radial-gradient(700px 500px at 90% 20%, rgba(14, 165, 233, 0.08), transparent),
-    var(--surface);
-  color: var(--ink);
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  -webkit-font-smoothing: antialiased;
 }
 
-.page-shell {
-  max-width: 1000px;
+/* Layout Shell */
+.shell {
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 2.5rem 2rem 3rem;
+  padding: 4rem 2rem;
 }
 
-.page-title {
-  font-size: 2.4rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+.header-section {
+  margin-bottom: 3rem;
 }
 
-.page-subtitle {
-  color: var(--muted);
-  font-size: 0.95rem;
+.glass-card {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.panel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-}
-
-.panel-header {
-  padding: 1.4rem 1.8rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.panel-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-
-.form-grid {
-  padding: 1.6rem 1.8rem 1.9rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-input, textarea, select {
+/* Modern Inputs */
+.input-field {
   width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  padding: 0.75rem 0.9rem;
-  font-size: 0.95rem;
-  background: #fff;
+  background: var(--bg-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  transition: all 0.2s;
+}
+
+.input-field:focus {
   outline: none;
-  transition: border 0.2s ease, box-shadow 0.2s ease;
+  border-color: var(--brand);
+  background: #fff;
+  box-shadow: 0 0 0 4px var(--brand-soft);
 }
 
-input:focus, textarea:focus, select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-}
-
-.action-btn {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-  padding: 0.8rem 1.8rem;
-  border-radius: 999px;
-  border: none;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.75rem;
-}
-
-.action-btn:hover {
-  background: var(--accent-strong);
-}
-
-.assignee-card {
-  display: flex;
+/* Data Table Styling */
+.table-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr 1fr;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.8rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.85rem;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid var(--border-light);
+  transition: transform 0.2s, background 0.2s;
+  text-decoration: none;
+  color: inherit;
 }
 
-.assignee-card.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.table-row:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
 }
 
-.assignee-check {
-  font-weight: 800;
-  color: var(--accent);
+.table-row:last-child {
+  border-bottom: none;
 }
 
-.mono {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
-
-.filter-pill {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  background: #fff;
-  transition: all 0.2s ease;
-}
-
-.filter-pill.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.task-card {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1rem 1.1rem;
-  background: #fff;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-}
-
-.task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
-}
-
+/* Status Badges */
 .status-pill {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 800;
-  padding: 0.3rem 0.6rem;
-  border-radius: 999px;
-}
-
-.status-pending { background: rgba(245, 158, 11, 0.12); color: #b45309; }
-.status-in-progress { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
-.status-done { background: rgba(16, 185, 129, 0.12); color: #047857; }
-
-.modal-backdrop {
-  background: rgba(15, 23, 42, 0.6);
-}
-
-.assignee-pill {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  font-size: 0.7rem;
-  font-weight: 700;
+  gap: 6px;
 }
 
-.assignee-preview {
+.status-pill::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.pending { background: #fff7ed; color: #c2410c; }
+.pending::before { background: #fb923c; }
+
+.progress { background: #eff6ff; color: #1d4ed8; }
+.progress::before { background: #60a5fa; }
+
+.done { background: #f0fdf4; color: #15803d; }
+.done::before { background: #4ade80; }
+
+/* Buttons */
+.btn-primary {
+  background: var(--brand);
+  color: white;
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  font-size: 0.875rem;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.25);
+}
+
+.btn-primary:hover {
+  background: var(--brand-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 15px rgba(99, 102, 241, 0.3);
+}
+
+/* Priority Indicators */
+.prio-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+.prio-high { background: #f43f5e; box-shadow: 0 0 8px rgba(244, 63, 94, 0.4); }
+.prio-med { background: #f59e0b; box-shadow: 0 0 8px rgba(245, 158, 11, 0.4); }
+.prio-low { background: #10b981; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4); }
+
+.avatar-stack {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  flex-direction: row-reverse;
+  justify-content: flex-end;
 }
 
-.scroll-box {
-  max-height: 90px;
-  overflow-y: auto;
-  padding-right: 4px;
+.avatar-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 2px solid white;
+  background: #e2e8f0;
+  margin-left: -8px;
 }
 </style>
 
-<div class="page-shell space-y-8">
-  <div>
-    <h1 class="page-title">Assign Task</h1>
-    <p class="page-subtitle">Create tasks and assign them to team members.</p>
-  </div>
-
-  <section class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Task Brief</div>
-      <div class="mono">Assignments are visible only to managers</div>
+<div class="shell">
+  <header class="header-section flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div>
+      <h1 class="text-3xl font-bold tracking-tight text-slate-900">Task Control</h1>
+      <p class="text-slate-500 mt-1">Manage organizational flow and team directives.</p>
     </div>
-    <form action="/manager/create_task" method="POST" class="form-grid" id="assignTaskForm">
-      <div>
-        <label class="label">Task Objective</label>
-        <input type="text" name="title" required placeholder="Define the task outcome">
-      </div>
-      <div>
-        <label class="label">Details</label>
-        <textarea name="description" rows="3" placeholder="Optional details for the task"></textarea>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="label">Priority</label>
-          <select name="priority">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
-        </div>
-        <div>
-          <label class="label">Due Date</label>
-          <input type="date" name="due_date">
-        </div>
-      </div>
-      <div>
-        <label class="label">Project Linkage</label>
-        <select name="project_id">
-          <option value="">-- No Project --</option>
-          {% for p in projects %}
-          <option value="{{ p.id }}">{{ p.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="label">Assign To</label>
-        <input id="taskAssigneeSearch" type="text" placeholder="Filter personnel">
-        <div id="taskAssigneeCards" class="hidden mt-3 space-y-2 max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3"></div>
-        <input type="hidden" id="taskAssignees" name="assignees" value="">
-      </div>
-      <div class="flex justify-end">
-        <button type="submit" class="action-btn">Assign Task</button>
-      </div>
-    </form>
-  </section>
-
-  <section class="panel">
-    <div class="panel-header flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <div class="panel-title">Manage Tasks</div>
-        <div class="mono">Tasks created by you</div>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="filter-pill active" data-filter="all">All</button>
-        <button type="button" class="filter-pill" data-filter="pending">Pending</button>
-        <button type="button" class="filter-pill" data-filter="in-progress">In Progress</button>
-        <button type="button" class="filter-pill" data-filter="done">Done</button>
+    <div class="flex items-center gap-3">
+      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Operator</span>
+      <div class="px-4 py-2 bg-white border border-slate-200 rounded-full shadow-sm text-xs font-semibold flex items-center gap-2">
+        <span class="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+        {{ user.name }}
       </div>
     </div>
-    <div class="p-6 space-y-4">
-      {% for task in tasks %}
-      <div class="task-card" data-status="{{ task.status }}"
-           data-id="{{ task.id }}"
-           data-title="{{ task.title | e }}"
-           data-description="{{ task.description | e }}"
-           data-priority="{{ task.priority }}"
-           data-due-date="{{ task.due_date.strftime('%Y-%m-%d') if task.due_date else '' }}"
-           data-assignee="{{ task.assignee.name if task.assignee else '' }}"
-           data-assignee-id="{{ task.assignee.employee_id if task.assignee else task.user_id }}"
-         data-assignees="{{ (task.assignee.name if task.assignee else 'Unknown') ~ ' (' ~ (task.assignee.employee_id if task.assignee else task.user_id) ~ ')' }}"
-           data-project="{{ task.project_info.name if task.project_info else 'No project' }}">
-        <div class="flex items-start justify-between gap-3">
-          <div>
-            <div class="text-lg font-bold">{{ task.title }}</div>
-            <div class="mono">Assigned to</div>
-            <div class="assignee-preview" data-assignee-preview></div>
+  </header>
+
+  <div class="grid grid-cols-12 gap-10">
+    <div class="col-span-12 lg:col-span-4">
+      <div class="glass-card p-8 sticky top-8">
+        <h2 class="text-sm font-bold text-slate-900 mb-6 flex items-center gap-2">
+            <svg class="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+            Create Directive
+        </h2>
+        
+        <form action="/manager/create_task" method="POST" class="space-y-5">
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-500 uppercase ml-1">Objective Name</label>
+            <input type="text" name="title" class="input-field" placeholder="e.g. Q4 Security Audit" required>
           </div>
-          <span class="status-pill status-{{ task.status }}">{{ task.status }}</span>
+
+          <div class="space-y-1">
+            <label class="text-[11px] font-bold text-slate-500 uppercase ml-1">Assign Lead</label>
+            <div class="relative">
+                <input id="taskAssigneeSearch" type="text" class="input-field" placeholder="Search team member...">
+                <div id="taskAssigneeCards" class="hidden absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-lg shadow-lg z-30 max-h-48 overflow-y-auto p-2"></div>
+                <input type="hidden" id="taskAssignees" name="assignees" value="">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4 pt-2">
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-500 uppercase ml-1">Priority</label>
+              <select name="priority" class="input-field appearance-none">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <label class="text-[11px] font-bold text-slate-500 uppercase ml-1">Due Date</label>
+              <input type="date" name="due_date" class="input-field">
+            </div>
+          </div>
+
+          <button type="submit" class="btn-primary w-full mt-4">Initialize Task</button>
+        </form>
+      </div>
+    </div>
+
+    <div class="col-span-12 lg:col-span-8">
+      <div class="glass-card">
+        <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/30">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider">Active Directives</h3>
+          <span class="text-[11px] font-medium text-slate-400">{{ tasks|length }} Total</span>
         </div>
-        <p class="text-sm text-slate-600 mt-3">{{ task.description or "No description" }}</p>
-        <div class="flex flex-wrap gap-3 text-xs text-slate-500 mt-3">
-          <span>Priority: {{ task.priority }}</span>
-          <span>Due: {{ task.due_date.strftime('%b %d, %Y') if task.due_date else '—' }}</span>
-          <span>Project: {{ task.project_info.name if task.project_info else 'No project' }}</span>
+        
+        <div class="divide-y divide-slate-50">
+          {% for task in tasks %}
+          <div class="table-row cursor-pointer" onclick="openTaskDetail(this)"
+            data-id="{{ task.id }}"
+            data-title="{{ task.title | e }}"
+            data-description="{{ task.description | e }}"
+            data-assignee="{{ task.assignee.name if task.assignee else '' }}"
+            data-assignees="{{ task.user_id }}"
+            data-project="{{ task.project_info.name if task.project_info else 'No project' }}"
+            data-priority="{{ task.priority }}"
+            data-status="{{ task.status }}"
+            data-dueDate="{{ task.due_date.strftime('%Y-%m-%d') if task.due_date else '' }}">
+            
+            <div class="flex items-center">
+              <div class="prio-dot {{ 'prio-high' if task.priority == 'high' else 'prio-med' if task.priority == 'medium' else 'prio-low' }}"></div>
+              <div>
+                <div class="text-sm font-semibold text-slate-800">{{ task.title }}</div>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="font-mono text-[10px] text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">#{{ task.id }}</span>
+                    <span class="text-[11px] text-slate-400 font-medium">Due {{ task.due_date.strftime('%b %d') if task.due_date else 'No Date' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="avatar-stack">
+              <div class="avatar-circle"></div>
+              <div class="avatar-circle" style="background: #cbd5e1;"></div>
+            </div>
+
+            <div class="text-right">
+              <span class="status-pill {{ 'pending' if task.status == 'pending' else 'progress' if task.status == 'in-progress' else 'done' }}">
+                {{ task.status | title }}
+              </span>
+            </div>
+          </div>
+          {% else %}
+          <div class="py-20 text-center">
+            <div class="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg class="w-8 h-8 text-slate-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"></path></svg>
+            </div>
+            <p class="text-slate-400 text-sm">Workspace is clear. No active directives.</p>
+          </div>
+          {% endfor %}
         </div>
       </div>
-      {% else %}
-      <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No tasks created yet.</div>
-      {% endfor %}
     </div>
-  </section>
+  </div>
 </div>
 
-<div id="taskDetailModal" class="fixed inset-0 hidden items-center justify-center">
-  <div class="absolute inset-0 modal-backdrop" id="taskDetailBackdrop"></div>
-  <div class="relative bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
-    <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-      <div>
-        <div class="panel-title">Task Details</div>
-        <div class="text-lg font-bold" id="taskDetailTitle"></div>
-        <div class="mono" id="taskDetailMeta"></div>
+<div id="taskDetailModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4">
+  <div id="taskDetailBackdrop" class="absolute inset-0 bg-slate-900/40 backdrop-blur-md transition-opacity" onclick="closeTaskDetail()"></div>
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+    <div class="h-2 bg-indigo-500"></div>
+    <div class="p-6">
+      <div class="flex justify-between items-start mb-4">
+        <div>
+          <h2 id="taskDetailTitle" class="text-xl font-bold text-slate-900">Task Details</h2>
+          <p id="taskDetailMeta" class="text-slate-500 text-sm mt-1">-</p>
+        </div>
+        <button onclick="closeTaskDetail()" class="p-2 hover:bg-slate-100 rounded-full transition-colors">
+          <svg class="w-5 h-5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
       </div>
-      <button type="button" id="closeTaskDetail" class="mono">Close</button>
-    </div>
-    <div class="p-6 space-y-4">
-      <form action="/manager/tasks/update" method="POST" class="space-y-4" id="taskEditForm">
-        <input type="hidden" name="task_id" id="taskEditId">
-        <div class="flex justify-between items-center">
-          <button type="submit" form="taskDeleteForm" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold">Delete</button>
-          <button type="submit" class="action-btn">Save Changes</button>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="border rounded-xl p-4 bg-slate-50/60">
-            <div class="label">Assigned By</div>
-            <div class="text-sm font-medium">{{ user.name }} ({{ user.employee_id }})</div>
-          </div>
-          <div class="border rounded-xl p-4 bg-slate-50/60">
-            <div class="label">Assigned To</div>
-            <div class="text-sm font-medium scroll-box" id="taskDetailAssignees"></div>
-          </div>
+
+      <div class="mb-4">
+        <div id="taskDetailAssignees" class="text-sm text-slate-600 mb-3">-</div>
+        <div class="p-3 bg-slate-50 rounded-lg border border-slate-100 text-sm text-slate-700" id="taskDetailDescription">-</div>
+      </div>
+
+      <form action="/manager/tasks/update" method="POST" class="space-y-3">
+        <input type="hidden" id="taskEditId" name="task_id" value="">
+        <div>
+          <label class="text-xs font-bold text-slate-500">Title</label>
+          <input id="taskEditTitle" name="title" class="input-field mt-1" />
         </div>
         <div>
-          <label class="label">Title</label>
-          <input type="text" name="title" id="taskEditTitle" required>
+          <label class="text-xs font-bold text-slate-500">Description</label>
+          <textarea id="taskEditDescription" name="description" class="input-field mt-1 h-24"></textarea>
         </div>
-        <div>
-          <label class="label">Description</label>
-          <textarea name="description" rows="3" id="taskEditDescription"></textarea>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label class="label">Priority</label>
-            <select name="priority" id="taskEditPriority">
+            <label class="text-xs font-bold text-slate-500">Priority</label>
+            <select id="taskEditPriority" name="priority" class="input-field mt-1">
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
             </select>
           </div>
           <div>
-            <label class="label">Status</label>
-            <select name="status" id="taskEditStatus">
+            <label class="text-xs font-bold text-slate-500">Status</label>
+            <select id="taskEditStatus" name="status" class="input-field mt-1">
               <option value="pending">Pending</option>
               <option value="in-progress">In Progress</option>
               <option value="done">Done</option>
             </select>
           </div>
-          <div>
-            <label class="label">Due Date</label>
-            <input type="date" name="due_date" id="taskEditDueDate">
-          </div>
         </div>
-      </form>
-      <form action="/manager/tasks/delete" method="POST" id="taskDeleteForm" data-confirm="Delete this task?">
-        <input type="hidden" name="task_id" id="taskDeleteId">
+        <div>
+          <label class="text-xs font-bold text-slate-500">Due Date</label>
+          <input id="taskEditDueDate" name="due_date" type="date" class="input-field mt-1" />
+        </div>
+
+        <div class="flex gap-3 pt-2">
+          <button type="submit" class="btn-primary flex-1">Save Changes</button>
+          <button type="button" id="taskDeleteBtn" class="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-red-600 hover:bg-slate-50">Delete</button>
+          <input type="hidden" id="taskDeleteId" name="task_delete_id" value="">
+        </div>
       </form>
     </div>
   </div>
 </div>
+
+<script>
+function openTaskDetail(el) {
+    document.getElementById('modalTitle').innerText = el.dataset.title;
+    const modal = document.getElementById('taskDetailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeTaskDetail() {
+    const modal = document.getElementById('taskDetailModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+</script>
+
+
+
+
 
 <script>
 const taskSearch = document.getElementById('taskAssigneeSearch');
@@ -554,5 +532,28 @@ taskCardsList.forEach(card => {
 
 if (taskDetailBackdrop) taskDetailBackdrop.addEventListener('click', closeTaskDetail);
 if (taskDetailClose) taskDetailClose.addEventListener('click', closeTaskDetail);
+
+// Delete task via fetch to avoid nested forms
+const taskDeleteBtn = document.getElementById('taskDeleteBtn');
+if (taskDeleteBtn) {
+  taskDeleteBtn.addEventListener('click', async () => {
+    const id = document.getElementById('taskDeleteId').value || document.getElementById('taskEditId').value;
+    if (!id) return;
+    if (!confirm('Delete this task? This action cannot be undone.')) return;
+    const fd = new FormData();
+    fd.append('task_id', id);
+    try {
+      const res = await fetch('/manager/tasks/delete', { method: 'POST', body: fd });
+      if (res.redirected) {
+        window.location = res.url;
+      } else {
+        window.location.reload();
+      }
+    } catch (err) {
+      console.error('Delete failed', err);
+      window.location.reload();
+    }
+  });
+}
 </script>
 {% endblock %}

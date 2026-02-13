@@ -597,9 +597,7 @@ def register_manager_routes(app):
 
         return RedirectResponse("/manager/manage_teams", status_code=303)
 
-    @app.get("/manager/dashboard", response_class=HTMLResponse)
-    async def manager_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-        raise HTTPException(status_code=404, detail="Manager dashboard has been removed")
+ 
 
     @app.get("/manager/schedule_meeting", response_class=HTMLResponse)
     async def manager_schedule_meeting(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -931,7 +929,7 @@ def register_manager_routes(app):
         priority: str = Form("medium"),
         due_date: Optional[str] = Form(None),
         project_id: Optional[str] = Form(None),
-        assignees: Optional[List[str]] = Form(None),
+        assignees: Optional[str] = Form(None),
         user: User = Depends(get_current_user),
         db: Session = Depends(get_db),
     ):
@@ -952,11 +950,16 @@ def register_manager_routes(app):
             except (ValueError, TypeError):
                 pass
 
+        # Normalize assignees input: accept comma-separated string or single value
+        assignee_list = []
         if assignees:
-            for emp_id in assignees:
-                emp_id = str(emp_id).strip()
-                if not emp_id:
-                    continue
+            if isinstance(assignees, list):
+                assignee_list = [str(a).strip() for a in assignees if str(a).strip()]
+            else:
+                assignee_list = [s.strip() for s in str(assignees).split(',') if s.strip()]
+
+        if assignee_list:
+            for emp_id in assignee_list:
                 try:
                     new_task = Task(
                         user_id=emp_id,
@@ -983,10 +986,7 @@ def register_manager_routes(app):
                 except Exception:
                     continue
             db.commit()
-            for emp_id in assignees:
-                emp_id = str(emp_id).strip()
-                if not emp_id:
-                    continue
+            for emp_id in assignee_list:
                 emp = db.query(User).filter(User.employee_id == emp_id).first()
                 if not emp:
                     continue

@@ -137,62 +137,6 @@
     </div>
 </div>
 
-<script>
-    function openMemberTaskDetails(card) {
-        let payload = null;
-        try {
-            payload = JSON.parse(card.getAttribute('data-member-task') || '{}');
-        } catch (e) {
-            payload = null;
-        }
-
-        if (!payload) return;
-
-        const name = payload.name || '';
-        const employeeId = payload.employee_id || '';
-        const completed = payload.completed || 0;
-        const total = payload.total || 0;
-
-        document.getElementById('memberTaskDetailName').textContent = `${name} (${employeeId})`;
-        document.getElementById('memberTaskDetailMeta').textContent = `Tasks: ${completed}/${total} • ${payload.percent || 0}%`;
-
-        const list = document.getElementById('memberTaskDetailList');
-        list.innerHTML = '';
-
-        if (!payload.tasks || !payload.tasks.length) {
-            list.innerHTML = '<p class="text-xs italic text-slate-400">No tasks assigned</p>';
-        } else {
-            payload.tasks.forEach(task => {
-                const createdLabel = task.created_at ? task.created_at.split('T')[0] : 'N/A';
-                const deadlineLabel = task.deadline ? task.deadline.split('T')[0] : 'N/A';
-                const completedLabel = task.completed_at ? task.completed_at.split('T')[0] : 'N/A';
-
-                const cardEl = document.createElement('div');
-                cardEl.className = 'border border-slate-200 rounded-lg p-4';
-                cardEl.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="font-bold text-slate-900">${task.title || 'Untitled'}</div>
-                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">${task.status || 'pending'}</span>
-                    </div>
-                    <div class="mt-2 text-[10px] text-slate-500 uppercase tracking-widest">
-                        Assigned: ${createdLabel} • Deadline: ${deadlineLabel}
-                    </div>
-                    <div class="mt-1 text-[10px] text-slate-500 uppercase tracking-widest">
-                        Completed: ${completedLabel}
-                    </div>
-                `;
-                list.appendChild(cardEl);
-            });
-        }
-
-        document.getElementById('memberTaskDetailModal').classList.remove('hidden');
-    }
-
-    function closeMemberTaskDetails() {
-        document.getElementById('memberTaskDetailModal').classList.add('hidden');
-    }
-</script>
-
 <div id="teamDetailModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm">
     <div class="bg-white w-full max-w-2xl p-10 border border-slate-200 relative">
         <div class="h-2 w-full bg-slate-900 absolute top-0 left-0"></div>
@@ -588,4 +532,61 @@
         });
     });
 </script>
+
+<script>
+    function openMemberTaskDetails(card) {
+        let payload = null;
+        try {
+            payload = JSON.parse(card.getAttribute('data-member-task') || '{}');
+        } catch (e) {
+            payload = null;
+        }
+
+        if (!payload) return;
+
+        const name = payload.name || '';
+        const employeeId = payload.employee_id || '';
+        const completed = payload.completed || 0;
+        const total = payload.total || 0;
+
+        document.getElementById('memberTaskDetailName').textContent = `${name} (${employeeId})`;
+        document.getElementById('memberTaskDetailMeta').textContent = `Tasks: ${completed}/${total} • ${payload.percent || 0}%`;
+
+        const list = document.getElementById('memberTaskDetailList');
+        list.innerHTML = '';
+
+        if (!payload.tasks || !payload.tasks.length) {
+            list.innerHTML = '<p class="text-xs italic text-slate-400">No tasks assigned</p>';
+        } else {
+            payload.tasks.forEach(task => {
+                const createdLabel = task.created_at ? task.created_at.split('T')[0] : 'N/A';
+                const deadlineLabel = task.deadline ? task.deadline.split('T')[0] : 'N/A';
+                const completedLabel = task.completed_at ? task.completed_at.split('T')[0] : 'N/A';
+
+                const cardEl = document.createElement('div');
+                cardEl.className = 'border border-slate-200 rounded-lg p-4';
+                cardEl.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="font-bold text-slate-900">${task.title || 'Untitled'}</div>
+                        <span class="text-[9px] font-black uppercase tracking-widest text-slate-400">${task.status || 'pending'}</span>
+                    </div>
+                    <div class="mt-2 text-[10px] text-slate-500 uppercase tracking-widest">
+                        Assigned: ${createdLabel} • Deadline: ${deadlineLabel}
+                    </div>
+                    <div class="mt-1 text-[10px] text-slate-500 uppercase tracking-widest">
+                        Completed: ${completedLabel}
+                    </div>
+                `;
+                list.appendChild(cardEl);
+            });
+        }
+
+        document.getElementById('memberTaskDetailModal').classList.remove('hidden');
+    }
+
+    function closeMemberTaskDetails() {
+        document.getElementById('memberTaskDetailModal').classList.add('hidden');
+    }
+</script>
+
 {% endblock %}
