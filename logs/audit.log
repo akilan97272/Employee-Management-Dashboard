@@ -8,3 +8,5 @@
 2026-02-14 12:26:25,338 INFO event=auth_login_success user_id=3 ip=127.0.0.1 request_id= method=POST path=/login details=employee_id=ADMIN001;role=admin
 2026-02-14 12:26:28,011 INFO event=auth_logout user_id=3 ip=127.0.0.1 request_id= method=GET path=/logout details=logout
 2026-02-14 12:31:49,284 INFO event=auth_login_success user_id=3 ip=127.0.0.1 request_id= method=POST path=/login details=employee_id=ADMIN001;role=admin
+2026-02-14 15:43:40,229 INFO event=auth_login_success user_id=3 ip=127.0.0.1 request_id= method=POST path=/login details=employee_id=ADMIN001;role=admin
+2026-02-14 21:16:55,745 INFO event=auth_login_success user_id=1 ip=127.0.0.1 request_id= method=POST path=/login details=employee_id=ADMIN001;role=admin

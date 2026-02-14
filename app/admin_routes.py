@@ -271,7 +271,6 @@ def register_admin_routes(app):
         photo_mime = None
         if photo and photo.filename:
             photo_blob = await photo.read()
-            photo_mime = photo.content_type or "image/jpeg"
 
         team_id_val = int(team_id) if team_id else None
         if team_id_val:
@@ -295,7 +294,6 @@ def register_admin_routes(app):
             new_user.date_of_birth = dob_val
         if photo_blob:
             new_user.photo_blob = photo_blob
-            new_user.photo_mime = photo_mime
         if notes:
             new_user.notes = notes
         if team_id_val:
@@ -309,8 +307,6 @@ def register_admin_routes(app):
         new_user.is_active = True if is_active else False
         new_user.can_manage = True if can_manage else False
         new_user.active_leader = True if active_leader else False
-        _sync_user_secure_fields(new_user)
-        _sync_user_hashes(new_user, actor=user, details="create")
         db.add(new_user)
         db.commit()
         email_sent = send_welcome_email(email, name, employee_id, password)
@@ -530,7 +526,6 @@ def register_admin_routes(app):
             photo_blob = await photo.read()
             if photo_blob:
                 emp.photo_blob = photo_blob
-                emp.photo_mime = photo.content_type or "image/jpeg"
 
         try:
             if base_salary is not None:
@@ -568,8 +563,6 @@ def register_admin_routes(app):
         except Exception:
             pass
 
-        _sync_user_secure_fields(emp)
-        _sync_user_hashes(emp, actor=user, details="admin_update")
         db.commit()
         return RedirectResponse(url="/admin/manage_employees", status_code=303)
 

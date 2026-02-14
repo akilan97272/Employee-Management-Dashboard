@@ -1017,7 +1017,7 @@ def register_employee_routes(app):
         emp = db.query(User).filter(User.employee_id == employee_id, User.is_active == True).first()
         if not emp or not emp.photo_blob:
             raise HTTPException(status_code=404, detail="Photo not found")
-        return Response(content=emp.photo_blob, media_type=emp.photo_mime or "image/jpeg")
+        return Response(content=emp.photo_blob, media_type="image/jpeg")
 
 
 

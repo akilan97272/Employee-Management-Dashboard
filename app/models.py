@@ -15,30 +15,16 @@ class User(Base):
     email = Column(String(100), unique=True, nullable=False)
     rfid_tag = Column(String(100), unique=True, nullable=False)
     # Reversible encrypted mirrors for secure viewing/audit workflows.
-    name_secure = Column(Text, nullable=True)
-    email_secure = Column(Text, nullable=True)
-    rfid_tag_secure = Column(Text, nullable=True)
     title = Column(String(100), nullable=True)
     date_of_birth = Column(Date, nullable=True)
-    photo_path = Column(String(255), nullable=True)
-    photo_blob = Column(LargeBinary, nullable=True)
-    photo_mime = Column(String(50), nullable=True)
+    photo_blob = Column(LargeBinary, nullable=True)  # Store image as binary only
     notes = Column(Text, nullable=True)
     phone = Column(String(40), nullable=True)
     address = Column(Text, nullable=True)
-    # Hash mirrors for security analytics and integrity history
-    employee_id_hash = Column(String(64), nullable=True, index=True)
-    name_hash = Column(String(64), nullable=True, index=True)
-    email_hash = Column(String(64), nullable=True, index=True)
-    rfid_tag_hash = Column(String(64), nullable=True, index=True)
-    role_hash = Column(String(64), nullable=True, index=True)
-    department_hash = Column(String(64), nullable=True, index=True)
     
     # Roles: 'admin', 'manager', 'team_lead', 'employee'
     role = Column(String(50), nullable=False) 
     department = Column(String(100), nullable=True)
-    role_secure = Column(Text, nullable=True)
-    department_secure = Column(Text, nullable=True)
     password_hash = Column(String(200), nullable=False)
     is_active = Column(Boolean, default=True)
 
