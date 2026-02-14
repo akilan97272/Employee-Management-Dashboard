@@ -1,3 +1,4 @@
+import calendar
 from fastapi import Depends, HTTPException, Request, Form, File, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -7,6 +8,13 @@ import random
 import string
 import pandas as pd
 
+from .analytics.attendance_intelligence import (
+    get_attendance_dataframe,
+    compute_behavior_metrics,
+    detect_attendance_anomalies,
+    compute_performer_lists,
+    compute_department_stats
+)
 
 from .database import get_db
 from .models import (
@@ -744,6 +752,67 @@ def register_admin_routes(app):
         db.commit()
         return {"message": "Room removed successfully"}
 
+    def calculate_monthly_payroll(
+        db: Session,
+        emp: User,
+        month: int,
+        year: int
+    ):
+        # Days in month
+        total_days = calendar.monthrange(year, month)[1]
+
+        # Attendance counts
+        present_days = db.query(Attendance).filter(
+            Attendance.employee_id == emp.employee_id,
+            Attendance.date.between(f"{year}-{month:02d}-01", f"{year}-{month:02d}-{total_days}")
+        ).count()
+
+        leave_days = max(0, emp.paid_leaves_allowed)
+        unpaid_leaves = max(0, total_days - present_days - leave_days)
+
+        # Salary basics
+        base_salary = emp.base_salary or 0.0
+        daily_salary = base_salary / total_days
+
+        leave_deduction = unpaid_leaves * daily_salary
+
+        allowances = emp.allowances or 0.0
+        extra_deductions = emp.deductions or 0.0
+
+        # Tax
+        taxable_amount = max(0, base_salary + allowances - leave_deduction)
+        tax = (emp.tax_percentage / 100) * taxable_amount
+
+        gross_salary = base_salary + allowances
+        total_deductions = leave_deduction + tax + extra_deductions
+
+        net_salary = gross_salary - total_deductions
+
+        # 🚫 ABSOLUTE RULE: NO NEGATIVE SALARY
+        net_salary = max(0, round(net_salary, 2))
+
+        explanation = (
+            f"Base: {base_salary}, "
+            f"Allowances: {allowances}, "
+            f"Unpaid leaves: {unpaid_leaves}, "
+            f"Leave deduction: {leave_deduction}, "
+            f"Tax: {tax}, "
+            f"Other deductions: {extra_deductions}"
+        )
+
+        return {
+            "present_days": present_days,
+            "leave_days": leave_days,
+            "unpaid_leaves": unpaid_leaves,
+            "base_salary": round(base_salary, 2),
+            "leave_deduction": round(leave_deduction, 2),
+            "tax": round(tax, 2),
+            "allowances": round(allowances, 2),
+            "deductions": round(extra_deductions, 2),
+            "net_salary": net_salary,
+            "explanation": explanation
+        }
+
     @app.get("/admin/payroll", response_class=HTMLResponse)
     async def admin_payroll(
         request: Request,
@@ -753,32 +822,58 @@ def register_admin_routes(app):
         db: Session = Depends(get_db)
     ):
         if user.role != "admin":
-            raise HTTPException(status_code=403)
+            raise HTTPException(status_code=403, detail="Admin access required")
 
         employees = db.query(User).filter(User.is_active == True).all()
-        payroll = []
+        payroll_data = []
 
         for emp in employees:
             data = calculate_monthly_payroll(db, emp, month, year)
-            payroll.append({
+
+            # 🔒 FINAL SAFETY CLAMP
+            data["net_salary"] = max(0, data["net_salary"])
+
+            payroll_data.append({
                 "name": emp.name,
                 "employee_id": emp.employee_id,
                 **data
             })
 
-        total_salary = sum(p["net_salary"] for p in payroll)
-        avg_salary = round(total_salary / len(payroll), 2) if payroll else 0
-        max_salary = max((p["net_salary"] for p in payroll), default=0)
+            # Save or update Payroll table
+            payroll_row = db.query(Payroll).filter(
+                Payroll.employee_id == emp.employee_id,
+                Payroll.month == month,
+                Payroll.year == year
+            ).first()
+
+            if not payroll_row:
+                payroll_row = Payroll(
+                    employee_id=emp.employee_id,
+                    month=month,
+                    year=year
+                )
+
+            for key, value in data.items():
+                setattr(payroll_row, key, value)
+
+            db.add(payroll_row)
+
+        db.commit()
+
+        total_salary = round(sum(p["net_salary"] for p in payroll_data), 2)
+        avg_salary = round(total_salary / len(payroll_data), 2) if payroll_data else 0
+        max_salary = max((p["net_salary"] for p in payroll_data), default=0)
 
         return templates.TemplateResponse(
             "admin/admin_payroll.html",
             {
                 "request": request,
                 "user": user,
-                "payroll": payroll,
-                "total_salary": round(total_salary, 2),
+                "payroll": payroll_data,
+                "total_salary": total_salary,
                 "avg_salary": avg_salary,
                 "max_salary": max_salary,
+                "current_month": month,
                 "current_year": year
             }
         )
@@ -792,29 +887,47 @@ def register_admin_routes(app):
     ):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
-        present_query = db.query(
-            User.employee_id,
-            User.name,
-            User.department,
-            Attendance.room_no,
-            Attendance.entry_time
-        ).join(
-            Attendance,
-            Attendance.employee_id == User.employee_id
-        ).filter(
-            Attendance.exit_time == None
+
+        # ------------------------------------------------------------
+        # SHOW ONLY MAIN GATE ENTRIES (room_no = 77)
+        # ------------------------------------------------------------
+        present_query = (
+            db.query(
+                User.employee_id,
+                User.name,
+                User.department,
+                Attendance.room_no,
+                Attendance.entry_time
+            )
+            .join(
+                Attendance,
+                Attendance.employee_id == User.employee_id
+            )
+            .filter(
+                Attendance.exit_time == None,
+                Attendance.room_no == "77"   # MAIN GATE ONLY
+            )
         )
+
         if department:
             present_query = present_query.filter(User.department == department)
+
         present = present_query.all()
         present_count = len(present)
+
         total_employees = db.query(User).filter(
             User.is_active == True
         ).count()
+
         absent_count = total_employees - present_count
-        unknown_rfids = db.query(UnknownRFID).order_by(
-            UnknownRFID.id.desc()
-        ).limit(20).all()
+
+        unknown_rfids = (
+            db.query(UnknownRFID)
+            .order_by(UnknownRFID.id.desc())
+            .limit(20)
+            .all()
+        )
+
         return templates.TemplateResponse(
             "admin/admin_attendance.html",
             {
@@ -950,17 +1063,11 @@ def register_admin_routes(app):
         if user.role not in ("admin", "manager"):
             raise HTTPException(status_code=403)
 
-        from app.analytics.attendance_intelligence import (
-            get_attendance_dataframe,
-            compute_behavior_metrics,
-            detect_attendance_anomalies,
-            compute_performer_lists
-        )
-
         df = get_attendance_dataframe(db)
         metrics = compute_behavior_metrics(db, df)
         anomalies = detect_attendance_anomalies(df)
         top_performers, low_performers = compute_performer_lists(db)
+        dept_stats = compute_department_stats(db)   # 👈 FIX
 
         return templates.TemplateResponse(
             "admin/admin_attendance_intelligence.html",
@@ -970,7 +1077,7 @@ def register_admin_routes(app):
                 "metrics": metrics,
                 "anomalies": anomalies,
                 "top_performers": top_performers,
-                "low_performers": low_performers
+                "low_performers": low_performers,
+                "dept_stats": dept_stats    # 👈 FIX
             }
         )
-

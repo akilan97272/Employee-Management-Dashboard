@@ -13,8 +13,6 @@ from .models import (
 )
 from .app_context import get_current_user, create_notification
 
-
-
 def register_api_routes(app):
     @app.post("/api/attendance")
     async def record_attendance(
@@ -148,38 +146,35 @@ def register_api_routes(app):
         )
         return {"blocks": [{"location": b.location_name, "room": b.room_no, "count": b.count} for b in blocks]}
 
-    @app.get("/api/inappropriate-entries")
-    async def get_inappropriate_entries(db: Session = Depends(get_db)):
-        """Get list of inappropriate room entries (invalid rooms not in Room table)"""
-        entries = db.query(InappropriateEntry).order_by(InappropriateEntry.timestamp.desc()).limit(50).all()
-        return {
-            "inappropriate_entries": [
-                {
-                    "id": e.id,
-                    "employee_id": e.employee_id,
-                    "rfid_tag": e.rfid_tag,
-                    "location_name": e.location_name,
-                    "room_no": e.room_no,
-                    "reason": e.reason,
-                    "timestamp": e.timestamp.isoformat()
-                }
-                for e in entries
-            ]
-        }
-
-    @app.get("/api/absentees")
-    async def get_absentees(department: str, db: Session = Depends(get_db)):
-        all_employees = db.query(User).filter(User.department == department, User.is_active == True).all()
-        present_employee_ids = db.query(Attendance.employee_id).filter(Attendance.exit_time.is_(None)).distinct().all()
-        present_ids = {p[0] for p in present_employee_ids}
-        absentees = [emp for emp in all_employees if emp.employee_id not in present_ids]
-        return {"absentees": [{"name": emp.name, "employee_id": emp.employee_id} for emp in absentees]}
-
     @app.get("/api/employee_logs")
     async def employee_logs(employee_id: str, db: Session = Depends(get_db)):
-        logs = db.query(Attendance).filter(
-            Attendance.employee_id == employee_id
-        ).order_by(Attendance.entry_time.desc()).limit(10).all()
+
+        # Subquery: latest Main Gate entry per day
+        subq = (
+            db.query(
+                cast(Attendance.entry_time, Date).label("day"),
+                func.max(Attendance.entry_time).label("last_entry")
+            )
+            .filter(
+                Attendance.employee_id == employee_id,
+                Attendance.location_name == "Main Gate"
+            )
+            .group_by(cast(Attendance.entry_time, Date))
+            .subquery()
+        )
+
+        # Join back to attendance table
+        logs = (
+            db.query(Attendance)
+            .join(
+                subq,
+                Attendance.entry_time == subq.c.last_entry
+            )
+            .order_by(Attendance.entry_time.desc())
+            .limit(10)
+            .all()
+        )
+
         return {
             "logs": [
                 {
@@ -191,6 +186,72 @@ def register_api_routes(app):
                 for a in logs
             ]
         }
+
+    @app.get("/api/absentees")
+    async def get_absentees(department: str, db: Session = Depends(get_db)):
+
+        # All active employees in department
+        all_employees = db.query(User).filter(
+            User.department == department,
+            User.is_active == True
+        ).all()
+
+        # Subquery: latest attendance row per employee
+        latest_attendance_subq = (
+            db.query(
+                Attendance.employee_id,
+                func.max(Attendance.entry_time).label("last_entry")
+            )
+            .group_by(Attendance.employee_id)
+            .subquery()
+        )
+
+        # Join back to attendance table
+        latest_attendance = (
+            db.query(Attendance)
+            .join(
+                latest_attendance_subq,
+                (Attendance.employee_id == latest_attendance_subq.c.employee_id) &
+                (Attendance.entry_time == latest_attendance_subq.c.last_entry)
+            )
+            .all()
+        )
+
+        # Employees currently PRESENT
+        present_ids = {
+            a.employee_id
+            for a in latest_attendance
+            if a.exit_time is None
+        }
+
+        absentees = [
+            emp for emp in all_employees
+            if emp.employee_id not in present_ids
+        ]
+
+        return {
+            "absentees": [
+                {"name": emp.name, "employee_id": emp.employee_id}
+                for emp in absentees
+            ]
+        }
+
+    # @app.get("/api/employee_logs")
+    # async def employee_logs(employee_id: str, db: Session = Depends(get_db)):
+    #     logs = db.query(Attendance).filter(
+    #         Attendance.employee_id == employee_id
+    #     ).order_by(Attendance.entry_time.desc()).limit(10).all()
+    #     return {
+    #         "logs": [
+    #             {
+    #                 "in": a.entry_time.strftime("%H:%M"),
+    #                 "out": a.exit_time.strftime("%H:%M") if a.exit_time else "-",
+    #                 "room": a.room_no,
+    #                 "location": a.location_name
+    #             }
+    #             for a in logs
+    #         ]
+    #     }
 
     @app.get("/api/leave_count")
     async def leave_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -573,3 +634,21 @@ def register_api_routes(app):
         ).first() is not None
 
         return {"host_joined": host_joined}
+
+    @app.get("/api/departments")
+    async def list_departments(db: Session = Depends(get_db)):
+        departments = (
+            db.query(User.department)
+            .filter(
+                User.department.isnot(None),
+                User.department != "",
+                User.is_active == True
+            )
+            .distinct()
+            .order_by(User.department)
+            .all()
+        )
+
+        return {
+            "departments": [d[0] for d in departments]
+        }
