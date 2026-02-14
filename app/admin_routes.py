@@ -36,154 +36,197 @@ def register_admin_routes(app):
         return templates.TemplateResponse("admin/admin_select_dashboard.html", {"request": request, "user": user})
 
 
-@router.get("/admin", response_class=HTMLResponse)
-async def admin_dashboard(
-    request: Request,
-    user: User = Depends(get_current_user),
-    db: Session = Depends(get_db)
-):
-    # --------------------------------------------------
-    # AUTH
-    # --------------------------------------------------
-    if user.role != "admin":
-        raise HTTPException(status_code=403)
+    @app.get("/admin", response_class=HTMLResponse)
+    async def admin_dashboard(
+        request: Request,
+        user: User = Depends(get_current_user),
+        db: Session = Depends(get_db)
+    ):
+        # --------------------------------------------------
+        # AUTH
+        # --------------------------------------------------
+        if user.role != "admin":
+            raise HTTPException(status_code=403)
 
-    today = dt.date.today()
-    start_of_day = dt.datetime.combine(today, dt.time.min)
+        today = dt.date.today()
+        start_of_day = dt.datetime.combine(today, dt.time.min)
 
-    # --------------------------------------------------
-    # ROOM / BLOCK TELEMETRY
-    # --------------------------------------------------
-    rooms = db.query(Room).all()
-    valid_rooms = {(r.location_name, r.room_no) for r in rooms}
+        # --------------------------------------------------
+        # ROOM / BLOCK TELEMETRY
+        # --------------------------------------------------
+        rooms = db.query(Room).all()
+        valid_rooms = {(r.location_name, r.room_no) for r in rooms}
 
-    todays_attendance = db.query(Attendance).filter(
-        Attendance.date == today
-    ).all()
+        todays_attendance = db.query(Attendance).filter(
+            Attendance.date == today
+        ).all()
 
-    for a in todays_attendance:
-        if (a.location_name, a.room_no) not in valid_rooms:
-            exists = db.query(InappropriateEntry).filter(
-                InappropriateEntry.employee_id == a.employee_id,
-                InappropriateEntry.location_name == a.location_name,
-                InappropriateEntry.room_no == a.room_no,
-                InappropriateEntry.timestamp >= start_of_day
-            ).first()
+        # Detect invalid room entries
+        for a in todays_attendance:
+            if (a.location_name, a.room_no) not in valid_rooms:
+                exists = db.query(InappropriateEntry).filter(
+                    InappropriateEntry.employee_id == a.employee_id,
+                    InappropriateEntry.location_name == a.location_name,
+                    InappropriateEntry.room_no == a.room_no,
+                    InappropriateEntry.timestamp >= start_of_day
+                ).first()
 
-            if not exists:
-                db.add(InappropriateEntry(
-                    employee_id=a.employee_id,
-                    rfid_tag=(a.user.rfid_tag if getattr(a, "user", None) else ""),
-                    location_name=a.location_name,
-                    room_no=a.room_no,
-                    reason="Recorded in non-registered room",
-                    timestamp=a.entry_time or dt.datetime.utcnow()
-                ))
+                if not exists:
+                    db.add(InappropriateEntry(
+                        employee_id=a.employee_id,
+                        rfid_tag=(a.user.rfid_tag if getattr(a, "user", None) else ""),
+                        location_name=a.location_name,
+                        room_no=a.room_no,
+                        reason="Recorded in non-registered room",
+                        timestamp=a.entry_time or dt.datetime.utcnow()
+                    ))
 
-    db.commit()
+        db.commit()
 
-    blocks_raw = (
-        db.query(
-            Attendance.location_name,
-            Attendance.room_no,
-            func.count(Attendance.id).label("count")
+        # Active occupied rooms
+        blocks_raw = (
+            db.query(
+                Attendance.location_name,
+                Attendance.room_no,
+                func.count(Attendance.id).label("count")
+            )
+            .join(
+                Room,
+                (Room.location_name == Attendance.location_name) &
+                (Room.room_no == Attendance.room_no)
+            )
+            .filter(
+                Attendance.exit_time.is_(None),
+                Attendance.date == today
+            )
+            .group_by(Attendance.location_name, Attendance.room_no)
+            .all()
         )
-        .join(
-            Room,
-            (Room.location_name == Attendance.location_name) &
-            (Room.room_no == Attendance.room_no)
-        )
-        .filter(
+
+        blocks = [
+            {
+                "location_name": b.location_name,
+                "room_no": b.room_no,
+                "count": b.count
+            }
+            for b in blocks_raw
+        ]
+
+        # --------------------------------------------------
+        # EMPLOYEE PRESENCE
+        # --------------------------------------------------
+        total_active = db.query(User).filter(User.is_active == True).count()
+
+        present_count = db.query(
+            func.count(func.distinct(Attendance.employee_id))
+        ).filter(
             Attendance.exit_time.is_(None),
             Attendance.date == today
+        ).scalar() or 0
+
+        absentee_count = max(0, total_active - int(present_count))
+
+        # --------------------------------------------------
+        # ALERTS & LOGS
+        # --------------------------------------------------
+        unknown_rfids = (
+            db.query(UnknownRFID)
+            .order_by(UnknownRFID.timestamp.desc())
+            .limit(5)
+            .all()
         )
-        .group_by(Attendance.location_name, Attendance.room_no)
-        .all()
-    )
 
-    blocks = [
-        {"location_name": b.location_name, "room_no": b.room_no, "count": b.count}
-        for b in blocks_raw
-    ]
-
-    # --------------------------------------------------
-    # EMPLOYEE PRESENCE
-    # --------------------------------------------------
-    total_active = db.query(User).filter(User.is_active == True).count()
-
-    present_count = db.query(
-        func.count(func.distinct(Attendance.employee_id))
-    ).filter(
-        Attendance.exit_time.is_(None),
-        Attendance.date == today
-    ).scalar() or 0
-
-    absentee_count = max(0, total_active - int(present_count))
-
-    # --------------------------------------------------
-    # ALERTS & LOGS
-    # --------------------------------------------------
-    unknown_rfids = (
-        db.query(UnknownRFID)
-        .order_by(UnknownRFID.timestamp.desc())
-        .limit(5)
-        .all()
-    )
-
-    inappropriate_entries = (
-        db.query(InappropriateEntry)
-        .order_by(InappropriateEntry.timestamp.desc())
-        .limit(20)
-        .all()
-    )
-
-    admins = db.query(User).filter(User.role == "admin").all()
-
-    removed_employees = (
-        db.query(RemovedEmployee)
-        .order_by(RemovedEmployee.removed_at.desc())
-        .limit(5)
-        .all()
-    )
-
-    # --------------------------------------------------
-    # PAYROLL (FOR DASHBOARD CHART)
-    # --------------------------------------------------
-    payroll_rows = (
-        db.query(Payroll.net_salary, User.name)
-        .join(User, User.employee_id == Payroll.employee_id)
-        .filter(
-            Payroll.month == today.month,
-            Payroll.year == today.year,
-            Payroll.net_salary > 0
+        inappropriate_entries = (
+            db.query(InappropriateEntry)
+            .order_by(InappropriateEntry.timestamp.desc())
+            .limit(20)
+            .all()
         )
-        .all()
-    )
 
-    payroll = [
-        {"name": name, "net_salary": salary}
-        for salary, name in payroll_rows
-    ]
+        admins = db.query(User).filter(User.role == "admin").all()
 
-    # --------------------------------------------------
-    # RENDER
-    # --------------------------------------------------
-    return templates.TemplateResponse(
-        "admin/admin_dashboard.html",
-        {
-            "request": request,
-            "user": user,
-            "blocks": blocks,
-            "unknown_rfids": unknown_rfids,
-            "admins": admins,
-            "removed_employees": removed_employees,
-            "inappropriate_entries": inappropriate_entries,
-            "present_count": present_count,
-            "absentee_count": absentee_count,
-            "payroll": payroll,
-            "current_time": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        }
-    )
+        removed_employees = (
+            db.query(RemovedEmployee)
+            .order_by(RemovedEmployee.removed_at.desc())
+            .limit(5)
+            .all()
+        )
+
+        # --------------------------------------------------
+        # PAYROLL (FOR DASHBOARD CHART)
+        # --------------------------------------------------
+        payroll_rows = (
+            db.query(Payroll.net_salary, User.name)
+            .join(User, User.employee_id == Payroll.employee_id)
+            .filter(
+                Payroll.month == today.month,
+                Payroll.year == today.year,
+                Payroll.net_salary > 0
+            )
+            .all()
+        )
+
+        payroll = [
+            {
+                "name": name,
+                "net_salary": salary
+            }
+            for salary, name in payroll_rows
+        ]
+
+        # --------------------------------------------------
+        # ✅ RECENT ATTENDANCE SYNC (LAST 7 DAYS)
+        # --------------------------------------------------
+        seven_days_ago = today - dt.timedelta(days=7)
+
+        attendance_rows = (
+            db.query(
+                User.name,
+                User.employee_id,
+                User.department,
+                func.coalesce(func.sum(Attendance.duration), 0).label("total_hours")
+            )
+            .join(Attendance, Attendance.employee_id == User.employee_id)
+            .filter(
+                Attendance.date >= seven_days_ago,
+                User.is_active == True
+            )
+            .group_by(User.id)
+            .order_by(func.sum(Attendance.duration).desc())
+            .limit(10)
+            .all()
+        )
+
+        recent_attendance = [
+            {
+                "name": r.name,
+                "employee_id": r.employee_id,
+                "department": r.department,
+                "total_hours": round(r.total_hours, 2)
+            }
+            for r in attendance_rows
+        ]
+
+        # --------------------------------------------------
+        # RENDER
+        # --------------------------------------------------
+        return templates.TemplateResponse(
+            "admin/admin_dashboard.html",
+            {
+                "request": request,
+                "user": user,
+                "blocks": blocks,
+                "unknown_rfids": unknown_rfids,
+                "admins": admins,
+                "removed_employees": removed_employees,
+                "inappropriate_entries": inappropriate_entries,
+                "present_count": present_count,
+                "absentee_count": absentee_count,
+                "payroll": payroll,
+                "employees": recent_attendance,   # 🔥 THIS MAKES IT WORK
+                "current_time": dt.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            }
+        )
 
     @app.get("/admin/register_employee", response_class=HTMLResponse)
     async def admin_register_employee(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):

@@ -9,94 +9,120 @@
 <div class="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-slate-200 pb-8">
   <div class="flex items-center gap-6">
     <div class="relative">
-      {% if user.photo_blob or user.photo_path %}
-        <img src="{% if user.photo_blob %}/employee/photo/{{ user.employee_id }}{% else %}{{ user.photo_path }}{% endif %}"
-             class="w-20 h-20 object-cover border-2 border-slate-900 shadow-[4px_4px_0px_#cbd5e1]" />
-      {% else %}
-        <div class="w-20 h-20 bg-slate-900 text-white flex items-center justify-center text-2xl font-light">
-          {{ user.name[0]|upper }}
-        </div>
-      {% endif %}
-      <div class="absolute -bottom-2 -right-2 bg-blue-600 text-white text-[8px] font-black px-2 py-1">ADMIN</div>
+        {% if user.photo_blob or user.photo_path %}
+          <img src="{% if user.photo_blob %}/employee/photo/{{ user.employee_id }}{% else %}{{ user.photo_path }}{% endif %}" 
+               class="w-20 h-20 rounded-0 object-cover border-2 border-slate-900 shadow-[4px_4px_0px_#cbd5e1]" />
+        {% else %}
+          <div class="w-20 h-20 bg-slate-900 text-white flex items-center justify-center text-2xl font-light">
+            {{ user.name[0]|upper }}
+          </div>
+        {% endif %}
+        <div class="absolute -bottom-2 -right-2 bg-blue-600 text-white text-[8px] font-black px-2 py-1 tracking-tighter">ADMIN</div>
     </div>
     <div>
-      <h1 class="text-3xl font-light tracking-tighter uppercase">
+      <h1 class="text-3xl font-light tracking-tighter text-slate-900 uppercase">
         {{ user.name }} <span class="font-black text-blue-600">.</span>
       </h1>
-      <p class="text-[10px] font-bold text-slate-400 tracking-widest uppercase">
-        Personnel ID: {{ user.employee_id }} — System Access: Level 4
-      </p>
+      <p class="text-[10px] font-bold text-slate-400 tracking-[0.3em] uppercase mt-1">Personnel ID: {{ user.employee_id }} — System Access: Level 4</p>
     </div>
   </div>
-  <div class="text-right">
-    <span class="text-[10px] font-black uppercase tracking-widest">Command Center</span><br>
-    <span class="text-[10px] font-mono text-slate-400">{{ current_time }}</span>
+
+  <div class="flex flex-col items-end">
+    <div class="flex gap-2 mb-2">
+        <div class="h-1 w-8 bg-blue-600"></div>
+        <div class="h-1 w-2 bg-slate-200"></div>
+        <div class="h-1 w-2 bg-slate-200"></div>
+    </div>
+    <span class="text-[10px] font-black text-slate-900 tracking-widest uppercase">Command Center Terminal</span>
+    <span class="text-[10px] text-slate-400 font-mono">{{ current_time }}</span>
   </div>
 </div>
+
 
 <!-- METRICS -->
 <div class="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
-  <div class="bg-white border p-5">
-    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Live Presence</div>
-    <div class="text-4xl font-black">{{ present_count }}</div>
-  </div>
-  <div class="bg-white border p-5">
-    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Blocks</div>
-    <div class="text-4xl font-black">{{ blocks|length }}</div>
-  </div>
-  <div class="bg-white border p-5 border-b-4 border-b-red-500">
-    <div class="text-[9px] font-black uppercase tracking-widest text-red-500 mb-3">Absences</div>
-    <div class="text-4xl font-black text-red-600">{{ absentee_count }}</div>
-  </div>
-  <div class="bg-white border p-5 {% if unknown_rfids %}bg-red-50 animate-pulse{% endif %}">
-    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">RFID Alerts</div>
-    <div class="text-4xl font-black {% if unknown_rfids %}text-red-600{% endif %}">
-      {{ unknown_rfids|length }}
+    <div class="bg-white border border-slate-200 p-5 group hover:border-slate-900 transition-all">
+        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">01. Live Presence</div>
+        <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-black tracking-tighter text-slate-900">{{ present_count }}</span>
+            <span class="text-xs font-bold text-blue-600 uppercase">Active</span>
+        </div>
     </div>
-  </div>
-  <div class="bg-white border p-5">
-    <div class="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Invalid Rooms</div>
-    <div class="text-4xl font-black {% if inappropriate_entries %}text-red-600{% else %}text-green-600{% endif %}">
-      {{ inappropriate_entries|length }}
+
+    <div class="bg-white border border-slate-200 p-5">
+        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">02. Blocks Occupied</div>
+        <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-black tracking-tighter text-slate-900">{{ blocks|length }}</span>
+            <span class="text-xs font-bold text-slate-400 uppercase">Sectors</span>
+        </div>
     </div>
-  </div>
+
+    <div class="bg-white border border-slate-200 p-5 border-b-4 border-b-red-500">
+        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4 text-red-500">03. Absences</div>
+        <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-black tracking-tighter text-red-600">{{ absentee_count }}</span>
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200 p-5 {% if unknown_rfids %}bg-red-50/50 animate-pulse{% endif %}">
+        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">04. RFID Alerts</div>
+        <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-black tracking-tighter {% if unknown_rfids %}text-red-600{% endif %}">{{ unknown_rfids|length }}</span>
+            <i class="bi bi-broadcast text-slate-300 text-lg"></i>
+        </div>
+    </div>
+
+    <div class="bg-white border border-slate-200 p-5">
+        <div class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">05. Invalid Room Entries</div>
+        <div class="flex items-baseline gap-2">
+            <span class="text-4xl font-black tracking-tighter {% if inappropriate_entries %}text-red-600{% else %}text-green-600{% endif %}">
+                {{ inappropriate_entries|length }}
+            </span>
+        </div>
+    </div>
 </div>
 
 <!-- BLOCK VISUALIZATION -->
-<div class="bg-slate-50 border p-8 mb-12">
-  <h2 class="text-sm font-black uppercase tracking-widest mb-8">Block Visualization</h2>
+    <div class="lg:col-span-2 bg-slate-50 border border-slate-200 rounded-sm p-8">
+        <div class="flex justify-between items-center mb-10">
+            <div>
+                <h2 class="text-sm font-black uppercase tracking-widest text-slate-900">Block Visualization</h2>
+                <!-- <p class="text-[10px] text-slate-500 font-mono mt-1">REAL_TIME_LOCATION_SERVICES</p> -->
+            </div>
+            <div class="px-3 py-1 bg-white border border-slate-300 text-[9px] font-bold uppercase tracking-tighter">Live Feed</div>
+        </div>
 
-  {% if blocks %}
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200">
-    {% for block in blocks %}
-    <div onclick="openModal('{{ block.location_name }}','{{ block.room_no }}',{{ block.count }})"
-         class="bg-white p-6 hover:bg-slate-900 hover:text-white cursor-pointer group transition-all">
-      <div class="flex justify-between mb-6">
-        <div>
-          <p class="text-[10px] font-black uppercase tracking-widest text-blue-600 group-hover:text-blue-400">
-            {{ block.location_name }}
-          </p>
-          <p class="text-lg font-black">RM_{{ block.room_no }}</p>
+        {% if blocks %}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-px bg-slate-200 border border-slate-200">
+          {% for block in blocks %}
+          <div onclick="openModal('{{block.location_name}}','{{block.room_no}}',{{block.count}})"
+               class="bg-white p-6 hover:bg-slate-900 hover:text-white transition-all cursor-pointer group">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <p class="text-[10px] font-black text-blue-600 uppercase tracking-widest group-hover:text-blue-400">{{ block.location_name }}</p>
+                    <p class="text-lg font-black tracking-tighter">RM_{{ block.room_no }}</p>
+                </div>
+                <div class="text-2xl font-light font-mono opacity-30">{{ loop.index0 + 1 }}</div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="flex-1 h-[2px] bg-slate-100 overflow-hidden">
+                    <div class="h-full bg-blue-600 group-hover:bg-blue-400" style="width: calc({{ block.count }} * 10%)"></div>
+                </div>
+                <span class="text-xs font-black font-mono">{{ block.count }}</span>
+            </div>
+          </div>
+          {% endfor %}
         </div>
-        <div class="opacity-30 font-mono">{{ loop.index }}</div>
-      </div>
-      <div class="flex items-center gap-3">
-        <div class="flex-1 h-1 bg-slate-100">
-          <div class="h-full bg-blue-600" style="width: {{ block.count * 10 }}%"></div>
+        {% else %}
+        <div class="py-20 text-center bg-white border border-dashed border-slate-300">
+            <p class="text-[10px] font-black uppercase tracking-[0.5em] text-slate-400">No telemetry data detected</p>
         </div>
-        <span class="text-xs font-black font-mono">{{ block.count }}</span>
-      </div>
+        {% endif %}
     </div>
-    {% endfor %}
-  </div>
-  {% else %}
-    <p class="text-center text-slate-400 font-bold">No telemetry data</p>
-  {% endif %}
-</div>
 
 <!-- PAYROLL -->
 <div class="bg-white border p-8 mb-12">
-  <p class="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-4">Payroll Distribution</p>
+  <h2 class="text-sm font-black uppercase tracking-widest text-slate-900">Payroll Distribution</h2>
   <div class="h-[300px]">
     <canvas id="payrollChart"></canvas>
   </div>
@@ -112,6 +138,46 @@
     <div id="modalBody" class="p-6"></div>
   </div>
 </div>
+
+<!-- recent attendance sync block  -->
+<div class="bg-white border border-slate-200 mb-12">
+    <div class="p-8 border-b border-slate-100 flex justify-between items-center">
+        <h2 class="text-sm font-black uppercase tracking-widest">Recent Attendance Sync</h2>
+        <button class="text-[10px] font-bold uppercase text-blue-600 hover:underline" onclick="justForFun()">Export CSV</button>
+    </div>
+    <div class="overflow-x-auto">
+        <table class="w-full text-left">
+            <thead class="bg-slate-50 border-b border-slate-100">
+                <tr class="text-[9px] font-black uppercase tracking-[0.2em] text-slate-500">
+                    <th class="px-8 py-4">Full Name</th>
+                    <th class="px-8 py-4">Functional Department</th>
+                    <th class="px-8 py-4 text-right">Utility Hours</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-50">
+                {% for emp in employees %}
+                <tr class="hover:bg-blue-50/30 transition-colors">
+                    <td class="px-8 py-5">
+                        <div class="text-sm font-bold text-slate-900">{{ emp.name }}</div>
+                        <div class="text-[9px] font-mono text-slate-400 uppercase">EID_{{ emp.employee_id }}</div>
+                    </td>
+                    <td class="px-8 py-5">
+                        <span class="px-2 py-1 bg-slate-100 text-[10px] font-bold uppercase tracking-tighter text-slate-600">
+                            {{ emp.department }}
+                        </span>
+                    </td>
+                    <td class="px-8 py-5 text-right font-mono text-sm font-black text-blue-600">
+                        {{ emp.total_hours|default('0.00') }} <span class="text-[10px] text-slate-400">HRS</span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- remove employee block -->
 <div class="bg-red-50/50 border border-red-200 p-8 flex flex-col md:flex-row justify-between items-center gap-6">
     <div>
         <h3 class="text-sm font-black uppercase tracking-widest text-red-600">De-Activate Account</h3>
@@ -125,6 +191,9 @@
         </button>
     </form>
 </div>
+
+
+
 
 <!-- JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -221,6 +290,10 @@ document.addEventListener("DOMContentLoaded", function () {
     }
   });
 });
+
+function justForFun(){
+  window.alert("Buy me lava cake! 😋")
+}
 </script>
 
 
