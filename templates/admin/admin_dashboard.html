@@ -112,6 +112,19 @@
     <div id="modalBody" class="p-6"></div>
   </div>
 </div>
+<div class="bg-red-50/50 border border-red-200 p-8 flex flex-col md:flex-row justify-between items-center gap-6">
+    <div>
+        <h3 class="text-sm font-black uppercase tracking-widest text-red-600">De-Activate Account</h3>
+        <p class="text-xs text-red-500/70 font-medium">Permanently revoke employee access and clear telemetry logs.</p>
+    </div>
+    <form method="post" action="/admin/remove_employee" data-confirm="Revoke Access?" class="flex w-full md:w-auto gap-px shadow-xl">
+        <input class="px-6 py-4 text-xs font-bold bg-white border-2 border-red-600 outline-none w-full md:w-64" 
+               name="employee_id" placeholder="EMPLOYEE_ID" required />
+        <button class="bg-red-600 text-white px-8 py-4 text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all">
+            Remove
+        </button>
+    </form>
+</div>
 
 <!-- JS -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -153,22 +166,62 @@ function closeModal() {
   document.getElementById("modal").classList.add("hidden");
 }
 
-// Payroll chart
-const labels = {{ payroll|map(attribute='name')|list|safe if payroll else [] }};
-const values = {{ payroll|map(attribute='salary')|list|safe if payroll else [] }};
+// // Payroll chart
+// const labels = {{ payroll|map(attribute='name')|list|safe if payroll else [] }};
+// const values = {{ payroll|map(attribute='salary')|list|safe if payroll else [] }};
 
-new Chart(document.getElementById('payrollChart'), {
-  type: 'bar',
-  data: {
-    labels,
-    datasets: [{ data: values, backgroundColor: '#2563eb' }]
-  },
-  options: {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: { legend: { display: false } }
+// new Chart(document.getElementById('payrollChart'), {
+//   type: 'bar',
+//   data: {
+//     labels,
+//     datasets: [{ data: values, backgroundColor: '#2563eb' }]
+//   },
+//   options: {
+//     responsive: true,
+//     maintainAspectRatio: false,
+//     plugins: { legend: { display: false } }
+//   }
+// });
+</script>
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const payrollData = {{ payroll | tojson | safe }};
+
+  if (!payrollData || payrollData.length === 0) {
+    console.warn("No payroll data available");
+    return;
   }
+
+  const labels = payrollData.map(p => p.name);
+  const values = payrollData.map(p => p.net_salary);
+
+  const canvas = document.getElementById("payrollChart");
+  if (!canvas) return;
+
+  new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "Net Salary",
+        data: values,
+        backgroundColor: "#2563eb"
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
 });
 </script>
+
 
 {% endblock %}
