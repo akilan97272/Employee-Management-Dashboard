@@ -2,4 +2,8 @@ __pycache__/
 *.pyc
 .env
 .idea
-.vscode/
+logs/
+*.log
+.pytest_cache/
+.env.localhost
+.env.production

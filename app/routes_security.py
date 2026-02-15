@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import datetime
+import hashlib
+import json
 import os
 import re
 from typing import Optional
@@ -16,7 +18,7 @@ from Security.metrics import get_feature_metrics_snapshot, set_feature_enabled
 from Security.security_config import _env_path, ensure_session_secret
 from app.app_context import get_current_user, templates
 from app.database import get_db
-from app.models import SecurityCertificate, SecurityManagedSetting, User
+from app.models import SecurityCertificate, SecurityEventRecord, SecurityManagedSetting, User
 from app.security_feature_catalog import build_feature_catalog
 from app.security_bootstrap import decrypt_value
 
@@ -228,9 +230,22 @@ def _source_section_from_path(path_value: str) -> str:
 def _is_excluded_auth_event(event: dict) -> bool:
     source = str(event.get("source_section") or "").strip().lower()
     audit_name = str(event.get("audit_event") or "").strip().lower()
+    event_name = str(event.get("event") or "").strip().lower()
+    path_value = str(event.get("path") or "").strip().lower()
+    status_value = str(event.get("status") or "").strip().lower()
     if audit_name in {"auth_login_success", "auth_login_failed", "auth_login_inactive", "auth_logout"}:
         return True
-    return source in {"auth/login", "auth/logout"}
+    if source in {"auth/login", "auth/logout"}:
+        return True
+    if event_name in {"employee login success", "employee logout", "inactive account login blocked"}:
+        return True
+    if status_value == "logged_out":
+        return True
+    if path_value in {"/login", "/logout"}:
+        return True
+    if path_value.endswith("/login") or path_value.endswith("/logout"):
+        return True
+    return False
 
 
 def _timeline_feature_id(etype: str, audit_event: str, source_section: str) -> str:
@@ -248,150 +263,183 @@ def _timeline_feature_id(etype: str, audit_event: str, source_section: str) -> s
     return "audit"
 
 
-def _recent_security_events(db: Session, limit: int = 200) -> list[dict]:
+def _build_event_from_log_line(etype: str, line: str) -> dict:
+    parsed = _parse_kv_payload(line)
+    log_timestamp = _extract_log_timestamp(line)
+    status = parsed.get("status", "").strip()
+    severity = _severity_from_line(line, status=status)
+    user_id_raw = (parsed.get("user_id") or "").strip()
+    request_id = (parsed.get("request_id") or "").strip()
+    ip = (parsed.get("ip") or "").strip()
+    path_value = (parsed.get("path") or "").strip()
+    method = (parsed.get("method") or "").strip()
+    query_value = (parsed.get("query") or "").strip()
+    audit_event = (parsed.get("event") or "").strip()
+    details = (parsed.get("details") or "").strip()
+    detail_pairs = _parse_detail_pairs(details)
+    employee_id_from_details = detail_pairs.get("employee_id", "")
+    role_from_details = detail_pairs.get("role", "")
+
+    if etype == "audit":
+        if audit_event == "auth_login_success":
+            event_name = "Employee Login Success"
+            trigger_reason = "Authentication succeeded"
+            security_control = "authentication + session-security"
+            status_label = "success"
+        elif audit_event == "auth_login_failed":
+            event_name = "Employee Login Failed"
+            trigger_reason = "Authentication failed"
+            security_control = "authentication + brute-force-protection"
+            status_label = "failed"
+        elif audit_event == "auth_login_inactive":
+            event_name = "Inactive Account Login Blocked"
+            trigger_reason = "Inactive account blocked during login"
+            security_control = "authentication + account-status-check"
+            status_label = "blocked"
+        elif audit_event == "auth_logout":
+            event_name = "Employee Logout"
+            trigger_reason = "Session terminated by user logout"
+            security_control = "session-security"
+            status_label = "logged_out"
+        else:
+            event_name = _title_case_event(audit_event)
+            trigger_reason = f"Audit trail: {audit_event}" if audit_event else line[:180]
+            security_control = "audit-trail"
+            status_label = "logged"
+        source_section = _source_section_from_path(path_value) if path_value else "security/audit"
+    else:
+        status_label = status or "-"
+        source_section = _source_section_from_path(path_value)
+        if path_value.startswith("/employee"):
+            event_name = "Employee Dashboard Activity"
+            trigger_reason = f"{method or 'REQ'} {path_value} status={status_label}"
+            security_control = "activity-logging + session-security"
+        elif path_value.startswith("/admin"):
+            event_name = "Admin Security Activity"
+            trigger_reason = f"{method or 'REQ'} {path_value} status={status_label}"
+            security_control = "activity-logging + rbac"
+        else:
+            event_name = "Request Event"
+            trigger_reason = f"{method or 'REQ'} {path_value or 'unknown'} status={status_label}"
+            security_control = "activity-logging"
+
+    fingerprint = hashlib.sha256(f"{etype}|{line}".encode("utf-8", errors="ignore")).hexdigest()
+    event = {
+        "type": etype,
+        "event": event_name,
+        "details": details or line,
+        "severity": severity,
+        "timestamp": log_timestamp,
+        "occurred_at": log_timestamp,
+        "user_id": user_id_raw,
+        "request_id": request_id,
+        "audit_event": audit_event,
+        "trigger_reason": trigger_reason,
+        "rule": security_control,
+        "source_section": source_section,
+        "ip": ip or "-",
+        "status": status_label,
+        "method": method or "-",
+        "path": path_value or "-",
+        "query": query_value or "-",
+        "internal_user_id": user_id_raw or "-",
+        "raw_log": line,
+        "exact_details": (
+            f"{method or '-'} {path_value or '-'}"
+            + (f"?{query_value}" if query_value else "")
+            + f" status={status_label} ip={ip or '-'} request_id={request_id or '-'}"
+        ),
+        "evidence": f"path={path_value or '-'} method={method or '-'}",
+        "hits": "1",
+        "threat_intel": "not_collected",
+        "mitre": "not_mapped",
+        "investigate": f"request_id={request_id or '-'} ip={ip or '-'} path={path_value or '-'}",
+        "feature_id": _timeline_feature_id(etype, audit_event, source_section),
+        "target_tab": "events",
+        "target_anchor": "",
+        "notification_id": fingerprint[:10],
+        "field_sources": {
+            "event": "derived",
+            "type": "captured",
+            "severity": "derived",
+            "status": "captured" if status else "derived",
+            "user": "captured" if user_id_raw else "derived",
+            "user_id": "captured" if user_id_raw else "derived",
+            "role": "derived",
+            "department": "derived",
+            "ip": "captured" if ip else "derived",
+            "method": "captured" if method else "derived",
+            "path": "captured" if path_value else "derived",
+            "query": "captured" if query_value else "derived",
+            "source_section": "derived",
+            "request_id": "captured" if request_id else "derived",
+            "internal_user_id": "captured" if user_id_raw else "derived",
+            "exact_details": "derived",
+            "rule": "derived",
+            "reason": "derived",
+            "evidence": "derived",
+            "raw_log": "captured",
+            "hits": "derived",
+            "threat_intel": "derived",
+            "mitre": "derived",
+            "investigate": "derived",
+            "occurred": "captured",
+            "timestamp": "captured",
+        },
+    }
+    if employee_id_from_details:
+        event["user_id"] = employee_id_from_details
+        event["field_sources"]["user_id"] = "captured"
+    if role_from_details:
+        event["user_role"] = role_from_details
+        event["field_sources"]["role"] = "captured"
+    return event
+
+
+def _ingest_security_events_to_db(db: Session) -> None:
+    existing = {fp for (fp,) in db.query(SecurityEventRecord.fingerprint).all()}
+    added = 0
+    for path, etype in (("logs/security.log", "request"), ("logs/audit.log", "audit")):
+        if not os.path.exists(path):
+            continue
+        with open(path, "r", encoding="utf-8") as fh:
+            lines = [line.strip() for line in fh.readlines() if line.strip()]
+        for line in lines:
+            fingerprint = hashlib.sha256(f"{etype}|{line}".encode("utf-8", errors="ignore")).hexdigest()
+            if fingerprint in existing:
+                continue
+            payload = _build_event_from_log_line(etype, line)
+            db.add(
+                SecurityEventRecord(
+                    source_type=etype,
+                    fingerprint=fingerprint,
+                    payload_json=json.dumps(payload, ensure_ascii=False),
+                )
+            )
+            existing.add(fingerprint)
+            added += 1
+    if added:
+        db.commit()
+
+
+def _recent_security_events(db: Session, limit: int | None = None) -> list[dict]:
     settings = _settings_map(db)
     hide_auth_events = _as_bool(
         settings.get(("audit-trail", "AUDIT_TRAIL_HIDE_AUTH_EVENTS"), os.getenv("AUDIT_TRAIL_HIDE_AUTH_EVENTS")),
         True,
     )
 
+    _ingest_security_events_to_db(db)
+    q = db.query(SecurityEventRecord).order_by(SecurityEventRecord.id.desc())
+    rows = q.all() if limit is None else q.limit(limit).all()
     events: list[dict] = []
-    for path, etype in (("logs/security.log", "request"), ("logs/audit.log", "audit")):
-        if not os.path.exists(path):
-            continue
-        with open(path, "r", encoding="utf-8") as fh:
-            lines = [line.strip() for line in fh.readlines()[-limit:] if line.strip()]
-        for line in lines:
-            parsed = _parse_kv_payload(line)
-            log_timestamp = _extract_log_timestamp(line)
-            status = parsed.get("status", "").strip()
-            severity = _severity_from_line(line, status=status)
-            user_id_raw = (parsed.get("user_id") or "").strip()
-            request_id = (parsed.get("request_id") or "").strip()
-            ip = (parsed.get("ip") or "").strip()
-            path_value = (parsed.get("path") or "").strip()
-            method = (parsed.get("method") or "").strip()
-            query_value = (parsed.get("query") or "").strip()
-            audit_event = (parsed.get("event") or "").strip()
-            details = (parsed.get("details") or "").strip()
-            detail_pairs = _parse_detail_pairs(details)
-            employee_id_from_details = detail_pairs.get("employee_id", "")
-            role_from_details = detail_pairs.get("role", "")
-
-            if etype == "audit":
-                if audit_event == "auth_login_success":
-                    event_name = "Employee Login Success"
-                    trigger_reason = "Authentication succeeded"
-                    security_control = "authentication + session-security"
-                    status_label = "success"
-                elif audit_event == "auth_login_failed":
-                    event_name = "Employee Login Failed"
-                    trigger_reason = "Authentication failed"
-                    security_control = "authentication + brute-force-protection"
-                    status_label = "failed"
-                elif audit_event == "auth_login_inactive":
-                    event_name = "Inactive Account Login Blocked"
-                    trigger_reason = "Inactive account blocked during login"
-                    security_control = "authentication + account-status-check"
-                    status_label = "blocked"
-                elif audit_event == "auth_logout":
-                    event_name = "Employee Logout"
-                    trigger_reason = "Session terminated by user logout"
-                    security_control = "session-security"
-                    status_label = "logged_out"
-                else:
-                    event_name = _title_case_event(audit_event)
-                    trigger_reason = f"Audit trail: {audit_event}" if audit_event else line[:180]
-                    security_control = "audit-trail"
-                    status_label = "logged"
-                source_section = _source_section_from_path(path_value) if path_value else "security/audit"
-            else:
-                status_label = status or "-"
-                source_section = _source_section_from_path(path_value)
-                if path_value.startswith("/employee"):
-                    event_name = "Employee Dashboard Activity"
-                    trigger_reason = f"{method or 'REQ'} {path_value} status={status_label}"
-                    security_control = "activity-logging + session-security"
-                elif path_value.startswith("/admin"):
-                    event_name = "Admin Security Activity"
-                    trigger_reason = f"{method or 'REQ'} {path_value} status={status_label}"
-                    security_control = "activity-logging + rbac"
-                else:
-                    event_name = "Request Event"
-                    trigger_reason = f"{method or 'REQ'} {path_value or 'unknown'} status={status_label}"
-                    security_control = "activity-logging"
-
-            events.append(
-                {
-                    "type": etype,
-                    "event": event_name,
-                    "details": details or line,
-                    "severity": severity,
-                    "timestamp": log_timestamp,
-                    "occurred_at": log_timestamp,
-                    "user_id": user_id_raw,
-                    "request_id": request_id,
-                    "audit_event": audit_event,
-                    "trigger_reason": trigger_reason,
-                    "rule": security_control,
-                    "source_section": source_section,
-                    "ip": ip or "-",
-                    "status": status_label,
-                    "method": method or "-",
-                    "path": path_value or "-",
-                    "query": query_value or "-",
-                    "internal_user_id": user_id_raw or "-",
-                    "raw_log": line,
-                    "exact_details": (
-                        f"{method or '-'} {path_value or '-'}"
-                        + (f"?{query_value}" if query_value else "")
-                        + f" status={status_label} ip={ip or '-'} request_id={request_id or '-'}"
-                    ),
-                    "evidence": f"path={path_value or '-'} method={method or '-'}",
-                    "hits": "1",
-                    "threat_intel": "not_collected",
-                    "mitre": "not_mapped",
-                    "investigate": f"request_id={request_id or '-'} ip={ip or '-'} path={path_value or '-'}",
-                    "feature_id": _timeline_feature_id(etype, audit_event, source_section),
-                    "target_tab": "events",
-                    "target_anchor": "",
-                    "notification_id": str(abs(hash(line)))[:10],
-                    "field_sources": {
-                        "event": "derived",
-                        "type": "captured",
-                        "severity": "derived",
-                        "status": "captured" if status else "derived",
-                        "user": "captured" if user_id_raw else "derived",
-                        "user_id": "captured" if user_id_raw else "derived",
-                        "role": "derived",
-                        "department": "derived",
-                        "ip": "captured" if ip else "derived",
-                        "method": "captured" if method else "derived",
-                        "path": "captured" if path_value else "derived",
-                        "query": "captured" if query_value else "derived",
-                        "source_section": "derived",
-                        "request_id": "captured" if request_id else "derived",
-                        "internal_user_id": "captured" if user_id_raw else "derived",
-                        "exact_details": "derived",
-                        "rule": "derived",
-                        "reason": "derived",
-                        "evidence": "derived",
-                        "raw_log": "captured",
-                        "hits": "derived",
-                        "threat_intel": "derived",
-                        "mitre": "derived",
-                        "investigate": "derived",
-                        "occurred": "captured",
-                        "timestamp": "captured",
-                    },
-                }
-            )
-            if employee_id_from_details:
-                events[-1]["user_id"] = employee_id_from_details
-                events[-1]["field_sources"]["user_id"] = "captured"
-            if role_from_details:
-                events[-1]["user_role"] = role_from_details
-                events[-1]["field_sources"]["role"] = "captured"
+    for row in rows:
+        try:
+            payload = json.loads(row.payload_json or "{}")
+        except json.JSONDecodeError:
+            payload = {}
+        if isinstance(payload, dict) and payload:
+            events.append(payload)
 
     # Backfill missing audit IPs from request log entries with the same request id.
     request_ip_by_id = {
@@ -464,9 +512,7 @@ def _recent_security_events(db: Session, limit: int = 200) -> list[dict]:
     # Optionally hide authentication login/logout events from the security events stream.
     if hide_auth_events:
         events = [e for e in events if not _is_excluded_auth_event(e)]
-
-    events.reverse()
-    return events[:limit]
+    return events if limit is None else events[:limit]
 
 
 def _security_summary(features: list[dict], events: list[dict]) -> dict[str, int | str]:
@@ -594,7 +640,7 @@ def _configuration_rows(db: Session, features: list[dict]) -> tuple[list[dict], 
 async def admin_security_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
     features = _security_features(db)
-    events = _recent_security_events(db)
+    events = _recent_security_events(db, limit=None)
     hash_history = read_hash_history(limit=None)
     hash_history = _enrich_hash_history(db, hash_history)
     configurations, configuration_features = _configuration_rows(db, features)
@@ -641,7 +687,7 @@ async def admin_security_event_detail(
     db: Session = Depends(get_db),
 ):
     _admin_guard(user)
-    events = _recent_security_events(db, limit=1000)
+    events = _recent_security_events(db, limit=None)
     event = next((e for e in events if str(e.get("notification_id", "")) == str(event_id)), None)
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -651,6 +697,32 @@ async def admin_security_event_detail(
             "request": request,
             "user": user,
             "event": event,
+            "current_year": datetime.datetime.utcnow().year,
+        },
+    )
+
+
+@router.get("/admin/security/hash/group/{group_index}", response_class=HTMLResponse)
+async def admin_security_hash_group_detail(
+    group_index: int,
+    request: Request,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _admin_guard(user)
+    hash_history = read_hash_history(limit=None)
+    hash_history = _enrich_hash_history(db, hash_history)
+    hash_groups = _group_hash_history(hash_history)
+    if group_index < 0 or group_index >= len(hash_groups):
+        raise HTTPException(status_code=404, detail="Hash group not found")
+    group = hash_groups[group_index]
+    return templates.TemplateResponse(
+        "admin/admin_security_hash_group_detail.html",
+        {
+            "request": request,
+            "user": user,
+            "group": group,
+            "group_index": group_index,
             "current_year": datetime.datetime.utcnow().year,
         },
     )
@@ -667,7 +739,7 @@ async def admin_security_metrics(user: User = Depends(get_current_user), db: Ses
 async def admin_security_live(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
     features = _security_features(db)
-    events = _recent_security_events(db, limit=500)
+    events = _recent_security_events(db, limit=None)
     summary = _security_summary(features, events)
     return JSONResponse(
         {
@@ -687,10 +759,12 @@ async def prometheus_metrics(user: User = Depends(get_current_user)):
 
 
 @router.post("/admin/security/events/clear")
-async def admin_security_clear_events(user: User = Depends(get_current_user)):
+async def admin_security_clear_events(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
     _clear_log("logs/security.log")
     _clear_log("logs/audit.log")
+    db.query(SecurityEventRecord).delete()
+    db.commit()
     audit("security_events_clear", user_id=user.id, details="security.log,audit.log")
     return JSONResponse({"status": "ok"})
 

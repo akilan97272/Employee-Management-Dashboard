@@ -157,7 +157,7 @@ def _get_employee_context(employee_id: Optional[str], name: str) -> tuple[dict, 
                 "cid": photo_cid,
                 "data": user.photo_blob,
                 "maintype": "image",
-                "subtype": "jpeg"
+                "subtype": (user.photo_mime or "image/jpeg").split("/")[-1]
             })
             employee_photo_url = f"cid:{photo_cid}"
     return {
