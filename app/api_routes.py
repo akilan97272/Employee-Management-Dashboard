@@ -2,7 +2,6 @@ from fastapi import Depends, HTTPException, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-import datetime
 
 from .database import get_db
 from .models import (
@@ -12,6 +11,8 @@ from .models import (
     Room, InappropriateEntry
 )
 from .app_context import get_current_user, create_notification
+from datetime import datetime, date, time, timedelta
+
 
 def register_api_routes(app):
     @app.post("/api/attendance")
@@ -49,8 +50,8 @@ def register_api_routes(app):
                 db.commit()
                 return {"status": "invalid_room", "error": "This room is not registered in the system"}
 
-        today = datetime.date.today()
-        now = datetime.datetime.now()
+        today = date.today()
+        now = datetime.now()
 
         new_log = AttendanceLog(
             user_id=user.id,
@@ -67,7 +68,7 @@ def register_api_routes(app):
 
         if not daily_record:
             status = "PRESENT"
-            if now.time() > datetime.time(9, 30):
+            if now.time() > time(9, 30):
                 status = "LATE"
 
             daily_record = AttendanceDaily(
@@ -114,16 +115,54 @@ def register_api_routes(app):
         db.commit()
         return {"status": status_msg}
 
+
     @app.get("/api/block_persons")
-    async def get_block_persons(location: str, room: str, db: Session = Depends(get_db)):
-        attendances = db.query(Attendance).filter(
+    async def get_block_persons(
+        location: str,
+        room: str,
+        db: Session = Depends(get_db)
+    ):
+        # Today's date
+        today = date.today()
+
+        # Yesterday 11:59:59 PM
+        yesterday_end = datetime.combine(
+            today - timedelta(days=1),
+            time(23, 59, 59)
+        )
+
+        # 1️⃣ Close yesterday's open entries
+        old_attendances = db.query(Attendance).filter(
             Attendance.location_name == location,
             Attendance.room_no == room,
-            Attendance.exit_time.is_(None)
+            Attendance.exit_time.is_(None),
+            Attendance.entry_time < datetime.combine(today, time.min)
         ).all()
-        persons = [{"name": a.user.name} for a in attendances]
+
+        for attendance in old_attendances:
+            attendance.exit_time = yesterday_end
+
+        db.commit()
+
+        # 2️⃣ Get today's active attendances only
+        today_attendances = db.query(Attendance).filter(
+            Attendance.location_name == location,
+            Attendance.room_no == room,
+            Attendance.exit_time.is_(None),
+            Attendance.entry_time >= datetime.combine(today, time.min)
+        ).all()
+
+        persons = [
+            {
+                "name": a.user.name,
+                "employee_id": a.user.employee_id
+            }
+            for a in today_attendances
+        ]
+
         return {"persons": persons}
 
+    
     @app.get("/api/blocks")
     async def get_blocks(db: Session = Depends(get_db)):
         # Only count open attendances (exit_time is NULL) and limit to registered rooms
@@ -136,7 +175,7 @@ def register_api_routes(app):
             .join(Room, (Room.location_name == Attendance.location_name) & (Room.room_no == Attendance.room_no))
             .filter(
                 Attendance.exit_time.is_(None),
-                Attendance.date == datetime.date.today()
+                Attendance.date == date.today()
             )
             .group_by(
                 Attendance.location_name,
@@ -262,7 +301,7 @@ def register_api_routes(app):
 
     @app.get("/api/month-hours")
     async def month_hours(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-        now = datetime.datetime.utcnow()
+        now = datetime.utcnow()
         first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         total = db.query(func.sum(Attendance.duration)).filter(
             Attendance.employee_id == user.employee_id,
@@ -288,7 +327,7 @@ def register_api_routes(app):
 
         upcoming = []
         past = []
-        now = datetime.datetime.now()
+        now = datetime.now()
 
         for meeting in meetings_map.values():
             creator = db.query(User).filter(User.id == meeting.created_by).first()
@@ -305,7 +344,7 @@ def register_api_routes(app):
             if meeting.meeting_datetime:
                 if meeting.meeting_datetime > now:
                     status = "Upcoming"
-                elif meeting.meeting_datetime <= now <= meeting.meeting_datetime + datetime.timedelta(hours=1):
+                elif meeting.meeting_datetime <= now <= meeting.meeting_datetime + timedelta(hours=1):
                     status = "Ongoing"
 
             attendees_q = (
@@ -335,9 +374,9 @@ def register_api_routes(app):
             }
 
             if status == "Completed":
-                past.append((meeting.meeting_datetime or datetime.datetime.min, item))
+                past.append((meeting.meeting_datetime or datetime.min, item))
             else:
-                upcoming.append((meeting.meeting_datetime or datetime.datetime.min, item))
+                upcoming.append((meeting.meeting_datetime or datetime.min, item))
 
         upcoming.sort(key=lambda m: m[0])
         past.sort(key=lambda m: m[0], reverse=True)
