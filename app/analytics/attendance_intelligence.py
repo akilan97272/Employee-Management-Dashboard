@@ -72,7 +72,7 @@ def compute_behavior_metrics(db: Session, df: pd.DataFrame, employee_id: str | N
         user_obj = db.query(User).filter(User.employee_id == employee_id).first()
         if user_obj:
             target_user_id = user_obj.id
-            metrics["leaves_allowed"] = user_obj.paid_leaves_allowed
+            metrics["leaves_allowed"] = int(user_obj.paid_leaves_allowed or 0)
 
     # --- B. Database Counts ---
     cutoff_date = datetime.date.today() - datetime.timedelta(days=30)
@@ -97,26 +97,36 @@ def compute_behavior_metrics(db: Session, df: pd.DataFrame, employee_id: str | N
 
     # --- D. Future Leaves ---
     if employee_id:
-        metrics["leaves_remaining"] = max(0, metrics["leaves_allowed"] - metrics["leave_days"])
+        leaves_allowed = int(metrics.get("leaves_allowed") or 0)
+        leave_days = int(metrics.get("leave_days") or 0)
+        metrics["leaves_remaining"] = max(0, leaves_allowed - leave_days)
         upcoming_reqs = db.query(LeaveRequest).filter(
             LeaveRequest.employee_id == employee_id,
             LeaveRequest.status == 'Approved',
             LeaveRequest.start_date > datetime.date.today()
         ).all()
-        future_days = sum([(req.end_date - req.start_date).days + 1 for req in upcoming_reqs])
+        future_days = sum([
+            ((req.end_date - req.start_date).days + 1)
+            for req in upcoming_reqs
+            if req.start_date is not None and req.end_date is not None
+        ])
         metrics["upcoming_leave_days"] = future_days
         if future_days > 0:
-            metrics["alerts"].append(f"Scheduled for {future_days} days of leave soon")
+            metrics["alerts"].append(f"ℹ️ Scheduled for {future_days} days of leave soon")
     else:
         # Organization View
         all_upcoming = db.query(LeaveRequest).filter(
             LeaveRequest.status == 'Approved',
             LeaveRequest.start_date > datetime.date.today()
         ).all()
-        total_future = sum([(req.end_date - req.start_date).days + 1 for req in all_upcoming])
+        total_future = sum([
+            ((req.end_date - req.start_date).days + 1)
+            for req in all_upcoming
+            if req.start_date is not None and req.end_date is not None
+        ])
         metrics["upcoming_leave_days"] = total_future
         if total_future > 5:
-            metrics["alerts"].append(f"{total_future} total man-days of leave upcoming")
+            metrics["alerts"].append(f"ℹ️ {total_future} total man-days of leave upcoming")
 
     # --- E. Scoring ---
     score = 100
@@ -159,15 +169,12 @@ def detect_attendance_anomalies(df: pd.DataFrame):
         outliers = df[abs(df["z_score"]) > 1.8]
 
         for _, row in outliers.iterrows():
-            reason = (
-                "Shift too long (>12h)" if row["duration"] > 12 else
-                "Shift too short (<4h)" if row["duration"] < 4 else
-                "Unusual duration"
-            )
-
+            reason = "Shift too long (>12h)" if row["duration"] > 12 else \
+                     "Shift too short (<4h)" if row["duration"] < 4 else "Unusual duration"
+            
             anomalies.append({
                 "date": row["date"],
-                "name": row.get("name", "Unknown"),
+                "name": row.get("name", "Unknown"), 
                 "id": row.get("employee_id", ""),
                 "dept": row.get("department", ""),
                 "val": f"{row['duration']:.1f}h",
@@ -182,11 +189,7 @@ def detect_attendance_anomalies(df: pd.DataFrame):
         for _, row in late_entries.iterrows():
             h = int(row["login_hour"])
             m = int((row["login_hour"] % 1) * 60)
-
-            if not any(
-                a["date"] == row["date"] and a["id"] == row["employee_id"]
-                for a in anomalies
-            ):
+            if not any(a['date'] == row['date'] and a['id'] == row['employee_id'] for a in anomalies):
                 anomalies.append({
                     "date": row["date"],
                     "name": row.get("name", "Unknown"),
@@ -198,7 +201,6 @@ def detect_attendance_anomalies(df: pd.DataFrame):
                 })
 
     return sorted(anomalies, key=lambda x: x["date"], reverse=True)[:20]
-
 
 # =========================================================
 # 4. DEPARTMENT STATS
@@ -243,47 +245,31 @@ def compute_department_stats(db: Session):
 # =========================================================
 # 5. LEADERBOARD (FIXED)
 # =========================================================
-# =========================================================
-# 5. LEADERBOARD (FIXED)
-# =========================================================
 def compute_performer_lists(db: Session):
     top, low = [], []
-    users = db.query(User).filter(
-        User.is_active == True,
-        User.role != 'admin'
-    ).all()
-
+    users = db.query(User).filter(User.is_active == True, User.role != 'admin').all()
+    
     df = get_attendance_dataframe(db, days=30)
-
+    
     for user in users:
-        if df.empty:
-            continue
-
-        u_df = df[df["employee_id"] == user.employee_id]
-
-        # 🚫 Never entered office
-        if u_df.empty:
-            continue
-
+        u_df = df[df["employee_id"] == user.employee_id] if not df.empty else pd.DataFrame()
         metrics = compute_behavior_metrics(db, u_df, user.employee_id)
-
-        # 🚫 No present days
+        
+        # --- CRITICAL FIX ---
+        # 1. Skip if 'total_days_analyzed' key is missing (KeyError fix)
+        # 2. Skip if they have ZERO present days (Fixes "Ghost Employee" issue)
+        #    If you have never been present, you shouldn't be on the Top/Low list.
         if metrics.get("present_days", 0) == 0:
             continue
-
+        
         rec = {
-            "name": user.name,
-            "employee_id": user.employee_id,
+            "name": user.name, 
+            "employee_id": user.employee_id, 
             "score": metrics["attendance_score"],
             "dept": user.department
         }
-
-        if metrics["attendance_score"] >= 90:
-            top.append(rec)
-        elif metrics["attendance_score"] < 70:
-            low.append(rec)
-
-    return (
-        sorted(top, key=lambda x: x["score"], reverse=True)[:5],
-        sorted(low, key=lambda x: x["score"])[:5]
-    )
+        
+        if metrics["attendance_score"] >= 90: top.append(rec)
+        elif metrics["attendance_score"] < 70: low.append(rec)
+            
+    return sorted(top, key=lambda x: x["score"], reverse=True)[:5], sorted(low, key=lambda x: x["score"])[:5]

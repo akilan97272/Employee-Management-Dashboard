@@ -1,9 +1,13 @@
-from fastapi import Depends, HTTPException, Form
+from fastapi import Depends, HTTPException, Form, Request
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+import datetime
+import os
 
 from .database import get_db
+from Security.session_security import get_session_timing
+from Security.security_config import SECURITY_SETTINGS
 from .models import (
     Attendance, UnknownRFID, User, AttendanceLog, AttendanceDaily,
     Meeting, ProjectMeetingAssignee, MeetingAttendance, Project, ProjectTask,
@@ -11,10 +15,43 @@ from .models import (
     Room, InappropriateEntry
 )
 from .app_context import get_current_user, create_notification
-from datetime import datetime, date, time, timedelta
+
 
 
 def register_api_routes(app):
+    def _runtime_int(name: str, default: int) -> int:
+        try:
+            return int(os.getenv(name, str(default)))
+        except (TypeError, ValueError):
+            return int(default)
+
+    @app.get("/api/session/timing")
+    async def api_session_timing(request: Request, user=Depends(get_current_user)):
+        session_max_age = _runtime_int("SESSION_MAX_AGE", int(SECURITY_SETTINGS.get("SESSION_MAX_AGE", 600)))
+        session_idle_timeout = _runtime_int("SESSION_IDLE_TIMEOUT", int(SECURITY_SETTINGS.get("SESSION_IDLE_TIMEOUT", 600)))
+        timing = get_session_timing(
+            request,
+            max_age_seconds=session_max_age,
+            idle_timeout_seconds=session_idle_timeout,
+        )
+        return JSONResponse(
+            {
+                "remaining": timing.get("remaining"),
+                "idle_remaining": timing.get("idle_remaining"),
+                "expires_at": timing.get("expires_at"),
+                "idle_expires_at": timing.get("idle_expires_at"),
+                "session_max_age": session_max_age,
+                "session_idle_timeout": session_idle_timeout,
+            }
+        )
+
+    @app.post("/api/session/touch")
+    async def api_session_touch(request: Request, user=Depends(get_current_user)):
+        now_ts = int(datetime.datetime.utcnow().timestamp())
+        request.session.setdefault("_created", now_ts)
+        request.session["_last_seen"] = now_ts
+        return JSONResponse({"status": "ok", "last_seen": now_ts})
+
     @app.post("/api/attendance")
     async def record_attendance(
         rfid_tag: str,
@@ -50,8 +87,8 @@ def register_api_routes(app):
                 db.commit()
                 return {"status": "invalid_room", "error": "This room is not registered in the system"}
 
-        today = date.today()
-        now = datetime.now()
+        today = datetime.date.today()
+        now = datetime.datetime.now()
 
         new_log = AttendanceLog(
             user_id=user.id,
@@ -68,7 +105,7 @@ def register_api_routes(app):
 
         if not daily_record:
             status = "PRESENT"
-            if now.time() > time(9, 30):
+            if now.time() > datetime.time(9, 30):
                 status = "LATE"
 
             daily_record = AttendanceDaily(
@@ -115,54 +152,16 @@ def register_api_routes(app):
         db.commit()
         return {"status": status_msg}
 
-
     @app.get("/api/block_persons")
-    async def get_block_persons(
-        location: str,
-        room: str,
-        db: Session = Depends(get_db)
-    ):
-        # Today's date
-        today = date.today()
-
-        # Yesterday 11:59:59 PM
-        yesterday_end = datetime.combine(
-            today - timedelta(days=1),
-            time(23, 59, 59)
-        )
-
-        # 1️⃣ Close yesterday's open entries
-        old_attendances = db.query(Attendance).filter(
+    async def get_block_persons(location: str, room: str, db: Session = Depends(get_db)):
+        attendances = db.query(Attendance).filter(
             Attendance.location_name == location,
             Attendance.room_no == room,
-            Attendance.exit_time.is_(None),
-            Attendance.entry_time < datetime.combine(today, time.min)
+            Attendance.exit_time.is_(None)
         ).all()
-
-        for attendance in old_attendances:
-            attendance.exit_time = yesterday_end
-
-        db.commit()
-
-        # 2️⃣ Get today's active attendances only
-        today_attendances = db.query(Attendance).filter(
-            Attendance.location_name == location,
-            Attendance.room_no == room,
-            Attendance.exit_time.is_(None),
-            Attendance.entry_time >= datetime.combine(today, time.min)
-        ).all()
-
-        persons = [
-            {
-                "name": a.user.name,
-                "employee_id": a.user.employee_id
-            }
-            for a in today_attendances
-        ]
-
+        persons = [{"name": a.user.name} for a in attendances]
         return {"persons": persons}
 
-    
     @app.get("/api/blocks")
     async def get_blocks(db: Session = Depends(get_db)):
         # Only count open attendances (exit_time is NULL) and limit to registered rooms
@@ -175,7 +174,7 @@ def register_api_routes(app):
             .join(Room, (Room.location_name == Attendance.location_name) & (Room.room_no == Attendance.room_no))
             .filter(
                 Attendance.exit_time.is_(None),
-                Attendance.date == date.today()
+                Attendance.date == datetime.date.today()
             )
             .group_by(
                 Attendance.location_name,
@@ -185,35 +184,38 @@ def register_api_routes(app):
         )
         return {"blocks": [{"location": b.location_name, "room": b.room_no, "count": b.count} for b in blocks]}
 
+    @app.get("/api/inappropriate-entries")
+    async def get_inappropriate_entries(db: Session = Depends(get_db)):
+        """Get list of inappropriate room entries (invalid rooms not in Room table)"""
+        entries = db.query(InappropriateEntry).order_by(InappropriateEntry.timestamp.desc()).limit(50).all()
+        return {
+            "inappropriate_entries": [
+                {
+                    "id": e.id,
+                    "employee_id": e.employee_id,
+                    "rfid_tag": e.rfid_tag,
+                    "location_name": e.location_name,
+                    "room_no": e.room_no,
+                    "reason": e.reason,
+                    "timestamp": e.timestamp.isoformat()
+                }
+                for e in entries
+            ]
+        }
+
+    @app.get("/api/absentees")
+    async def get_absentees(department: str, db: Session = Depends(get_db)):
+        all_employees = db.query(User).filter(User.department == department, User.is_active == True).all()
+        present_employee_ids = db.query(Attendance.employee_id).filter(Attendance.exit_time.is_(None)).distinct().all()
+        present_ids = {p[0] for p in present_employee_ids}
+        absentees = [emp for emp in all_employees if emp.employee_id not in present_ids]
+        return {"absentees": [{"name": emp.name, "employee_id": emp.employee_id} for emp in absentees]}
+
     @app.get("/api/employee_logs")
     async def employee_logs(employee_id: str, db: Session = Depends(get_db)):
-
-        # Subquery: latest Main Gate entry per day
-        subq = (
-            db.query(
-                cast(Attendance.entry_time, Date).label("day"),
-                func.max(Attendance.entry_time).label("last_entry")
-            )
-            .filter(
-                Attendance.employee_id == employee_id,
-                Attendance.location_name == "Main Gate"
-            )
-            .group_by(cast(Attendance.entry_time, Date))
-            .subquery()
-        )
-
-        # Join back to attendance table
-        logs = (
-            db.query(Attendance)
-            .join(
-                subq,
-                Attendance.entry_time == subq.c.last_entry
-            )
-            .order_by(Attendance.entry_time.desc())
-            .limit(10)
-            .all()
-        )
-
+        logs = db.query(Attendance).filter(
+            Attendance.employee_id == employee_id
+        ).order_by(Attendance.entry_time.desc()).limit(10).all()
         return {
             "logs": [
                 {
@@ -226,82 +228,16 @@ def register_api_routes(app):
             ]
         }
 
-    @app.get("/api/absentees")
-    async def get_absentees(department: str, db: Session = Depends(get_db)):
-
-        # All active employees in department
-        all_employees = db.query(User).filter(
-            User.department == department,
-            User.is_active == True
-        ).all()
-
-        # Subquery: latest attendance row per employee
-        latest_attendance_subq = (
-            db.query(
-                Attendance.employee_id,
-                func.max(Attendance.entry_time).label("last_entry")
-            )
-            .group_by(Attendance.employee_id)
-            .subquery()
-        )
-
-        # Join back to attendance table
-        latest_attendance = (
-            db.query(Attendance)
-            .join(
-                latest_attendance_subq,
-                (Attendance.employee_id == latest_attendance_subq.c.employee_id) &
-                (Attendance.entry_time == latest_attendance_subq.c.last_entry)
-            )
-            .all()
-        )
-
-        # Employees currently PRESENT
-        present_ids = {
-            a.employee_id
-            for a in latest_attendance
-            if a.exit_time is None
-        }
-
-        absentees = [
-            emp for emp in all_employees
-            if emp.employee_id not in present_ids
-        ]
-
-        return {
-            "absentees": [
-                {"name": emp.name, "employee_id": emp.employee_id}
-                for emp in absentees
-            ]
-        }
-
-    # @app.get("/api/employee_logs")
-    # async def employee_logs(employee_id: str, db: Session = Depends(get_db)):
-    #     logs = db.query(Attendance).filter(
-    #         Attendance.employee_id == employee_id
-    #     ).order_by(Attendance.entry_time.desc()).limit(10).all()
-    #     return {
-    #         "logs": [
-    #             {
-    #                 "in": a.entry_time.strftime("%H:%M"),
-    #                 "out": a.exit_time.strftime("%H:%M") if a.exit_time else "-",
-    #                 "room": a.room_no,
-    #                 "location": a.location_name
-    #             }
-    #             for a in logs
-    #         ]
-    #     }
-
     @app.get("/api/leave_count")
     async def leave_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
-        pending = db.query(Notification).filter(Notification.title == "Leave request updated").count()
+        pending = db.query(LeaveRequest).filter(LeaveRequest.status == "Pending").count()
         return {"count": pending}
 
     @app.get("/api/month-hours")
     async def month_hours(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-        now = datetime.utcnow()
+        now = datetime.datetime.utcnow()
         first_day = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         total = db.query(func.sum(Attendance.duration)).filter(
             Attendance.employee_id == user.employee_id,
@@ -327,7 +263,7 @@ def register_api_routes(app):
 
         upcoming = []
         past = []
-        now = datetime.now()
+        now = datetime.datetime.now()
 
         for meeting in meetings_map.values():
             creator = db.query(User).filter(User.id == meeting.created_by).first()
@@ -344,7 +280,7 @@ def register_api_routes(app):
             if meeting.meeting_datetime:
                 if meeting.meeting_datetime > now:
                     status = "Upcoming"
-                elif meeting.meeting_datetime <= now <= meeting.meeting_datetime + timedelta(hours=1):
+                elif meeting.meeting_datetime <= now <= meeting.meeting_datetime + datetime.timedelta(hours=1):
                     status = "Ongoing"
 
             attendees_q = (
@@ -374,9 +310,9 @@ def register_api_routes(app):
             }
 
             if status == "Completed":
-                past.append((meeting.meeting_datetime or datetime.min, item))
+                past.append((meeting.meeting_datetime or datetime.datetime.min, item))
             else:
-                upcoming.append((meeting.meeting_datetime or datetime.min, item))
+                upcoming.append((meeting.meeting_datetime or datetime.datetime.min, item))
 
         upcoming.sort(key=lambda m: m[0])
         past.sort(key=lambda m: m[0], reverse=True)
@@ -673,21 +609,3 @@ def register_api_routes(app):
         ).first() is not None
 
         return {"host_joined": host_joined}
-
-    @app.get("/api/departments")
-    async def list_departments(db: Session = Depends(get_db)):
-        departments = (
-            db.query(User.department)
-            .filter(
-                User.department.isnot(None),
-                User.department != "",
-                User.is_active == True
-            )
-            .distinct()
-            .order_by(User.department)
-            .all()
-        )
-
-        return {
-            "departments": [d[0] for d in departments]
-        }
