@@ -22,7 +22,7 @@ python-multipart==0.0.6
 apscheduler==3.10.1
 
 # Validation / Data
-pydantic==2.7.1
+pydantic==1.10.13
 pycountry==24.6.1
 numpy==1.26.4
 pandas==2.1.4
@@ -30,7 +30,13 @@ pandas==2.1.4
 # Reports / Holidays
 reportlab==4.2.2
 holidays==0.55
-
+ 
 # Required for FastAPI and middleware
 starlette==0.27.0
 
+<<<<<<< HEAD
+# Required for FastAPI and middleware
+starlette==0.27.0
+
+=======
+>>>>>>> af99fe0a31ca150f52879d997c73f7e576735816

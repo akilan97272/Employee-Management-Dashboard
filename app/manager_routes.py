@@ -784,6 +784,7 @@ def register_manager_routes(app):
 
         return RedirectResponse("/manager/manage_teams", status_code=303)
 
+<<<<<<< HEAD
     @app.post("/manager/team/member/remove")
     async def remove_team_member(
         team_id: int = Form(...),
@@ -836,6 +837,9 @@ def register_manager_routes(app):
     @app.get("/manager/dashboard", response_class=HTMLResponse)
     async def manager_dashboard(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Manager dashboard has been removed")
+=======
+ 
+>>>>>>> af99fe0a31ca150f52879d997c73f7e576735816
 
     @app.get("/manager/schedule_meeting", response_class=HTMLResponse)
     async def manager_schedule_meeting(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -1189,6 +1193,7 @@ def register_manager_routes(app):
             except (ValueError, TypeError):
                 pass
 
+<<<<<<< HEAD
         form_data = await request.form()
         raw_assignees = form_data.getlist("assignees")
         if not raw_assignees:
@@ -1200,6 +1205,18 @@ def register_manager_routes(app):
                 emp_id = str(emp_id).strip()
                 if not emp_id:
                     continue
+=======
+        # Normalize assignees input: accept comma-separated string or single value
+        assignee_list = []
+        if assignees:
+            if isinstance(assignees, list):
+                assignee_list = [str(a).strip() for a in assignees if str(a).strip()]
+            else:
+                assignee_list = [s.strip() for s in str(assignees).split(',') if s.strip()]
+
+        if assignee_list:
+            for emp_id in assignee_list:
+>>>>>>> af99fe0a31ca150f52879d997c73f7e576735816
                 try:
                     new_task = Task(
                         user_id=emp_id,
@@ -1227,9 +1244,12 @@ def register_manager_routes(app):
                     continue
             db.commit()
             for emp_id in assignee_list:
+<<<<<<< HEAD
                 emp_id = str(emp_id).strip()
                 if not emp_id:
                     continue
+=======
+>>>>>>> af99fe0a31ca150f52879d997c73f7e576735816
                 emp = db.query(User).filter(User.employee_id == emp_id).first()
                 if not emp:
                     continue
