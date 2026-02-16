@@ -1,321 +1,203 @@
 {% extends "common/layout_base.html" %}
 
-{% block page_title %}Projects Management{% endblock %}
+{% block page_title %}Project Matrix | TeamSync Registry{% endblock %}
 
 {% block content %}
+<div class="max-w-[1600px] mx-auto px-6 py-8 animate-in fade-in duration-700">
+
+    <header class="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-6 mb-10 pb-8 border-b border-slate-200/60">
+        <div class="space-y-1">
+            <h1 class="text-6xl font-extrabold text-slate-900 tracking-tight">Project <span class="text-blue-600"> Matrix.</span></h1>
+
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <a href="/manager/manage_teams" class="px-5 py-2.5 bg-white border border-slate-200 text-slate-600 text-xs font-bold rounded-xl hover:bg-slate-50 transition-all shadow-sm flex items-center gap-2">
+                <i class="bi bi-arrow-left-short text-lg"></i> Exit to Console
+            </a>
+        </div>
+    </header>
+
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <div class="lg:col-span-4 space-y-6 lg:sticky lg:top-24">
+            <div class="bg-white rounded-[2rem] border border-slate-200/70 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-250px)]">
+                <div class="p-6 border-b border-slate-100 bg-slate-50/50 space-y-4">
+                    <div class="relative group">
+                        <i class="bi bi-search absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" id="projectSearch" class="w-full bg-white border-slate-200 border pl-11 pr-4 py-3 rounded-2xl text-sm focus:ring-4 focus:ring-blue-50 focus:border-blue-500 outline-none transition-all shadow-sm" placeholder="Search objectives...">
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all filter-tab active" onclick="filterProjects('all')">All</button>
+                        <button class="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all filter-tab" onclick="filterProjects('active')">Active</button>
+                        <button class="flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-lg transition-all filter-tab" onclick="filterProjects('completed')">Closed</button>
+                    </div>
+                </div>
+                
+                <div class="divide-y divide-slate-50 overflow-y-auto custom-scrollbar" id="projectsList">
+                    {% for project in projects %}
+                    <div class="p-6 cursor-pointer hover:bg-blue-50/30 transition-all border-l-4 border-transparent project-option project-card group" 
+                         data-project-id="{{ project.id }}"
+                         data-project-name="{{ project.name }}"
+                         data-project-status="{{ project.status }}">
+                        <div class="flex justify-between items-start mb-3">
+                            <h4 class="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">{{ project.name }}</h4>
+                            <span class="text-[8px] font-black uppercase px-2 py-0.5 rounded {% if project.status == 'active' %}bg-emerald-50 text-emerald-600{% elif project.status == 'completed' %}bg-slate-100 text-slate-500{% else %}bg-amber-50 text-amber-600{% endif %}">
+                                {{ project.status }}
+                            </span>
+                        </div>
+                        <div class="flex items-center gap-4 text-slate-400">
+                           <div class="flex items-center gap-1.5">
+                               <i class="bi bi-layers text-xs"></i>
+                               <span class="text-[10px] font-bold" id="tasks-{{ project.id }}">-</span>
+                           </div>
+                           <div class="flex items-center gap-1.5">
+                               <i class="bi bi-people text-xs"></i>
+                               <span class="text-[10px] font-bold" id="employees-{{ project.id }}">-</span>
+                           </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-8 space-y-8">
+            <div id="noSelectionPanel" class="bg-white rounded-[3rem] border-2 border-dashed border-slate-200 p-24 text-center">
+                <div class="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-300">
+                    <i class="bi bi-window-stack text-4xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-400 uppercase tracking-widest">No Selection</h3>
+                <p class="text-sm text-slate-300 mt-2">Identify a project record from the matrix to initialize the operational view.</p>
+            </div>
+
+            <div id="detailPanel" class="hidden space-y-8 animate-in slide-in-from-right-4 duration-500">
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Task Volume</p>
+                            <p class="text-3xl font-extrabold text-slate-900 mt-1" id="detail-tasks">0</p>
+                        </div>
+                        <i class="bi bi-kanban text-2xl text-blue-100"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Personnel</p>
+                            <p class="text-3xl font-extrabold text-slate-900 mt-1" id="detail-employees">0</p>
+                        </div>
+                        <i class="bi bi-person-check text-2xl text-blue-100"></i>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-slate-200/60 shadow-sm flex items-center justify-between">
+                        <div>
+                            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Lifecycle Stage</p>
+                            <p class="text-xl font-black text-blue-600 mt-2 uppercase tracking-tighter" id="detail-status">--</p>
+                        </div>
+                        <i class="bi bi-diagram-3 text-2xl text-blue-100"></i>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-[2.5rem] border border-slate-200/60 shadow-sm overflow-hidden">
+                    <div class="px-8 py-4 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
+                        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Operational Scope & Briefing</span>
+                        <span id="detail-created" class="text-[9px] font-bold text-slate-400 uppercase"></span>
+                    </div>
+                    <div class="p-8 space-y-6">
+                        <p id="detail-description" class="text-lg font-medium text-slate-700 leading-relaxed"></p>
+                        
+                        <form id="projectDescriptionForm" class="bg-slate-50 p-6 rounded-2xl border border-slate-100 space-y-4">
+                            <label class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Update Operational Dossier</label>
+                            <textarea id="projectDescriptionInput" rows="3" class="w-full px-5 py-4 bg-white border border-slate-200 rounded-xl text-sm font-medium outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 transition-all resize-none" placeholder="Provide strategic context..."></textarea>
+                            <div class="flex items-center justify-between">
+                                <span id="projectDescriptionStatus" class="text-[9px] font-bold text-blue-500 uppercase"></span>
+                                <button type="submit" class="px-6 py-2.5 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-blue-600 transition-all">Save Directive</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 xl:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm flex flex-col">
+                        <div class="px-6 py-4 border-b border-slate-50 font-black text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="bi bi-people-fill text-blue-500"></i> Deployment Roster
+                        </div>
+                        <div class="p-6 space-y-6">
+                            <form id="projectAssignForm" class="space-y-4">
+                                <div class="relative">
+                                    <select id="projectAssignEmployee" class="w-full bg-slate-50 border border-slate-200 px-5 py-3 rounded-xl text-xs font-bold text-slate-700 uppercase outline-none focus:ring-4 focus:ring-blue-50 focus:border-blue-500 appearance-none transition-all cursor-pointer">
+                                        <option value="">Identify Personnel...</option>
+                                        {% for emp in employees %}
+                                          <option value="{{ emp.employee_id }}">{{ emp.name }} [{{ emp.employee_id }}]</option>
+                                        {% endfor %}
+                                    </select>
+                                    <i class="bi bi-chevron-down absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"></i>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span id="projectAssignStatus" class="text-[9px] font-bold text-blue-500 uppercase"></span>
+                                    <button type="submit" class="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition-all shadow-sm">Confirm Deployment</button>
+                                </div>
+                            </form>
+                            <div class="flex flex-wrap gap-2 pt-4" id="detail-employees-list"></div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white rounded-[2rem] border border-slate-200/60 shadow-sm flex flex-col">
+                        <div class="px-6 py-4 border-b border-slate-50 font-black text-[10px] text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <i class="bi bi-journal-check text-blue-500"></i> Deployment Log
+                        </div>
+                        <div class="p-6 space-y-6">
+                            <form id="projectTaskForm" class="space-y-3 bg-slate-50 p-4 rounded-xl border border-slate-100">
+                                <input type="text" id="projectTaskTitle" class="w-full bg-white border border-slate-200 px-4 py-2.5 rounded-lg text-xs font-bold outline-none focus:border-blue-500" placeholder="Objective Title" required>
+                                <textarea id="projectTaskDescription" rows="2" class="w-full bg-white border border-slate-200 px-4 py-2 rounded-lg text-xs font-medium outline-none" placeholder="Description"></textarea>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <input type="date" id="projectTaskDeadline" class="bg-white border border-slate-200 px-3 py-2 rounded-lg text-[10px] font-bold">
+                                    <div class="relative">
+                                        <select id="projectTaskAssignee" class="w-full bg-white border border-slate-200 px-3 py-2 rounded-lg text-[10px] font-bold appearance-none">
+                                            <option value="">Lead (Optional)</option>
+                                            {% for emp in employees %}
+                                              <option value="{{ emp.employee_id }}">{{ emp.name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                        <i class="bi bi-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-slate-300"></i>
+                                    </div>
+                                </div>
+                                <div class="flex items-center justify-between pt-2">
+                                    <span id="projectTaskStatus" class="text-[9px] font-bold text-blue-500 uppercase"></span>
+                                    <button type="submit" class="px-5 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest rounded-lg hover:bg-blue-700 transition-all">Append Task</button>
+                                </div>
+                            </form>
+                            <div id="detail-tasks-list" class="space-y-3 max-h-60 overflow-y-auto custom-scrollbar"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 <style>
-:root {
-  --accent-navy: #0B1127; /* Your exact color match */
-  --bg-main: #f8fafc;
-  --border-color: #e2e8f0;
-  --radius-standard: 0.75rem;
-  --accent-emerald: #10b981;
+/* Refined Scrollbar */
+.custom-scrollbar::-webkit-scrollbar { width: 4px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+
+/* Filter Tabs */
+.filter-tab { background: transparent; color: #94a3b8; border: 1px solid transparent; }
+.filter-tab.active { background: #0f172a; color: white; border-color: #0f172a; }
+
+/* Active Project Styling */
+.project-card.active { 
+    background: #f8fafc; 
+    border-left-color: #4f46e5 !important;
+    box-shadow: inset 0 0 10px rgba(79, 70, 229, 0.05);
 }
 
-body {
-  background-color: var(--bg-main);
-  font-family: 'Inter', system-ui, sans-serif;
-  color: #1e293b;
-}
-
-/* TOP COMMAND BAR - Consistent with Console */
-.command-bar {
-  background: white;
-  border-bottom: 1px solid var(--border-color);
-  padding: 2.5rem 2rem;
-  position: sticky;
-  top: 0;
-  z-index: 40;
-}
-
-.heading-exec {
-  font-size: 3.5rem;
-  font-weight: 900;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  color: var(--accent-navy);
-}
-
-.label-mono {
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: #64748b;
-}
-
-/* ARCHITECTURAL CARDS */
-.exec-card {
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-standard);
-  box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-  transition: all 0.2s ease;
-  overflow: hidden;
-}
-
-/* PROJECT SPECIFIC UI */
-.project-card {
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--border-color);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-left: 4px solid transparent;
-}
-
-.project-card:hover {
-  background: #f8fafc;
-  border-left-color: #cbd5e1;
-}
-
-.project-card.active {
-  background: #f1f5f9;
-  border-left-color: var(--accent-navy);
-}
-
-.project-status {
-  font-size: 0.65rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  padding: 0.25rem 0.75rem;
-  border-radius: 20px;
-  letter-spacing: 0.05em;
-}
-
-.status-active { background: #ecfdf5; color: #059669; }
-.status-completed { background: #f1f5f9; color: var(--accent-navy); }
-.status-pending { background: #fffbeb; color: #d97706; }
-
-/* STAT BOXES */
-.stat-box {
-  padding: 1.5rem;
-  background: white;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-standard);
-  text-align: center;
-}
-
-.stat-value {
-  font-size: 2rem;
-  font-weight: 900;
-  color: var(--accent-navy);
-}
-
-/* BUTTONS */
-.btn-exec {
-  padding: 0.75rem 1.5rem;
-  font-size: 0.85rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  border-radius: var(--radius-standard);
-  transition: all 0.2s ease;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.btn-primary { background: var(--accent-navy); color: white; border: none; }
-.btn-outline { border: 1px solid var(--border-color); background: transparent; color: var(--accent-navy); }
-
-/* TAGS */
 .employee-tag {
-  background: #f1f5f9;
-  color: var(--accent-navy);
-  padding: 0.35rem 0.75rem;
-  border-radius: 6px;
-  font-size: 0.75rem;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-/* SEARCH & FILTERS */
-.search-input {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid var(--border-color);
-  border-radius: var(--radius-standard);
-  font-size: 0.875rem;
-  outline: none;
-}
-
-.search-input:focus {
-  border-color: var(--accent-navy);
-  box-shadow: 0 0 0 2px #e2e8f0;
-}
-
-.filter-tab {
-  font-size: 0.7rem;
-  font-weight: 800;
-  text-transform: uppercase;
-  padding: 0.5rem 1rem;
-  border-radius: 6px;
-  color: #64748b;
-  transition: all 0.2s;
-}
-
-.filter-tab.active {
-  background: var(--accent-navy);
-  color: white;
-}
-
-.reveal-in {
-  animation: slideUp 0.4s ease-out forwards;
-}
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+    background: #f1f5f9;
+    color: #475569;
+    border: 1px solid #e2e8f0;
 }
 </style>
 
-<div class="command-bar flex flex-col lg:flex-row justify-between items-end gap-6">
-    <div>
-        
-        <h1 class="heading-exec">Project Matrix</h1>
-    </div>
-    
-    <div class="flex items-center gap-3 mb-2">
-        <a href="/manager/manage_teams" class="btn-exec btn-outline">← Exit to Console</a>
-    </div>
-</div>
-
-<div class="max-w-[1600px] mx-auto p-8">
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
-    
-    <div class="lg:col-span-4 space-y-6 reveal-in">
-      <div class="exec-card flex flex-col">
-        <div class="p-6 border-b space-y-4">
-          <input type="text" id="projectSearch" class="search-input" placeholder="SEARCH PROJECTS...">
-          <div class="flex gap-2">
-            <button class="filter-tab active" onclick="filterProjects('all')">All</button>
-            <button class="filter-tab" onclick="filterProjects('active')">Active</button>
-            <button class="filter-tab" onclick="filterProjects('completed')">Completed</button>
-          </div>
-        </div>
-        
-        <div class="divide-y overflow-y-auto max-h-[600px]" id="projectsList">
-          {% for project in projects %}
-          <div class="project-card project-option" 
-               data-project-id="{{ project.id }}"
-               data-project-name="{{ project.name }}"
-               data-project-status="{{ project.status }}">
-            <div class="flex justify-between items-start mb-2">
-              <span class="font-bold text-slate-900">{{ project.name }}</span>
-              <div class="flex items-center gap-2">
-                <span class="project-status {% if project.status == 'active' %}status-active{% elif project.status == 'completed' %}status-completed{% else %}status-pending{% endif %}">
-                  {{ project.status }}
-                </span>
-                <form action="/manager/projects/delete" method="POST" data-confirm="Remove project {{ project.name }}?" class="project-remove-form">
-                  <input type="hidden" name="project_id" value="{{ project.id }}">
-                  <button type="submit" class="text-slate-300 hover:text-red-600" aria-label="Remove project {{ project.name }}">
-                    <i class="bi bi-trash"></i>
-                  </button>
-                </form>
-              </div>
-            </div>
-            <div class="flex gap-4">
-               <span class="label-mono text-[10px]">Tasks: <span id="tasks-{{ project.id }}" class="text-slate-900">-</span></span>
-               <span class="label-mono text-[10px]">Personnel: <span id="employees-{{ project.id }}" class="text-slate-900">-</span></span>
-            </div>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-    </div>
-
-    <div class="lg:col-span-8 space-y-6 reveal-in" style="animation-delay: 0.1s">
-      <div id="noSelectionPanel" class="exec-card p-20 text-center">
-        <div class="label-mono opacity-20 text-4xl mb-4">No Project Selected</div>
-        <p class="label-mono">Initialize view by selecting a record from the matrix</p>
-      </div>
-
-      <div id="detailPanel" class="hidden space-y-6">
-        <div class="grid grid-cols-3 gap-6">
-          <div class="stat-box">
-            <div class="label-mono mb-2">Task Volume</div>
-            <div class="stat-value" id="detail-tasks">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="label-mono mb-2">Team Size</div>
-            <div class="stat-value" id="detail-employees">0</div>
-          </div>
-          <div class="stat-box">
-            <div class="label-mono mb-2">Operational State</div>
-            <div id="detail-status" class="font-black uppercase text-xl">--</div>
-          </div>
-        </div>
-
-        <div class="exec-card">
-          <div class="p-4 bg-slate-50 border-b">
-            <span class="label-mono">Operational Scope</span>
-          </div>
-          <div class="p-8 space-y-4">
-            <p id="detail-description" class="text-slate-600 leading-relaxed text-lg"></p>
-            <form id="projectDescriptionForm" class="space-y-3">
-              <label class="label-mono">Update Description</label>
-              <textarea id="projectDescriptionInput" rows="4" class="w-full px-4 py-3 border border-slate-200 outline-none text-sm resize-none" placeholder="Add or update project description..."></textarea>
-              <div class="flex items-center justify-between">
-                <span id="projectDescriptionStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></span>
-                <button type="submit" class="btn-exec btn-primary">Save Description</button>
-              </div>
-            </form>
-            <div id="detail-created" class="mt-2 font-mono text-xs text-slate-400"></div>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="exec-card">
-              <div class="p-4 bg-slate-50 border-b">
-                <span class="label-mono">Deployed Personnel</span>
-              </div>
-              <div class="p-6 space-y-4">
-                <form id="projectAssignForm" class="space-y-3">
-                  <label class="label-mono">Assign Employee</label>
-                  <select id="projectAssignEmployee" class="w-full px-4 py-2 border border-slate-200 text-sm">
-                    <option value="">Select employee</option>
-                    {% for emp in employees %}
-                      <option value="{{ emp.employee_id }}">{{ emp.name }} ({{ emp.employee_id }})</option>
-                    {% endfor %}
-                  </select>
-                  <div class="flex items-center justify-between">
-                    <span id="projectAssignStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></span>
-                    <button type="submit" class="btn-exec btn-primary">Assign</button>
-                  </div>
-                </form>
-                <div class="flex flex-wrap gap-2" id="detail-employees-list"></div>
-              </div>
-            </div>
-
-            <div class="exec-card">
-              <div class="p-4 bg-slate-50 border-b">
-                <span class="label-mono">Deployment Log</span>
-              </div>
-              <div class="p-6 space-y-4">
-                <form id="projectTaskForm" class="space-y-3">
-                  <label class="label-mono">Add Project Task</label>
-                  <input type="text" id="projectTaskTitle" class="w-full px-4 py-2 border border-slate-200 text-sm" placeholder="Task title" required>
-                  <textarea id="projectTaskDescription" rows="3" class="w-full px-4 py-2 border border-slate-200 text-sm resize-none" placeholder="Task description"></textarea>
-                  <input type="date" id="projectTaskDeadline" class="w-full px-4 py-2 border border-slate-200 text-sm">
-                  <select id="projectTaskAssignee" class="w-full px-4 py-2 border border-slate-200 text-sm">
-                    <option value="">Assign to (optional)</option>
-                    {% for emp in employees %}
-                      <option value="{{ emp.employee_id }}">{{ emp.name }} ({{ emp.employee_id }})</option>
-                    {% endfor %}
-                  </select>
-                  <div class="flex items-center justify-between">
-                    <span id="projectTaskStatus" class="text-[10px] font-bold text-slate-400 uppercase tracking-widest"></span>
-                    <button type="submit" class="btn-exec btn-outline">Add Task</button>
-                  </div>
-                </form>
-                <div id="detail-tasks-list"></div>
-              </div>
-            </div>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
 
 
 <script>

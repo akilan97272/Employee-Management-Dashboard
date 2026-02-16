@@ -5,10 +5,10 @@
 {% block content %}
 <style>
     :root {
-        --canvas: #fdfdfd;
+        --canvas: #f8fafc;
         --ink: #020617;
         --slate-900: #0f172a;
-        --indigo-modern: #4f46e5;
+        --blue-modern: #4f46e5;
         --glass-border: rgba(15, 23, 42, 0.08);
         --accent-soft: #f1f5f9;
     }
@@ -60,7 +60,7 @@
     }
 
     .avatar-leader {
-        background: var(--indigo-modern);
+        background: var(--blue-modern);
         color: white;
         box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
     }
@@ -97,7 +97,7 @@
     }
 
     .initiative-card:hover {
-        border-color: var(--indigo-modern);
+        border-color: var(--blue-modern);
         background: #fcfcfd;
         transform: translateY(-2px);
     }
@@ -127,7 +127,7 @@
     }
 
     .btn-exec:hover {
-        background: var(--indigo-modern);
+        background: var(--blue-modern);
         color: white;
         transform: scale(1.02);
     }
@@ -145,10 +145,10 @@
         <div class="space-y-4">
             <div class="flex items-center gap-3">
                 <span class="px-3 py-1 bg-white/10 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-full">Unit Overview</span>
-                <span class="text-indigo-300 text-xs font-mono">CODE: {{ item.team.id|default('TS-01') }}</span>
+                <span class="text-blue-300 text-xs font-mono">CODE: {{ item.team.id|default('TS-01') }}</span>
             </div>
             <h1 class="text-6xl font-black tracking-tight text-white">{{ item.team.name }}</h1>
-            <p class="text-slate-400 text-xl font-light">Lead Division: <span class="text-indigo-200 font-medium">{{ item.team.department }}</span></p>
+            <p class="text-slate-400 text-xl font-light">Lead Division: <span class="text-blue-200 font-medium">{{ item.team.department }}</span></p>
         </div>
 
         <div class="flex items-center gap-8">
@@ -169,7 +169,7 @@
                 <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
                     <span class="h-px w-8 bg-slate-200"></span> Leadership
                 </h3>
-                <div class="studio-card p-6 border-l-4 border-l-indigo-600">
+                <div class="studio-card p-6 border-l-4 border-l-blue-600">
                     {% if item.leader %}
                     <div class="flex items-center gap-4">
                         <div class="avatar-exec avatar-leader">
@@ -177,7 +177,7 @@
                         </div>
                         <div>
                             <h4 class="font-bold text-slate-900 leading-none">{{ item.leader.name }}</h4>
-                            <p class="text-[10px] font-bold text-indigo-600 uppercase tracking-widest mt-2">Team Lead</p>
+                            <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-2">Team Lead</p>
                         </div>
                     </div>
                     {% else %}
@@ -235,7 +235,7 @@
                          data-project-task-items='{{ project_tasks_map.get(project.id, []) | tojson }}'>
                         <div class="flex justify-between items-start mb-6">
                             <span class="text-[8px] font-black tracking-widest uppercase px-3 py-1 bg-slate-100 text-slate-500 rounded-full">{{ project.status }}</span>
-                            <div class="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div class="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                                 </svg>
@@ -247,7 +247,7 @@
                         <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
                             <div class="flex -space-x-2">
                                 <div class="w-7 h-7 rounded-full border-2 border-white bg-slate-100"></div>
-                                <div class="w-7 h-7 rounded-full border-2 border-white bg-indigo-100"></div>
+                                <div class="w-7 h-7 rounded-full border-2 border-white bg-blue-100"></div>
                             </div>
                             <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">{{ project_task_counts.get(project.id, 0) }} LOGS</span>
                         </div>
@@ -305,7 +305,7 @@
 
         <div class="space-y-8">
             <div>
-                <span class="text-[10px] font-black text-indigo-600 uppercase tracking-[0.3em]">Project Focus</span>
+                <span class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">Project Focus</span>
                 <h3 id="projectModalName" class="text-4xl font-black text-slate-900 mt-2"></h3>
                 <p id="projectModalMeta" class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-4"></p>
             </div>
@@ -442,7 +442,7 @@
             ? '<span class="text-[9px] font-black uppercase tracking-widest text-emerald-600">Completed</span>'
             : `
               <button type="button"
-                      class="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800"
+                      class="text-[9px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800"
                       data-task-id="${item.id}"
                       onclick="markProjectTaskComplete(this)">
                 Mark Complete

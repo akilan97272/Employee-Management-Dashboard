@@ -1,318 +1,382 @@
 {% extends "common/layout_base.html" %}
 
-{% block page_title %}Meeting Hub{% endblock %}
+{% block page_title %}Enterprise Meeting Hub{% endblock %}
 
 {% block content %}
 
 <style>
   :root {
-    --brand-primary: #2563eb;
-    --brand-secondary: #475569;
-    --surface-bg: #f8fafc;
-    --card-bg: #ffffff;
-    --text-heading: #0f172a;
-    --text-body: #334155;
-    --text-subtle: #64748b;
-    --border-subtle: #e2e8f0;
-    --border-strong: #cbd5e1;
-    --radius-standard: 6px;
+    --primary: #0f172a;
+    --accent: #2563eb;
+    --accent-glow: rgba(37, 99, 235, 0.15);
+    --surface: #ffffff;
+    --canvas: #f8fafc;
+    --border: #e2e8f0;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
   }
 
   body {
-    background-color: var(--surface-bg);
-    font-family: 'Inter', -apple-system, sans-serif;
-    color: var(--text-body);
-    -webkit-font-smoothing: antialiased;
+    background: var(--canvas);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.01em;
   }
 
+  /* --- LAYOUT --- */
   .hub-shell {
-    display: grid;
-    grid-template-columns: 360px 1fr;
-    min-height: calc(70vh - 12px); /* Adjust based on your nav height */
-    background: var(--surface-bg);
-  }
-
-  /* --- LEFT DRAWER: SCHEDULER --- */
-  .scheduler-drawer {
-    background: var(--card-bg);
-    border-right: 1px solid var(--border-subtle);
-    padding: 2rem;
-    position: sticky;
-    top: 0;
-    height: 65vh;
-  }
-
-  .drawer-title {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: var(--text-heading);
-    letter-spacing: -0.02em;
-    margin-bottom: 1.5rem;
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    gap: 2.5rem;
+    padding: 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 90vh;
   }
 
-  /* --- FORM ELEMENTS: PRECISION --- */
+  /* --- COMMAND SIDEBAR --- */
+  .command-sidebar {
+    flex: 0 0 400px;
+    position: sticky;
+    top: 2rem;
+    height: fit-content;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05);
+  }
+
+  .sidebar-header {
+    margin-bottom: 2rem;
+  }
+
+  .sidebar-header h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: -0.03em;
+  }
+
+  /* --- FORM REFINEMENT --- */
+  .form-group { margin-bottom: 1.5rem; }
+
   .form-label {
     font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-subtle);
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: 0.5rem;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
     display: block;
+    letter-spacing: 0.05em;
   }
 
-  .input-field {
+  .premium-input {
     width: 100%;
-    padding: 0.6rem 0.8rem;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-standard);
-    font-size: 0.9rem;
-    transition: all 0.15s ease;
-    color: var(--text-heading);
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: #f8fafc;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.95rem;
   }
 
-  .input-field:focus {
+  .premium-input:focus {
     outline: none;
-    border-color: var(--brand-primary);
-    ring: 2px solid rgba(37, 99, 235, 0.1);
+    border-color: var(--accent);
+    background: white;
+    box-shadow: 0 0 0 4px var(--accent-glow);
   }
 
-  .btn-submit {
-    background: var(--brand-primary);
-    color: white;
+  .btn-execute {
     width: 100%;
-    padding: 0.75rem;
-    border-radius: var(--radius-standard);
+    padding: 1rem;
+    background: var(--primary);
+    color: white;
+    border-radius: 12px;
     font-weight: 600;
-    font-size: 0.875rem;
-    margin-top: 1rem;
-    transition: background 0.2s;
-  }
-
-  .btn-submit:hover {
-    background: #1d4ed8;
-  }
-
-  /* --- MAIN CONTENT: TIMELINE --- */
-  .content-area {
-    padding: 2.5rem 3rem;
-    max-width: 1000px;
-  }
-
-  .page-header {
-    margin-bottom: 2rem;
-    border-bottom: 1px solid var(--border-subtle);
-    padding-bottom: 1.5rem;
-  }
-
-  .meeting-row {
-    background: var(--card-bg);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-standard);
-    padding: 1.25rem;
-    margin-bottom: 0.75rem;
-    display: grid;
-    grid-template-columns: 120px 1fr auto;
-    align-items: center;
-    transition: border-color 0.2s;
-  }
-
-  .meeting-row:hover {
-    border-color: var(--border-strong);
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-  }
-
-  .time-col {
-    font-family: 'JetBrains Mono', monospace; /* Professional look for digits */
-    font-size: 0.85rem;
-    color: var(--brand-primary);
-    font-weight: 600;
-  }
-
-  .info-col h3 {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-heading);
-    margin: 0;
-  }
-
-  .info-col .meta {
-    font-size: 0.8rem;
-    color: var(--text-subtle);
     display: flex;
-    gap: 1rem;
-    margin-top: 0.25rem;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    transition: transform 0.2s, background 0.2s;
+    border: none;
+    cursor: pointer;
   }
 
-  /* --- STATUS INDICATORS --- */
-  .status-tag {
+  .btn-execute:hover {
+    background: #000;
+    transform: translateY(-2px);
+  }
+
+  /* --- TIMELINE FEED --- */
+  .timeline-feed { flex: 1; }
+
+  .feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+  }
+
+  .feed-title {
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--primary);
+  }
+
+  .session-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.25rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 2rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+  }
+
+  .session-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 20px 40px -15px rgba(0,0,0,0.1);
+    border-color: var(--accent);
+  }
+
+  .time-block {
+    text-align: center;
+    padding-right: 2rem;
+    border-right: 2px solid var(--canvas);
+  }
+
+  .time-main {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--accent);
+  }
+
+  .time-sub {
     font-size: 0.7rem;
     font-weight: 700;
-    padding: 2px 8px;
-    border-radius: 4px;
+    color: var(--text-muted);
     text-transform: uppercase;
   }
 
-  .status-scheduled { background: #dcfce7; color: #166534; }
-  .status-past { background: #f1f5f9; color: #475569; }
-
-  .action-btn {
-    padding: 0.5rem;
-    color: var(--text-subtle);
-    border-radius: 4px;
-    transition: all 0.2s;
+  .title-area h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
   }
 
-  .action-btn:hover {
-    background: var(--surface-bg);
-    color: var(--brand-primary);
+  .tag-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
   }
 
-  /* --- MODAL: CLEAN & FORMAL --- */
+  .tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.8rem;
+    border-radius: 99px;
+    background: var(--canvas);
+    color: var(--text-muted);
+  }
+
+  .tag-accent {
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
+
+  /* --- MODAL DESIGN --- */
   .modal-overlay {
-    background: rgba(15, 23, 42, 0.4);
-    backdrop-filter: blur(2px);
+    backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.3);
   }
 
-  .modal-box {
+  .modal-window {
     background: white;
-    border-radius: 8px;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-    max-width: 600px;
-    width: 90%;
+    border-radius: 32px;
+    width: 100%;
+    max-width: 650px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25);
+    animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
   }
+
+  @keyframes modalPop {
+    from { transform: scale(0.9) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
+
+  .modal-hero {
+    background: var(--primary);
+    padding: 3rem;
+    color: white;
+  }
+
+  .modal-body { padding: 3rem; }
+
 </style>
 
 <div class="hub-shell">
-  <aside class="scheduler-drawer">
-    <div class="drawer-title">
-      <i class="bi bi-calendar-plus"></i>
-      Schedule Meeting
+  <aside class="command-sidebar">
+    <div class="sidebar-header">
+      <h2>Scheduler</h2>
+      <p class="text-sm text-slate-400">Deploy a new team synchronization</p>
     </div>
-    
+
     <form action="/manager/create_meeting" method="POST">
-      <div class="mb-4">
-        <label class="form-label">Title</label>
-        <input type="text" name="title" class="input-field" placeholder="Technical Sync..." required>
+      <div class="form-group">
+        <label class="form-label">Subject</label>
+        <input type="text" name="title" class="premium-input" placeholder="Sprint Planning..." required>
       </div>
 
-      <div class="mb-4">
-        <label class="form-label">Project Association</label>
-        <select name="project_id" class="input-field">
-          <option value="">Internal / General</option>
+      <div class="form-group">
+        <label class="form-label">Project Domain</label>
+        <select name="project_id" class="premium-input">
+          <option value="">Internal Systems</option>
           {% for p in projects %}
           <option value="{{ p.id }}">{{ p.name }}</option>
           {% endfor %}
         </select>
       </div>
 
-      <div class="mb-4">
-        <label class="form-label">Schedule</label>
-        <input type="datetime-local" name="meeting_datetime" class="input-field" required>
+      <div class="form-group">
+        <label class="form-label">Timestamp</label>
+        <input type="datetime-local" name="meeting_datetime" class="premium-input" required>
       </div>
 
-      <div class="mb-6">
-        <label class="form-label">Invitees</label>
+      <div class="form-group">
+        <label class="form-label">Collaborators</label>
         <div class="relative">
-          <input id="meetingAssigneeSearch" type="text" class="input-field" placeholder="Search team members...">
-          <div id="meetingAssigneeCards" class="hidden absolute w-full mt-1 bg-white border border-slate-300 rounded shadow-lg z-50 max-h-40 overflow-y-auto"></div>
+          <input id="meetingAssigneeSearch" type="text" class="premium-input" placeholder="Type name...">
+          <div id="meetingAssigneeCards" class="hidden absolute w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto"></div>
         </div>
         <input type="hidden" id="meetingAssignees" name="assignees">
       </div>
 
-      <div class="p-3 bg-slate-50 border border-slate-200 rounded mb-6">
-        <div class="flex justify-between items-center mb-1">
-          <span class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Conference URL</span>
-          <button id="regenerateMeetingLink" type="button" class="text-[10px] text-blue-600 font-bold hover:underline">Regenerate</button>
-        </div>
-        <input id="meetingLinkPreview" type="text" class="w-full bg-transparent text-xs font-mono text-slate-600 border-none p-0 overflow-hidden" readonly>
-      </div>
-
-      <button type="submit" class="btn-submit">Confirm Session</button>
+      <button type="submit" class="btn-execute">
+        <i class="bi bi-send-fill"></i>
+        <span>Confirm Session</span>
+      </button>
     </form>
   </aside>
 
-  <main class="content-area">
-    <div class="page-header">
-      <h1 class="text-2xl font-bold text-slate-900">Active Timeline</h1>
-      <p class="text-slate-500 text-sm">Overview of upcoming and recent team sessions.</p>
-    </div>
+  <main class="timeline-feed">
+    <header class="feed-header">
+      <h1 class="feed-title ">Active <span class="text-blue-600">Timeline.</span></h1>
+      <div class="flex items-center gap-3">
+        <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Updates</span>
+      </div>
+    </header>
 
-    <div class="timeline-wrapper">
-      {% for meeting in meetings %}
-      <div class="meeting-row meeting-card"
-           data-title="{{ meeting.title | e }}"
-           data-datetime="{{ meeting.meeting_datetime | e }}"
-           data-project="{{ meeting.project_name | e }}"
-           data-description="{{ meeting.description | e }}"
-           data-link="{{ meeting.meeting_link | e }}"
-           data-organizer="{{ meeting.organizer | e }}">
-        
-        <div class="time-col">
-          {{ meeting.meeting_datetime.split(' ')[1] if ' ' in meeting.meeting_datetime else meeting.meeting_datetime }}
-        </div>
+    {% for meeting in meetings %}
+    <div class="session-card"
+         onclick="openDetail(this)"
+         data-title="{{ meeting.title | e }}"
+         data-datetime="{{ meeting.meeting_datetime | e }}"
+         data-project="{{ meeting.project_name | e }}"
+         data-description="{{ meeting.description | e }}"
+         data-link="{{ meeting.meeting_link | e }}"
+         data-organizer="{{ meeting.organizer | e }}">
+      
+      <div class="time-block">
+        <div class="time-main">{{ meeting.meeting_datetime.split(' ')[1] if ' ' in meeting.meeting_datetime else meeting.meeting_datetime }}</div>
+        <div class="time-sub">EST / Local</div>
+      </div>
 
-        <div class="info-col">
-          <h3>{{ meeting.title }}</h3>
-          <div class="meta">
-            <span class="status-tag status-scheduled">{{ meeting.status }}</span>
-            <span><i class="bi bi-folder2 mr-1"></i> {{ meeting.project_name }}</span>
-            <span><i class="bi bi-person-circle mr-1"></i> {{ meeting.organizer }}</span>
-          </div>
-        </div>
-
-        <div class="flex gap-2">
-          {% if meeting.meeting_link %}
-          <a href="{{ meeting.meeting_link }}" target="_blank" class="action-btn" title="Launch Video">
-            <i class="bi bi-camera-video"></i>
-          </a>
-          {% endif %}
-          <button class="action-btn open-details">
-            <i class="bi bi-three-dots-vertical"></i>
-          </button>
+      <div class="title-area">
+        <h3>{{ meeting.title }}</h3>
+        <div class="tag-group">
+          <span class="tag tag-accent"><i class="bi bi-diagram-3 mr-1"></i> {{ meeting.project_name }}</span>
+          <span class="tag"><i class="bi bi-person-badge mr-1"></i> {{ meeting.organizer }}</span>
         </div>
       </div>
-      {% else %}
-      <div class="text-center py-20 bg-slate-50 rounded border border-dashed border-slate-300">
-        <p class="text-slate-400 text-sm">No meeting records found.</p>
+
+      <div class="action-area">
+        {% if meeting.meeting_link %}
+        <a href="{{ meeting.meeting_link }}" target="_blank" onclick="event.stopPropagation()" class="h-12 w-12 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-900 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all">
+          <i class="bi bi-camera-video-fill"></i>
+        </a>
+        {% endif %}
       </div>
-      {% endfor %}
     </div>
+    {% else %}
+    <div class="flex flex-col items-center justify-center py-32 opacity-40">
+      <i class="bi bi-cloud-slash text-6xl mb-4"></i>
+      <p class="font-bold">No sessions active</p>
+    </div>
+    {% endfor %}
   </main>
 </div>
 
-<div id="meetingDetailModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4">
-  <div class="absolute inset-0 modal-overlay" id="meetingDetailBackdrop"></div>
-  <div class="relative modal-box overflow-hidden">
-    <div class="bg-slate-900 p-6 text-white flex justify-between items-center">
-      <h2 class="text-lg font-semibold" id="detailTitle">Session Details</h2>
-      <button id="closeMeetingDetail" class="text-slate-400 hover:text-white">
-        <i class="bi bi-x-lg"></i>
-      </button>
-    </div>
-    <div class="p-6">
-      <div class="mb-6">
-        <label class="form-label">Agenda</label>
-        <p class="text-sm text-slate-700" id="detailDescription"></p>
+<div id="meetingDetailModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4 modal-overlay">
+  <div class="absolute inset-0" id="meetingDetailBackdrop"></div>
+  <div class="modal-window">
+    <div class="modal-hero">
+      <div class="flex justify-between items-start mb-8">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Meeting Analytics</span>
+        <button id="closeMeetingDetail" class="text-white opacity-40 hover:opacity-100 transition-opacity">
+          <i class="bi bi-x-lg text-xl"></i>
+        </button>
       </div>
-      <div class="grid grid-cols-2 gap-8 border-t pt-6">
+      <h2 id="detailTitle" class="text-4xl font-black tracking-tighter mb-2"></h2>
+      <div id="detailMeta" class="text-blue-400 font-bold text-sm"></div>
+    </div>
+    <div class="modal-body">
+      <label class="form-label">Objective</label>
+      <p id="detailDescription" class="text-lg text-slate-600 leading-relaxed mb-8"></p>
+      
+      <div class="grid grid-cols-2 gap-8 border-t border-slate-100 pt-8">
         <div>
-          <label class="form-label">Meeting URL</label>
-          <a id="detailLink" href="#" target="_blank" class="text-sm text-blue-600 hover:underline truncate block"></a>
+          <label class="form-label">Organizer</label>
+          <div id="detailOrganizer" class="font-bold text-slate-900"></div>
         </div>
         <div>
-          <label class="form-label">Meta Information</label>
-          <p class="text-sm font-medium" id="detailMeta"></p>
+          <label class="form-label">Digital Venue</label>
+          <a id="detailLink" href="#" target="_blank" class="text-blue-600 font-bold hover:underline block truncate"></a>
         </div>
       </div>
     </div>
   </div>
 </div>
 
+<script>
+  function openDetail(card) {
+    const data = card.dataset;
+    document.getElementById('detailTitle').textContent = data.title;
+    document.getElementById('detailMeta').textContent = `${data.datetime} | ${data.project}`;
+    document.getElementById('detailDescription').textContent = data.description || "No agenda specified for this session.";
+    document.getElementById('detailOrganizer').textContent = data.organizer;
+    
+    const linkEl = document.getElementById('detailLink');
+    linkEl.textContent = data.link ? "Join via Virtual Terminal" : "No link available";
+    linkEl.href = data.link || "#";
 
+    const modal = document.getElementById('meetingDetailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeDetail() {
+    document.getElementById('meetingDetailModal').classList.add('hidden');
+    document.getElementById('meetingDetailModal').classList.remove('flex');
+  }
+
+  document.getElementById('closeMeetingDetail').onclick = closeDetail;
+  document.getElementById('meetingDetailBackdrop').onclick = closeDetail;
+
+  // Initialize Date Minimums
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.querySelectorAll('input[type="datetime-local"]').forEach(i => i.min = now.toISOString().slice(0,16));
+</script>
 
 
 <script>
