@@ -40,11 +40,12 @@
     <div class="lg:col-span-4 space-y-6">
       <div class="flex items-center justify-between border-b border-slate-900 pb-3">
         <h3 class="text-xs font-black uppercase tracking-widest text-slate-900">Absentee Registry</h3>
-        <select id="departmentSelect" class="bg-transparent border-none text-[10px] font-bold uppercase tracking-wider text-slate-500 focus:ring-0 cursor-pointer">
-          <option value="IT">Engineering</option>
-          <option value="HR">People Ops</option>
-          <option value="Finance">Accounting</option>
-        </select>
+          <select id="departmentSelect"
+            class="bg-white border border-slate-300 px-3 py-2
+                  text-[10px] font-bold uppercase tracking-wider
+                  text-slate-700 focus:ring-0 cursor-pointer">
+          </select>
+
       </div>
 
       <div class="max-h-[600px] overflow-y-auto custom-scrollbar">
@@ -131,6 +132,28 @@
 </style>
 
 <script>
+  
+function loadDepartments() {
+  fetch("/api/departments")
+    .then(r => r.json())
+    .then(data => {
+      const select = document.getElementById("departmentSelect");
+      select.innerHTML = "";
+
+      data.departments.forEach(dep => {
+        const option = document.createElement("option");
+        option.value = dep;
+        option.textContent = dep;
+        select.appendChild(option);
+      });
+
+      // Auto-load absentees for first department
+      if (data.departments.length > 0) {
+        loadAbsentees();
+      }
+    });
+}
+  
 function loadAbsentees(){
   let dept = document.getElementById("departmentSelect").value;
   fetch(`/api/absentees?department=${dept}`)

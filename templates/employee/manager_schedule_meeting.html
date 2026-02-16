@@ -297,6 +297,9 @@
           <span class="tag tag-accent"><i class="bi bi-diagram-3 mr-1"></i> {{ meeting.project_name }}</span>
           <span class="tag"><i class="bi bi-person-badge mr-1"></i> {{ meeting.organizer }}</span>
         </div>
+        {% else %}
+        <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No meetings scheduled yet.</div>
+        {% endfor %}
       </div>
 
       <div class="action-area">
@@ -343,6 +346,26 @@
           <a id="detailLink" href="#" target="_blank" class="text-blue-600 font-bold hover:underline block truncate"></a>
         </div>
       </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="border rounded-xl p-4 bg-emerald-50/60">
+          <div class="label">Attended</div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-medium scroll-box" id="detailAttended"></div>
+            <button type="button" class="mono" id="viewAttendedBtn">View all</button>
+          </div>
+        </div>
+        <div class="border rounded-xl p-4 bg-rose-50/60">
+          <div class="label">Not Attended</div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-medium scroll-box" id="detailNotAttended"></div>
+            <button type="button" class="mono" id="viewNotAttendedBtn">View all</button>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="label">Meeting Link</div>
+        <a id="detailLink" href="#" target="_blank" class="text-sm text-emerald-700 font-semibold hover:underline break-all"></a>
+      </div>
     </div>
   </div>
 </div>
@@ -380,32 +403,12 @@
 
 
 <script>
-// Meeting Detail Event Listeners
-const meetingCardsList = Array.from(document.querySelectorAll('.meeting-card'));
 const meetingSearch = document.getElementById('meetingAssigneeSearch');
 const meetingCards = document.getElementById('meetingAssigneeCards');
 const meetingAssigneesInput = document.getElementById('meetingAssignees');
 const selectedIds = new Set();
 let searchTimer = null;
 
-// Modal elements
-const detailModal = document.getElementById('meetingDetailModal');
-const detailBackdrop = document.getElementById('meetingDetailBackdrop');
-const detailClose = document.getElementById('closeMeetingDetail');
-const meetingListModal = document.getElementById('meetingListModal');
-const meetingListBackdrop = document.getElementById('meetingListBackdrop');
-const meetingListClose = document.getElementById('closeMeetingList');
-const meetingListTitle = document.getElementById('meetingListTitle');
-const meetingListItems = document.getElementById('meetingListItems');
-const viewAssigneesBtn = document.getElementById('viewAssigneesBtn');
-const viewAttendedBtn = document.getElementById('viewAttendedBtn');
-const viewNotAttendedBtn = document.getElementById('viewNotAttendedBtn');
-
-let currentAssignees = [];
-let currentAttended = [];
-let currentNotAttended = [];
-
-// Render meeting search results
 function renderMeetingResults(items) {
   if (!meetingCards) return;
   meetingCards.innerHTML = '';
@@ -415,18 +418,17 @@ function renderMeetingResults(items) {
   }
   items.forEach(emp => {
     const card = document.createElement('div');
-    card.className = 'assignee-card meeting-assignee-card p-3 hover:bg-slate-50 cursor-pointer rounded border border-slate-200 flex justify-between items-center';
+    card.className = 'assignee-card meeting-assignee-card';
     card.dataset.empId = emp.employee_id;
     card.dataset.empName = emp.name;
     if (selectedIds.has(emp.employee_id)) {
-      card.classList.add('active', 'bg-blue-50');
+      card.classList.add('active');
     }
 
     const left = document.createElement('div');
-    left.className = 'text-sm font-medium';
-    left.innerHTML = `${emp.name} <span class="text-xs text-slate-400">#${emp.employee_id}</span>`;
+    left.innerHTML = `${emp.name} <span class="mono">#${emp.employee_id}</span>`;
     const check = document.createElement('div');
-    check.className = 'assignee-check text-blue-600' + (selectedIds.has(emp.employee_id) ? '' : ' hidden');
+    check.className = 'assignee-check' + (selectedIds.has(emp.employee_id) ? '' : ' hidden');
     check.textContent = '✓';
 
     card.appendChild(left);
@@ -436,11 +438,11 @@ function renderMeetingResults(items) {
       const id = emp.employee_id;
       if (selectedIds.has(id)) {
         selectedIds.delete(id);
-        card.classList.remove('active', 'bg-blue-50');
+        card.classList.remove('active');
         check.classList.add('hidden');
       } else {
         selectedIds.add(id);
-        card.classList.add('active', 'bg-blue-50');
+        card.classList.add('active');
         check.classList.remove('hidden');
       }
       meetingAssigneesInput.value = Array.from(selectedIds).join(',');
@@ -451,19 +453,12 @@ function renderMeetingResults(items) {
   meetingCards.classList.remove('hidden');
 }
 
-// Fetch participants from server
 async function fetchParticipants(term) {
-  try {
-    const response = await fetch(`/manager/participant_search?q=${encodeURIComponent(term)}`);
-    if (!response.ok) return [];
-    return await response.json();
-  } catch (err) {
-    console.error('Error fetching participants:', err);
-    return [];
-  }
+  const response = await fetch(`/manager/participant_search?q=${encodeURIComponent(term)}`);
+  if (!response.ok) return [];
+  return await response.json();
 }
 
-// Setup search listener
 if (meetingSearch) {
   meetingSearch.addEventListener('input', () => {
     const term = meetingSearch.value.trim();
@@ -471,7 +466,9 @@ if (meetingSearch) {
       meetingCards.classList.add('hidden');
       return;
     }
-    if (searchTimer) clearTimeout(searchTimer);
+    if (searchTimer) {
+      clearTimeout(searchTimer);
+    }
     searchTimer = setTimeout(async () => {
       const results = await fetchParticipants(term);
       renderMeetingResults(Array.isArray(results) ? results : []);
@@ -479,7 +476,6 @@ if (meetingSearch) {
   });
 }
 
-// Generate unique meeting link
 function generateMeetingLink() {
   const base = 'https://meet.jit.si/';
   const timestamp = Date.now().toString(36);
@@ -488,7 +484,6 @@ function generateMeetingLink() {
   return { room, link: `${base}${room}` };
 }
 
-// Initialize meeting link on page load
 const meetingLinkPreview = document.getElementById('meetingLinkPreview');
 const meetingLinkInput = document.getElementById('meetingLinkInput');
 const meetingRoomInput = document.getElementById('meetingRoomInput');
@@ -506,13 +501,49 @@ if (regenerateBtn) {
   regenerateBtn.addEventListener('click', refreshMeetingLink);
 }
 
-// Set minimum date/time to today
 const today = new Date().toISOString().split('T')[0];
 document.querySelectorAll('input[type="date"], input[type="datetime-local"]').forEach(input => {
   input.min = input.type === 'date' ? today : today + 'T00:00';
 });
 
-// Parse comma-separated list strings
+const filterButtons = Array.from(document.querySelectorAll('[data-filter]'));
+const meetingCardsList = Array.from(document.querySelectorAll('.meeting-card'));
+
+function applyFilter(status) {
+  meetingCardsList.forEach(card => {
+    const cardStatus = card.dataset.status || '';
+    if (status === 'all' || cardStatus === status) {
+      card.style.display = '';
+    } else {
+      card.style.display = 'none';
+    }
+  });
+}
+
+filterButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    filterButtons.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyFilter(btn.dataset.filter || 'all');
+  });
+});
+
+const detailModal = document.getElementById('meetingDetailModal');
+const detailBackdrop = document.getElementById('meetingDetailBackdrop');
+const detailClose = document.getElementById('closeMeetingDetail');
+const meetingListModal = document.getElementById('meetingListModal');
+const meetingListBackdrop = document.getElementById('meetingListBackdrop');
+const meetingListClose = document.getElementById('closeMeetingList');
+const meetingListTitle = document.getElementById('meetingListTitle');
+const meetingListItems = document.getElementById('meetingListItems');
+const viewAssigneesBtn = document.getElementById('viewAssigneesBtn');
+const viewAttendedBtn = document.getElementById('viewAttendedBtn');
+const viewNotAttendedBtn = document.getElementById('viewNotAttendedBtn');
+
+let currentAssignees = [];
+let currentAttended = [];
+let currentNotAttended = [];
+
 function parseList(value) {
   return (value || '')
     .split(',')
@@ -520,21 +551,19 @@ function parseList(value) {
     .filter(Boolean);
 }
 
-// Summarize long lists
 function summarizeList(list) {
   if (!list.length) return '-';
   if (list.length <= 2) return list.join(', ');
   return `${list[0]}, ${list[1]} +${list.length - 2}`;
 }
 
-// Open list modal
 function openListModal(title, list) {
   if (!meetingListModal || !meetingListItems || !meetingListTitle) return;
   meetingListTitle.textContent = title;
   meetingListItems.innerHTML = '';
   if (!list.length) {
     const li = document.createElement('li');
-    li.className = 'text-slate-400 italic p-3';
+    li.className = 'text-slate-400 italic';
     li.textContent = 'No participants.';
     meetingListItems.appendChild(li);
   } else {
@@ -549,21 +578,17 @@ function openListModal(title, list) {
   meetingListModal.classList.add('flex');
 }
 
-// Open meeting detail modal
 function openDetail(card) {
   document.getElementById('detailTitle').textContent = card.dataset.title || '-';
   document.getElementById('detailMeta').textContent = `${card.dataset.datetime || ''} · ${card.dataset.project || ''}`.trim();
-  document.getElementById('detailDescription').textContent = card.dataset.description || 'No agenda provided.';
+  document.getElementById('detailDescription').textContent = card.dataset.description || '-';
   document.getElementById('detailOrganizer').textContent = card.dataset.organizer || '-';
-  
   currentAssignees = parseList(card.dataset.assignees);
   currentAttended = parseList(card.dataset.attended);
   currentNotAttended = parseList(card.dataset.notAttended);
-  
   document.getElementById('detailAssignees').textContent = summarizeList(currentAssignees);
   document.getElementById('detailAttended').textContent = summarizeList(currentAttended);
   document.getElementById('detailNotAttended').textContent = summarizeList(currentNotAttended);
-  
   const link = card.dataset.link || '';
   const linkEl = document.getElementById('detailLink');
   linkEl.textContent = link || '-';
@@ -573,41 +598,24 @@ function openDetail(card) {
   } else {
     linkEl.classList.remove('pointer-events-none');
   }
-  
   detailModal.classList.remove('hidden');
   detailModal.classList.add('flex');
 }
 
-// Close meeting detail modal
 function closeDetail() {
   detailModal.classList.add('hidden');
   detailModal.classList.remove('flex');
 }
 
-// Close list modal
 function closeListModal() {
   meetingListModal.classList.add('hidden');
   meetingListModal.classList.remove('flex');
 }
 
-// Attach click listeners to meeting cards
-document.querySelectorAll('.open-details').forEach(btn => {
-  btn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    const card = e.target.closest('.meeting-card');
-    if (card) openDetail(card);
-  });
-});
-
 meetingCardsList.forEach(card => {
-  card.addEventListener('click', (e) => {
-    if (!e.target.closest('.icon-btn')) {
-      openDetail(card);
-    }
-  });
+  card.addEventListener('click', () => openDetail(card));
 });
 
-// Modal event listeners
 if (detailBackdrop) detailBackdrop.addEventListener('click', closeDetail);
 if (detailClose) detailClose.addEventListener('click', closeDetail);
 if (meetingListBackdrop) meetingListBackdrop.addEventListener('click', closeListModal);
@@ -616,7 +624,6 @@ if (viewAssigneesBtn) viewAssigneesBtn.addEventListener('click', () => openListM
 if (viewAttendedBtn) viewAttendedBtn.addEventListener('click', () => openListModal('Attended', currentAttended));
 if (viewNotAttendedBtn) viewNotAttendedBtn.addEventListener('click', () => openListModal('Not Attended', currentNotAttended));
 
-// Handle email status query parameter
 const urlParams = new URLSearchParams(window.location.search);
 const emailStatus = urlParams.get('email');
 if (emailStatus === 'sent') {

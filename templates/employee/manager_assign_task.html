@@ -122,7 +122,18 @@ body {
   font-weight: 700;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  justify-content: space-between;
+  padding: 0.6rem 0.8rem;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.assignee-card.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
 }
 
 .badge-pending { background: #fef3c7; color: #92400e; }
@@ -382,6 +393,12 @@ body {
           <i class="bi bi-x-lg text-slate-400"></i>
         </button>
       </div>
+      {% else %}
+      <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No tasks created yet.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
 
       <form action="/manager/tasks/update" method="POST" class="space-y-6">
         <input type="hidden" id="taskEditId" name="task_id">
@@ -416,6 +433,9 @@ body {
             <i class="bi bi-trash3"></i>
           </button>
         </div>
+      </form>
+      <form action="/manager/tasks/delete" method="POST" id="taskDeleteForm" data-confirm="Delete this task?">
+        <input type="hidden" name="task_id" id="taskDeleteId">
       </form>
     </div>
   </div>
