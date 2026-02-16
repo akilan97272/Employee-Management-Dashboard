@@ -55,9 +55,9 @@
                 <option value="{{ dept.name }}" {% if employee.department == dept.name %}selected{% endif %}>{{ dept.name }}</option>
               {% endfor %}
             {% else %}
-              <option {% if employee.department == 'IT' %}selected{% endif %}>IT</option>
-              <option {% if employee.department == 'HR' %}selected{% endif %}>HR</option>
-              <option {% if employee.department == 'Finance' %}selected{% endif %}>Finance</option>
+              <option value="{{ employee.department or '' }}" selected>
+                {{ employee.department or 'No departments configured' }}
+              </option>
             {% endif %}
           </select>
         </div>

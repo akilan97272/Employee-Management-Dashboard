@@ -1,7 +1,7 @@
 from fastapi import Depends, HTTPException, Form
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func
+from sqlalchemy import Date, cast, func
 
 from .database import get_db
 from .models import (
@@ -296,7 +296,9 @@ def register_api_routes(app):
     async def leave_count(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
-        pending = db.query(Notification).filter(Notification.title == "Leave request updated").count()
+        pending = db.query(LeaveRequest).filter(
+            func.lower(LeaveRequest.status) == "pending"
+        ).count()
         return {"count": pending}
 
     @app.get("/api/month-hours")

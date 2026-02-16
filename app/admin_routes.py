@@ -36,7 +36,7 @@ from .models import (
 )
 from .auth import hash_password
 from .email_service import send_welcome_email, send_leave_status_email
-from .app_context import templates, get_current_user, create_notification
+from .app_context import templates, get_current_user, create_notification, hash_employee_id
 from .payroll_utils import calculate_monthly_payroll
 from Security.data_integrity import sha256_hex
 from Security.hash_history import log_hash_history
@@ -531,6 +531,21 @@ def register_admin_routes(app):
                                      db: Session = Depends(get_db)):
         if user.role != "admin":
             raise HTTPException(status_code=403, detail="Access denied")
+        department_rows = db.query(Department).order_by(Department.name.asc()).all()
+        if department_rows:
+            department_options = [d.name for d in department_rows if d.name]
+        else:
+            # Fallback when settings table has no department rows yet.
+            department_options = [
+                row[0]
+                for row in (
+                    db.query(User.department)
+                    .filter(User.department.isnot(None), User.department != "")
+                    .distinct()
+                    .order_by(User.department.asc())
+                    .all()
+                )
+            ]
         query = db.query(User).filter(User.is_active == True)
         if search:
             query = query.filter(
@@ -553,6 +568,7 @@ def register_admin_routes(app):
             "employees": employees,
             "search": search,
             "department": department,
+            "departments": department_options,
             "page": page,
             "total_pages": total_pages,
             "total_count": total_count,
@@ -970,6 +986,7 @@ def register_admin_routes(app):
 
             for key, value in data.items():
                 setattr(payroll_row, key, value)
+            payroll_row.employee_id_hash = hash_employee_id(emp.employee_id)
 
             db.add(payroll_row)
 

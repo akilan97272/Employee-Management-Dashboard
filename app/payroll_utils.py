@@ -2,6 +2,7 @@ from decimal import Decimal
 import datetime
 from sqlalchemy import func, extract, or_
 from .models import Attendance, LeaveRequest, Payroll
+from .app_context import hash_employee_id
 
 
 
@@ -56,6 +57,7 @@ Tax ({tax_percentage_val}%): ₹{tax_val}
 
     payroll_rec = Payroll(
         employee_id=emp.employee_id,
+        employee_id_hash=hash_employee_id(emp.employee_id),
         month=month,
         year=year,
         present_days=present_days,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import datetime
 import hashlib
 import json
@@ -8,8 +9,9 @@ import re
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from sqlalchemy import inspect
 from sqlalchemy.orm import Session
 
 from Security.audit_trail import audit
@@ -18,12 +20,36 @@ from Security.metrics import get_feature_metrics_snapshot, set_feature_enabled
 from Security.security_config import _env_path, ensure_session_secret
 from app.app_context import get_current_user, templates
 from app.database import get_db
-from app.models import SecurityCertificate, SecurityEventRecord, SecurityManagedSetting, User
+from app.models import SecurityCertificate, SecurityEventRecord, SecurityManagedSetting, SecurityMitreRule, User
 from app.security_feature_catalog import build_feature_catalog
 from app.security_bootstrap import decrypt_value
 
 router = APIRouter()
 DB_ONLY_RUNTIME_KEYS = {"SECRET_KEY", "SESSION_SECRET_KEY", "ENCRYPTION_KEY", "DATA_ENCRYPTION_KEY"}
+SECURITY_WATCH_FILES = (
+    "logs/security.log",
+    "logs/audit.log",
+    "logs/hash_history.log",
+)
+
+
+def _ensure_security_runtime_schema(db: Session) -> None:
+    """
+    Runtime self-heal for security tables.
+    If a security table was dropped while the app is running, recreate it on demand.
+    """
+    bind = db.get_bind()
+    inspector = inspect(bind)
+    existing_tables = set(inspector.get_table_names())
+    required_tables = (
+        SecurityManagedSetting.__table__,
+        SecurityCertificate.__table__,
+        SecurityEventRecord.__table__,
+        SecurityMitreRule.__table__,
+    )
+    for table in required_tables:
+        if table.name not in existing_tables:
+            table.create(bind=bind, checkfirst=True)
 
 
 def _admin_guard(user: User) -> None:
@@ -86,6 +112,7 @@ def _as_bool(raw: str | None, default: bool = False) -> bool:
 
 
 def _settings_map(db: Session) -> dict[tuple[str, str], str]:
+    _ensure_security_runtime_schema(db)
     rows = db.query(SecurityManagedSetting).all()
     return {(row.feature_id, row.key): row.value for row in rows}
 
@@ -263,7 +290,444 @@ def _timeline_feature_id(etype: str, audit_event: str, source_section: str) -> s
     return "audit"
 
 
-def _build_event_from_log_line(etype: str, line: str) -> dict:
+def _mitre_unmapped(reason: str = "No ATT&CK rule matched this event") -> dict[str, str]:
+    return {
+        "mitre": "not_mapped",
+        "mitre_status": "unmapped",
+        "mitre_tactic_id": "-",
+        "mitre_tactic": "-",
+        "mitre_technique_id": "-",
+        "mitre_technique": "-",
+        "mitre_confidence": "low",
+        "mitre_reason": reason,
+        "mitre_url": "-",
+    }
+
+
+def _default_mitre_rule_rows() -> list[dict[str, str | int | bool]]:
+    return [
+        {
+            "name": "Failed login brute force",
+            "enabled": True,
+            "priority": 10,
+            "source_type": "any",
+            "audit_event_pattern": r"auth_login_failed",
+            "path_pattern": r"^/login",
+            "method_pattern": "",
+            "status_pattern": r"401|403|failed|blocked",
+            "details_pattern": "",
+            "raw_pattern": "",
+            "tactic_id": "TA0006",
+            "tactic": "Credential Access",
+            "technique_id": "T1110",
+            "technique": "Brute Force",
+            "confidence": "high",
+            "reason": "Repeated failed authentication behavior matched brute-force pattern.",
+        },
+        {
+            "name": "Successful authentication account use",
+            "enabled": True,
+            "priority": 20,
+            "source_type": "audit",
+            "audit_event_pattern": r"auth_login_success|auth_login_inactive",
+            "path_pattern": "",
+            "method_pattern": "",
+            "status_pattern": "",
+            "details_pattern": "",
+            "raw_pattern": "",
+            "tactic_id": "TA0001",
+            "tactic": "Initial Access",
+            "technique_id": "T1078",
+            "technique": "Valid Accounts",
+            "confidence": "medium",
+            "reason": "Authentication event indicates account credential usage.",
+        },
+        {
+            "name": "Security controls disabled",
+            "enabled": True,
+            "priority": 30,
+            "source_type": "audit",
+            "audit_event_pattern": r"security_toggle|security_env|security_setting|security_configuration",
+            "path_pattern": "",
+            "method_pattern": "",
+            "status_pattern": "",
+            "details_pattern": r"=false|=off|disabled|disable|turned_off",
+            "raw_pattern": "",
+            "tactic_id": "TA0005",
+            "tactic": "Defense Evasion",
+            "technique_id": "T1562.001",
+            "technique": "Impair Defenses: Disable or Modify Tools",
+            "confidence": "high",
+            "reason": "Security control/configuration was set to a disabled state.",
+        },
+        {
+            "name": "Security configuration tamper",
+            "enabled": True,
+            "priority": 40,
+            "source_type": "audit",
+            "audit_event_pattern": r"security_toggle|security_env|security_setting|security_configuration",
+            "path_pattern": "",
+            "method_pattern": "",
+            "status_pattern": "",
+            "details_pattern": "",
+            "raw_pattern": "",
+            "tactic_id": "TA0005",
+            "tactic": "Defense Evasion",
+            "technique_id": "T1562",
+            "technique": "Impair Defenses",
+            "confidence": "medium",
+            "reason": "Security control configuration activity can affect defensive visibility.",
+        },
+        {
+            "name": "Certificate trust manipulation",
+            "enabled": True,
+            "priority": 50,
+            "source_type": "audit",
+            "audit_event_pattern": r"security_certificate",
+            "path_pattern": "",
+            "method_pattern": "",
+            "status_pattern": "",
+            "details_pattern": "",
+            "raw_pattern": "",
+            "tactic_id": "TA0005",
+            "tactic": "Defense Evasion",
+            "technique_id": "T1553",
+            "technique": "Subvert Trust Controls",
+            "confidence": "medium",
+            "reason": "Certificate/trust material manipulation detected in security controls.",
+        },
+        {
+            "name": "Web exploit indicator",
+            "enabled": True,
+            "priority": 60,
+            "source_type": "request",
+            "audit_event_pattern": "",
+            "path_pattern": "",
+            "method_pattern": "",
+            "status_pattern": "",
+            "details_pattern": r"union select| or 1=1|<script|%3cscript|\.\./|\.\.\\|%2e%2e|/etc/passwd",
+            "raw_pattern": r"union select| or 1=1|<script|%3cscript|\.\./|\.\.\\|%2e%2e|/etc/passwd",
+            "tactic_id": "TA0001",
+            "tactic": "Initial Access",
+            "technique_id": "T1190",
+            "technique": "Exploit Public-Facing Application",
+            "confidence": "high",
+            "reason": "Request content matches exploitation indicators against a web endpoint.",
+        },
+        {
+            "name": "Command execution indicator",
+            "enabled": True,
+            "priority": 70,
+            "source_type": "request",
+            "audit_event_pattern": "",
+            "path_pattern": "",
+            "method_pattern": "",
+            "status_pattern": "",
+            "details_pattern": r"powershell|cmd\.exe|bash -c|curl |wget |xp_cmdshell",
+            "raw_pattern": r"powershell|cmd\.exe|bash -c|curl |wget |xp_cmdshell",
+            "tactic_id": "TA0002",
+            "tactic": "Execution",
+            "technique_id": "T1059",
+            "technique": "Command and Scripting Interpreter",
+            "confidence": "high",
+            "reason": "Request/log content includes command interpreter execution indicators.",
+        },
+        {
+            "name": "Denied admin write attempt",
+            "enabled": True,
+            "priority": 80,
+            "source_type": "request",
+            "audit_event_pattern": "",
+            "path_pattern": r"^/admin",
+            "method_pattern": r"POST|PUT|PATCH|DELETE",
+            "status_pattern": r"401|403|429",
+            "details_pattern": "",
+            "raw_pattern": "",
+            "tactic_id": "TA0001",
+            "tactic": "Initial Access",
+            "technique_id": "T1078",
+            "technique": "Valid Accounts",
+            "confidence": "medium",
+            "reason": "Protected admin endpoint access attempt with denial signal.",
+        },
+    ]
+
+
+def _ensure_default_mitre_rules(db: Session) -> None:
+    existing_count = db.query(SecurityMitreRule.id).count()
+    if existing_count:
+        return
+    for item in _default_mitre_rule_rows():
+        db.add(
+            SecurityMitreRule(
+                name=str(item["name"]),
+                enabled=bool(item["enabled"]),
+                priority=int(item["priority"]),
+                source_type=str(item.get("source_type") or "any"),
+                audit_event_pattern=str(item.get("audit_event_pattern") or ""),
+                path_pattern=str(item.get("path_pattern") or ""),
+                method_pattern=str(item.get("method_pattern") or ""),
+                status_pattern=str(item.get("status_pattern") or ""),
+                details_pattern=str(item.get("details_pattern") or ""),
+                raw_pattern=str(item.get("raw_pattern") or ""),
+                tactic_id=str(item["tactic_id"]),
+                tactic=str(item["tactic"]),
+                technique_id=str(item["technique_id"]),
+                technique=str(item["technique"]),
+                confidence=str(item.get("confidence") or "medium"),
+                reason=str(item["reason"]),
+            )
+        )
+    db.commit()
+
+
+def _mitre_rules(db: Session) -> list[SecurityMitreRule]:
+    _ensure_security_runtime_schema(db)
+    _ensure_default_mitre_rules(db)
+    return (
+        db.query(SecurityMitreRule)
+        .order_by(SecurityMitreRule.priority.asc(), SecurityMitreRule.id.asc())
+        .all()
+    )
+
+
+def _pattern_matches(value: str, pattern: str) -> bool:
+    candidate = str(value or "")
+    raw_pattern = str(pattern or "").strip()
+    if not raw_pattern:
+        return True
+    try:
+        return re.search(raw_pattern, candidate, re.IGNORECASE) is not None
+    except re.error:
+        return raw_pattern.lower() in candidate.lower()
+
+
+def _rule_matches_event(rule: SecurityMitreRule, event_ctx: dict[str, str]) -> bool:
+    if not rule.enabled:
+        return False
+    source = (rule.source_type or "any").strip().lower()
+    if source not in {"", "any"} and source != event_ctx["etype"]:
+        return False
+    if not _pattern_matches(event_ctx["audit_event"], rule.audit_event_pattern or ""):
+        return False
+    if not _pattern_matches(event_ctx["path"], rule.path_pattern or ""):
+        return False
+    if not _pattern_matches(event_ctx["method"], rule.method_pattern or ""):
+        return False
+    if not _pattern_matches(event_ctx["status"], rule.status_pattern or ""):
+        return False
+    if not _pattern_matches(event_ctx["details"], rule.details_pattern or ""):
+        return False
+    if not _pattern_matches(event_ctx["raw_line"], rule.raw_pattern or ""):
+        return False
+    return True
+
+
+def _mitre_mapping(
+    technique_id: str,
+    technique: str,
+    tactic_id: str,
+    tactic: str,
+    confidence: str,
+    reason: str,
+) -> dict[str, str]:
+    if "." in technique_id:
+        major, minor = technique_id.split(".", 1)
+        mitre_url = f"https://attack.mitre.org/techniques/{major}/{minor}/"
+    else:
+        mitre_url = f"https://attack.mitre.org/techniques/{technique_id}/"
+    return {
+        "mitre": f"{technique_id} {technique}",
+        "mitre_status": "mapped",
+        "mitre_tactic_id": tactic_id,
+        "mitre_tactic": tactic,
+        "mitre_technique_id": technique_id,
+        "mitre_technique": technique,
+        "mitre_confidence": confidence,
+        "mitre_reason": reason,
+        "mitre_url": mitre_url,
+    }
+
+
+def _derive_mitre_mapping(
+    etype: str,
+    audit_event: str,
+    path_value: str,
+    method: str,
+    status: str,
+    details: str,
+    raw_line: str,
+    rules: list[SecurityMitreRule] | None = None,
+) -> dict[str, str]:
+    event_ctx = {
+        "etype": (etype or "").strip().lower(),
+        "audit_event": (audit_event or "").strip().lower(),
+        "path": (path_value or "").strip().lower(),
+        "method": (method or "").strip().upper(),
+        "status": (status or "").strip().lower(),
+        "details": (details or "").strip(),
+        "raw_line": (raw_line or "").strip(),
+    }
+    if rules:
+        for rule in rules:
+            if not _rule_matches_event(rule, event_ctx):
+                continue
+            confidence = (rule.confidence or "medium").strip().lower()
+            if confidence not in {"low", "medium", "high"}:
+                confidence = "medium"
+            return _mitre_mapping(
+                technique_id=(rule.technique_id or "").strip() or "T0000",
+                technique=(rule.technique or "").strip() or "Unknown Technique",
+                tactic_id=(rule.tactic_id or "").strip() or "TA0000",
+                tactic=(rule.tactic or "").strip() or "Unknown Tactic",
+                confidence=confidence,
+                reason=(rule.reason or "").strip() or f"Matched MITRE rule: {rule.name}",
+            )
+
+    event_type = (etype or "").strip().lower()
+    audit_name = (audit_event or "").strip().lower()
+    path = (path_value or "").strip().lower()
+    method_name = (method or "").strip().upper()
+    status_value = (status or "").strip().lower()
+    text = " ".join([audit_name, path, (details or ""), (raw_line or "")]).lower()
+
+    if audit_name == "auth_login_failed" or (path.startswith("/login") and status_value in {"401", "403", "failed", "blocked"}):
+        return _mitre_mapping(
+            technique_id="T1110",
+            technique="Brute Force",
+            tactic_id="TA0006",
+            tactic="Credential Access",
+            confidence="high",
+            reason="Repeated failed authentication behavior matched brute-force pattern.",
+        )
+
+    if audit_name in {"auth_login_success", "auth_login_inactive"}:
+        return _mitre_mapping(
+            technique_id="T1078",
+            technique="Valid Accounts",
+            tactic_id="TA0001",
+            tactic="Initial Access",
+            confidence="medium",
+            reason="Authentication event indicates account credential usage.",
+        )
+
+    if audit_name.startswith("security_events_clear"):
+        return _mitre_mapping(
+            technique_id="T1070",
+            technique="Indicator Removal on Host",
+            tactic_id="TA0005",
+            tactic="Defense Evasion",
+            confidence="high",
+            reason="Security event/log clearing activity indicates indicator removal behavior.",
+        )
+
+    if (
+        audit_name.startswith("security_toggle")
+        or audit_name.startswith("security_env")
+        or audit_name.startswith("security_setting")
+        or audit_name.startswith("security_configuration")
+    ):
+        if any(token in text for token in ("=false", "=off", "disabled", "disable", "turned_off")):
+            return _mitre_mapping(
+                technique_id="T1562.001",
+                technique="Impair Defenses: Disable or Modify Tools",
+                tactic_id="TA0005",
+                tactic="Defense Evasion",
+                confidence="high",
+                reason="Security control/configuration was set to a disabled state.",
+            )
+        return _mitre_mapping(
+            technique_id="T1562",
+            technique="Impair Defenses",
+            tactic_id="TA0005",
+            tactic="Defense Evasion",
+            confidence="medium",
+            reason="Security control configuration activity can affect defensive visibility.",
+        )
+
+    if audit_name.startswith("security_certificate"):
+        return _mitre_mapping(
+            technique_id="T1553",
+            technique="Subvert Trust Controls",
+            tactic_id="TA0005",
+            tactic="Defense Evasion",
+            confidence="medium",
+            reason="Certificate/trust material manipulation detected in security controls.",
+        )
+
+    suspicious_web_tokens = (
+        "union select",
+        " or 1=1",
+        "<script",
+        "%3cscript",
+        "../",
+        "..\\",
+        "%2e%2e",
+        "/etc/passwd",
+    )
+    if any(token in text for token in suspicious_web_tokens):
+        return _mitre_mapping(
+            technique_id="T1190",
+            technique="Exploit Public-Facing Application",
+            tactic_id="TA0001",
+            tactic="Initial Access",
+            confidence="high",
+            reason="Request content matches exploitation indicators against a web endpoint.",
+        )
+
+    command_exec_tokens = ("powershell", "cmd.exe", "bash -c", "curl ", "wget ", "xp_cmdshell")
+    if any(token in text for token in command_exec_tokens):
+        return _mitre_mapping(
+            technique_id="T1059",
+            technique="Command and Scripting Interpreter",
+            tactic_id="TA0002",
+            tactic="Execution",
+            confidence="high",
+            reason="Request/log content includes command interpreter execution indicators.",
+        )
+
+    if event_type == "request" and path.startswith("/admin") and method_name in {"POST", "PUT", "PATCH", "DELETE"} and status_value in {
+        "401",
+        "403",
+        "429",
+    }:
+        return _mitre_mapping(
+            technique_id="T1078",
+            technique="Valid Accounts",
+            tactic_id="TA0001",
+            tactic="Initial Access",
+            confidence="medium",
+            reason="Protected admin endpoint access attempt with denial signal.",
+        )
+
+    return _mitre_unmapped()
+
+
+def _apply_mitre_mapping(event: dict, rules: list[SecurityMitreRule] | None = None) -> bool:
+    mapped = _derive_mitre_mapping(
+        etype=str(event.get("type") or ""),
+        audit_event=str(event.get("audit_event") or ""),
+        path_value=str(event.get("path") or ""),
+        method=str(event.get("method") or ""),
+        status=str(event.get("status") or ""),
+        details=str(event.get("details") or ""),
+        raw_line=str(event.get("raw_log") or ""),
+        rules=rules,
+    )
+    changed = False
+    for key, value in mapped.items():
+        if event.get(key) != value:
+            event[key] = value
+            changed = True
+    sources = event.setdefault("field_sources", {})
+    for key in mapped.keys():
+        if sources.get(key) != "derived":
+            sources[key] = "derived"
+            changed = True
+    return changed
+
+
+def _build_event_from_log_line(etype: str, line: str, mitre_rules: list[SecurityMitreRule] | None = None) -> dict:
     parsed = _parse_kv_payload(line)
     log_timestamp = _extract_log_timestamp(line)
     status = parsed.get("status", "").strip()
@@ -352,7 +816,6 @@ def _build_event_from_log_line(etype: str, line: str) -> dict:
         "evidence": f"path={path_value or '-'} method={method or '-'}",
         "hits": "1",
         "threat_intel": "not_collected",
-        "mitre": "not_mapped",
         "investigate": f"request_id={request_id or '-'} ip={ip or '-'} path={path_value or '-'}",
         "feature_id": _timeline_feature_id(etype, audit_event, source_section),
         "target_tab": "events",
@@ -381,12 +844,12 @@ def _build_event_from_log_line(etype: str, line: str) -> dict:
             "raw_log": "captured",
             "hits": "derived",
             "threat_intel": "derived",
-            "mitre": "derived",
             "investigate": "derived",
             "occurred": "captured",
             "timestamp": "captured",
         },
     }
+    _apply_mitre_mapping(event, rules=mitre_rules)
     if employee_id_from_details:
         event["user_id"] = employee_id_from_details
         event["field_sources"]["user_id"] = "captured"
@@ -397,8 +860,10 @@ def _build_event_from_log_line(etype: str, line: str) -> dict:
 
 
 def _ingest_security_events_to_db(db: Session) -> None:
+    _ensure_security_runtime_schema(db)
     existing = {fp for (fp,) in db.query(SecurityEventRecord.fingerprint).all()}
     added = 0
+    mitre_rules = _mitre_rules(db)
     for path, etype in (("logs/security.log", "request"), ("logs/audit.log", "audit")):
         if not os.path.exists(path):
             continue
@@ -408,7 +873,7 @@ def _ingest_security_events_to_db(db: Session) -> None:
             fingerprint = hashlib.sha256(f"{etype}|{line}".encode("utf-8", errors="ignore")).hexdigest()
             if fingerprint in existing:
                 continue
-            payload = _build_event_from_log_line(etype, line)
+            payload = _build_event_from_log_line(etype, line, mitre_rules=mitre_rules)
             db.add(
                 SecurityEventRecord(
                     source_type=etype,
@@ -423,23 +888,31 @@ def _ingest_security_events_to_db(db: Session) -> None:
 
 
 def _recent_security_events(db: Session, limit: int | None = None) -> list[dict]:
+    _ensure_security_runtime_schema(db)
     settings = _settings_map(db)
     hide_auth_events = _as_bool(
         settings.get(("audit-trail", "AUDIT_TRAIL_HIDE_AUTH_EVENTS"), os.getenv("AUDIT_TRAIL_HIDE_AUTH_EVENTS")),
         True,
     )
 
+    mitre_rules = _mitre_rules(db)
     _ingest_security_events_to_db(db)
     q = db.query(SecurityEventRecord).order_by(SecurityEventRecord.id.desc())
     rows = q.all() if limit is None else q.limit(limit).all()
     events: list[dict] = []
+    updated_payloads = False
     for row in rows:
         try:
             payload = json.loads(row.payload_json or "{}")
         except json.JSONDecodeError:
             payload = {}
         if isinstance(payload, dict) and payload:
+            if _apply_mitre_mapping(payload, rules=mitre_rules):
+                row.payload_json = json.dumps(payload, ensure_ascii=False)
+                updated_payloads = True
             events.append(payload)
+    if updated_payloads:
+        db.commit()
 
     # Backfill missing audit IPs from request log entries with the same request id.
     request_ip_by_id = {
@@ -612,6 +1085,7 @@ def _enrich_hash_history(db: Session, hash_history: list[dict]) -> list[dict]:
 
 
 def _configuration_rows(db: Session, features: list[dict]) -> tuple[list[dict], list[dict]]:
+    _ensure_security_runtime_schema(db)
     feature_name_map = {f["id"]: f.get("name", f["id"]) for f in features}
     rows = (
         db.query(SecurityManagedSetting)
@@ -636,6 +1110,150 @@ def _configuration_rows(db: Session, features: list[dict]) -> tuple[list[dict], 
     return out, feature_options
 
 
+def _security_live_payload(db: Session) -> dict:
+    features = _security_features(db)
+    events = _recent_security_events(db, limit=None)
+    summary = _security_summary(features, events)
+    return {
+        "summary": summary,
+        "metrics": {f["id"]: f["metrics"] for f in features},
+        "events": events,
+    }
+
+
+def _security_live_signature(payload: dict) -> str:
+    summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+    metrics = payload.get("metrics", {}) if isinstance(payload, dict) else {}
+    events = payload.get("events", []) if isinstance(payload, dict) else []
+    event_ids = [str(e.get("notification_id") or e.get("request_id") or e.get("timestamp") or "") for e in events if isinstance(e, dict)]
+    signature_obj = {
+        "total_events": int(summary.get("total_events", 0) or 0),
+        "audit_events": int(summary.get("audit_events", 0) or 0),
+        "request_events": int(summary.get("request_events", 0) or 0),
+        "metrics": metrics,
+        "event_ids": event_ids[:200],
+    }
+    return json.dumps(signature_obj, sort_keys=True, ensure_ascii=False)
+
+
+def _tail_line(path: str) -> str:
+    if not os.path.exists(path):
+        return ""
+    try:
+        with open(path, "rb") as fh:
+            fh.seek(0, os.SEEK_END)
+            size = fh.tell()
+            if size == 0:
+                return ""
+            chunk = min(4096, size)
+            fh.seek(-chunk, os.SEEK_END)
+            data = fh.read().decode("utf-8", errors="ignore")
+            lines = [line.strip() for line in data.splitlines() if line.strip()]
+            return lines[-1][:220] if lines else ""
+    except Exception:
+        return ""
+
+
+def _security_files_state() -> dict[str, dict[str, str | int | bool]]:
+    out: dict[str, dict[str, str | int | bool]] = {}
+    for path in SECURITY_WATCH_FILES:
+        exists = os.path.exists(path)
+        stat = os.stat(path) if exists else None
+        out[path] = {
+            "exists": exists,
+            "size": int(stat.st_size) if stat else 0,
+            "mtime": int(stat.st_mtime) if stat else 0,
+            "tail": _tail_line(path),
+        }
+    return out
+
+
+def _security_dashboard_payload(db: Session) -> dict:
+    payload = _security_live_payload(db)
+    payload["security_files"] = _security_files_state()
+    payload["configuration_count"] = int(db.query(SecurityManagedSetting.id).count())
+    payload["mitre_rule_count"] = int(db.query(SecurityMitreRule.id).count())
+    payload["dashboard_reload_signature"] = _security_dashboard_reload_signature(payload)
+    payload["stream_signature"] = _security_live_signature(payload)
+    return payload
+
+
+def _security_dashboard_reload_signature(payload: dict) -> str:
+    summary = payload.get("summary", {}) if isinstance(payload, dict) else {}
+    events = payload.get("events", []) if isinstance(payload, dict) else []
+    files_state = payload.get("security_files", {}) if isinstance(payload, dict) else {}
+    event_ids = [str(e.get("notification_id") or e.get("request_id") or e.get("timestamp") or "") for e in events if isinstance(e, dict)]
+    signature_obj = {
+        "total_events": int(summary.get("total_events", 0) or 0),
+        "audit_events": int(summary.get("audit_events", 0) or 0),
+        "request_events": int(summary.get("request_events", 0) or 0),
+        "event_ids": event_ids[:200],
+        "configuration_count": int(payload.get("configuration_count", 0) or 0),
+        "mitre_rule_count": int(payload.get("mitre_rule_count", 0) or 0),
+        "security_files": {
+            path: {
+                "exists": bool(data.get("exists")),
+                "size": int(data.get("size", 0) or 0),
+                "mtime": int(data.get("mtime", 0) or 0),
+            }
+            for path, data in files_state.items()
+            if isinstance(data, dict)
+        },
+    }
+    return json.dumps(signature_obj, sort_keys=True, ensure_ascii=False)
+
+
+def _mitre_rule_rows(db: Session) -> list[dict]:
+    rows = _mitre_rules(db)
+    out: list[dict] = []
+    for row in rows:
+        updated = row.updated_at or row.created_at
+        out.append(
+            {
+                "id": row.id,
+                "name": row.name,
+                "enabled": bool(row.enabled),
+                "priority": row.priority,
+                "source_type": row.source_type or "any",
+                "audit_event_pattern": row.audit_event_pattern or "",
+                "path_pattern": row.path_pattern or "",
+                "method_pattern": row.method_pattern or "",
+                "status_pattern": row.status_pattern or "",
+                "details_pattern": row.details_pattern or "",
+                "raw_pattern": row.raw_pattern or "",
+                "tactic_id": row.tactic_id,
+                "tactic": row.tactic,
+                "technique_id": row.technique_id,
+                "technique": row.technique,
+                "confidence": row.confidence,
+                "reason": row.reason,
+                "updated_at": updated.strftime("%Y-%m-%d %H:%M:%S UTC") if updated else "-",
+            }
+        )
+    return out
+
+
+def _sanitize_optional_pattern(value: str | None, field: str, max_len: int = 255) -> str:
+    cleaned = (value or "").strip()
+    if len(cleaned) > max_len:
+        raise HTTPException(status_code=400, detail=f"{field} too long")
+    return cleaned
+
+
+def _sanitize_mitre_confidence(value: str | None) -> str:
+    cleaned = (value or "medium").strip().lower()
+    if cleaned not in {"low", "medium", "high"}:
+        raise HTTPException(status_code=400, detail="Invalid confidence")
+    return cleaned
+
+
+def _sanitize_source_type(value: str | None) -> str:
+    cleaned = (value or "any").strip().lower()
+    if cleaned not in {"any", "request", "audit"}:
+        raise HTTPException(status_code=400, detail="Invalid source type")
+    return cleaned
+
+
 @router.get("/admin/security", response_class=HTMLResponse)
 async def admin_security_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
@@ -644,7 +1262,18 @@ async def admin_security_page(request: Request, user: User = Depends(get_current
     hash_history = read_hash_history(limit=None)
     hash_history = _enrich_hash_history(db, hash_history)
     configurations, configuration_features = _configuration_rows(db, features)
+    mitre_rules = _mitre_rule_rows(db)
     summary = _security_summary(features, events)
+    security_files = _security_files_state()
+    dashboard_reload_signature = _security_dashboard_reload_signature(
+        {
+            "summary": summary,
+            "events": events,
+            "configuration_count": len(configurations),
+            "mitre_rule_count": len(mitre_rules),
+            "security_files": security_files,
+        }
+    )
     return templates.TemplateResponse(
         "admin/admin_security.html",
         {
@@ -674,6 +1303,9 @@ async def admin_security_page(request: Request, user: User = Depends(get_current
             "checklist_items": features,
             "configurations": configurations,
             "configuration_features": configuration_features,
+            "mitre_rules": mitre_rules,
+            "security_files": security_files,
+            "dashboard_reload_signature": dashboard_reload_signature,
             "current_year": datetime.datetime.utcnow().year,
         },
     )
@@ -738,15 +1370,33 @@ async def admin_security_metrics(user: User = Depends(get_current_user), db: Ses
 @router.get("/admin/security/live")
 async def admin_security_live(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
-    features = _security_features(db)
-    events = _recent_security_events(db, limit=None)
-    summary = _security_summary(features, events)
-    return JSONResponse(
-        {
-            "summary": summary,
-            "metrics": {f["id"]: f["metrics"] for f in features},
-            "events": events,
-        }
+    return JSONResponse(_security_dashboard_payload(db))
+
+
+@router.get("/admin/security/live/stream")
+async def admin_security_live_stream(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _admin_guard(user)
+
+    async def event_stream():
+        last_stream_signature = ""
+        try:
+            while True:
+                payload = _security_dashboard_payload(db)
+                stream_signature = str(payload.get("stream_signature") or "")
+                if stream_signature != last_stream_signature:
+                    data = json.dumps(payload, ensure_ascii=False)
+                    yield f"event: security_update\ndata: {data}\n\n"
+                    last_stream_signature = stream_signature
+                else:
+                    yield ": keepalive\n\n"
+                await asyncio.sleep(2)
+        except asyncio.CancelledError:
+            return
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
     )
 
 
@@ -1098,6 +1748,144 @@ async def admin_security_configuration_delete(
     db.commit()
     audit("security_configuration_delete", user_id=user.id, details=f"{feature_id}:{setting_id}:{key}")
     return JSONResponse({"status": "ok"})
+
+
+@router.get("/admin/security/mitre-rules")
+async def admin_security_mitre_rules_list(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    _admin_guard(user)
+    return JSONResponse({"items": _mitre_rule_rows(db)})
+
+
+@router.post("/admin/security/mitre-rules/create")
+async def admin_security_mitre_rule_create(
+    name: str = Form(...),
+    enabled: str = Form("true"),
+    priority: str = Form("100"),
+    source_type: str = Form("any"),
+    audit_event_pattern: str = Form(""),
+    path_pattern: str = Form(""),
+    method_pattern: str = Form(""),
+    status_pattern: str = Form(""),
+    details_pattern: str = Form(""),
+    raw_pattern: str = Form(""),
+    tactic_id: str = Form(...),
+    tactic: str = Form(...),
+    technique_id: str = Form(...),
+    technique: str = Form(...),
+    confidence: str = Form("medium"),
+    reason: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _admin_guard(user)
+    clean_name = _sanitize_required(name, "rule name", 120)
+    clean_source_type = _sanitize_source_type(source_type)
+    clean_tactic_id = _sanitize_required(tactic_id, "tactic id", 20, r"^TA[0-9]{4}$")
+    clean_tactic = _sanitize_required(tactic, "tactic", 120)
+    clean_technique_id = _sanitize_required(technique_id, "technique id", 20, r"^T[0-9]{4}(\.[0-9]{3})?$")
+    clean_technique = _sanitize_required(technique, "technique", 160)
+    clean_reason = _sanitize_required(reason, "reason", 600)
+    clean_confidence = _sanitize_mitre_confidence(confidence)
+    clean_enabled = str(enabled).strip().lower() in {"1", "true", "yes", "on"}
+    try:
+        clean_priority = int(str(priority).strip() or "100")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid priority")
+    if clean_priority < 1 or clean_priority > 9999:
+        raise HTTPException(status_code=400, detail="Invalid priority")
+
+    row = SecurityMitreRule(
+        name=clean_name,
+        enabled=clean_enabled,
+        priority=clean_priority,
+        source_type=clean_source_type,
+        audit_event_pattern=_sanitize_optional_pattern(audit_event_pattern, "audit_event_pattern"),
+        path_pattern=_sanitize_optional_pattern(path_pattern, "path_pattern"),
+        method_pattern=_sanitize_optional_pattern(method_pattern, "method_pattern", 64),
+        status_pattern=_sanitize_optional_pattern(status_pattern, "status_pattern", 64),
+        details_pattern=_sanitize_optional_pattern(details_pattern, "details_pattern"),
+        raw_pattern=_sanitize_optional_pattern(raw_pattern, "raw_pattern"),
+        tactic_id=clean_tactic_id,
+        tactic=clean_tactic,
+        technique_id=clean_technique_id,
+        technique=clean_technique,
+        confidence=clean_confidence,
+        reason=clean_reason,
+    )
+    db.add(row)
+    db.commit()
+    audit("security_mitre_rule_create", user_id=user.id, details=f"{row.id}:{row.name}:{row.technique_id}")
+    return JSONResponse({"status": "ok", "items": _mitre_rule_rows(db)})
+
+
+@router.post("/admin/security/mitre-rules/{rule_id}/update")
+async def admin_security_mitre_rule_update(
+    rule_id: int,
+    name: str = Form(...),
+    enabled: str = Form("true"),
+    priority: str = Form("100"),
+    source_type: str = Form("any"),
+    audit_event_pattern: str = Form(""),
+    path_pattern: str = Form(""),
+    method_pattern: str = Form(""),
+    status_pattern: str = Form(""),
+    details_pattern: str = Form(""),
+    raw_pattern: str = Form(""),
+    tactic_id: str = Form(...),
+    tactic: str = Form(...),
+    technique_id: str = Form(...),
+    technique: str = Form(...),
+    confidence: str = Form("medium"),
+    reason: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _admin_guard(user)
+    row = db.query(SecurityMitreRule).filter(SecurityMitreRule.id == rule_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="MITRE rule not found")
+    row.name = _sanitize_required(name, "rule name", 120)
+    row.source_type = _sanitize_source_type(source_type)
+    row.tactic_id = _sanitize_required(tactic_id, "tactic id", 20, r"^TA[0-9]{4}$")
+    row.tactic = _sanitize_required(tactic, "tactic", 120)
+    row.technique_id = _sanitize_required(technique_id, "technique id", 20, r"^T[0-9]{4}(\.[0-9]{3})?$")
+    row.technique = _sanitize_required(technique, "technique", 160)
+    row.reason = _sanitize_required(reason, "reason", 600)
+    row.confidence = _sanitize_mitre_confidence(confidence)
+    row.enabled = str(enabled).strip().lower() in {"1", "true", "yes", "on"}
+    try:
+        row.priority = int(str(priority).strip() or "100")
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid priority")
+    if row.priority < 1 or row.priority > 9999:
+        raise HTTPException(status_code=400, detail="Invalid priority")
+    row.audit_event_pattern = _sanitize_optional_pattern(audit_event_pattern, "audit_event_pattern")
+    row.path_pattern = _sanitize_optional_pattern(path_pattern, "path_pattern")
+    row.method_pattern = _sanitize_optional_pattern(method_pattern, "method_pattern", 64)
+    row.status_pattern = _sanitize_optional_pattern(status_pattern, "status_pattern", 64)
+    row.details_pattern = _sanitize_optional_pattern(details_pattern, "details_pattern")
+    row.raw_pattern = _sanitize_optional_pattern(raw_pattern, "raw_pattern")
+
+    db.commit()
+    audit("security_mitre_rule_update", user_id=user.id, details=f"{row.id}:{row.name}:{row.technique_id}")
+    return JSONResponse({"status": "ok", "items": _mitre_rule_rows(db)})
+
+
+@router.post("/admin/security/mitre-rules/{rule_id}/delete")
+async def admin_security_mitre_rule_delete(
+    rule_id: int,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    _admin_guard(user)
+    row = db.query(SecurityMitreRule).filter(SecurityMitreRule.id == rule_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="MITRE rule not found")
+    rule_name = row.name
+    db.delete(row)
+    db.commit()
+    audit("security_mitre_rule_delete", user_id=user.id, details=f"{rule_id}:{rule_name}")
+    return JSONResponse({"status": "ok", "items": _mitre_rule_rows(db)})
 
 
 @router.get("/admin/security/{feature_id}", response_class=HTMLResponse)

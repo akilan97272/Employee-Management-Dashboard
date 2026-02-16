@@ -8,10 +8,11 @@ import datetime
 import csv
 from pathlib import Path
 import os
+from threading import Lock
 from Security.security_config import SECURITY_SETTINGS
 
 from .database import SessionLocal, engine, Base
-from .models import AttendanceDaily, AttendanceDate, ProjectAssignment, ProjectTask, SecurityManagedSetting, User
+from .models import AttendanceDaily, AttendanceDate, Payroll, ProjectAssignment, ProjectTask, SecurityManagedSetting, User
 from .team_scheduler import auto_assign_leaders
 from .auth_routes import router as auth_router
 from .web_auth_routes import register_web_auth_routes
@@ -35,6 +36,9 @@ SCHEMA_SYNC_LOG = LOG_DIR / "schema_sync.log"
 RUNTIME_SECRET_SYNC_LOG = LOG_DIR / "runtime_secret_sync.log"
 scheduler = BackgroundScheduler()
 DB_BACKED_SECRET_KEYS = ("SECRET_KEY", "SESSION_SECRET_KEY", "ENCRYPTION_KEY", "DATA_ENCRYPTION_KEY")
+RUNTIME_SCHEMA_GUARD_INTERVAL_SEC = 30
+_runtime_schema_guard_lock = Lock()
+_runtime_schema_last_checked_ts = 0.0
 
 def log_schema_sync(message: str) -> None:
     LOG_DIR.mkdir(parents=True, exist_ok=True)
@@ -299,6 +303,41 @@ def auto_sync_schema() -> None:
         raise
 
 
+def runtime_schema_guard() -> None:
+    """
+    Lightweight runtime guard for dropped tables across the whole app.
+    - Runs at most once per interval.
+    - If required tables are missing, runs full schema sync.
+    """
+    global _runtime_schema_last_checked_ts
+    now_ts = time.time()
+    if (now_ts - _runtime_schema_last_checked_ts) < RUNTIME_SCHEMA_GUARD_INTERVAL_SEC:
+        return
+    if not _runtime_schema_guard_lock.acquire(blocking=False):
+        return
+    try:
+        now_ts = time.time()
+        if (now_ts - _runtime_schema_last_checked_ts) < RUNTIME_SCHEMA_GUARD_INTERVAL_SEC:
+            return
+        inspector = inspect(engine)
+        existing_tables = set(inspector.get_table_names())
+        required_tables = set(Base.metadata.tables.keys())
+        missing_tables = sorted(required_tables - existing_tables)
+        if missing_tables:
+            preview = ", ".join(missing_tables[:8])
+            more = "" if len(missing_tables) <= 8 else f" (+{len(missing_tables) - 8} more)"
+            log_schema_sync(
+                f"RUNTIME_SCHEMA_GUARD: missing tables detected: {preview}{more}; running auto_sync_schema()"
+            )
+            auto_sync_schema()
+        _runtime_schema_last_checked_ts = now_ts
+    except Exception as exc:
+        # Do not break request flow on guard failure; startup sync still provides baseline recovery.
+        log_schema_sync(f"RUNTIME_SCHEMA_GUARD_ERROR: {exc}")
+    finally:
+        _runtime_schema_guard_lock.release()
+
+
 def backfill_project_assignment_hashes() -> None:
     db = SessionLocal()
     try:
@@ -331,6 +370,28 @@ def backfill_project_task_completed_at() -> None:
     except Exception as exc:
         db.rollback()
         print(f"Project task completed_at backfill failed: {exc}")
+    finally:
+        db.close()
+
+
+def backfill_payroll_employee_hashes() -> None:
+    db = SessionLocal()
+    try:
+        rows = db.query(Payroll).filter(
+            (Payroll.employee_id_hash == None) | (Payroll.employee_id_hash == "")
+        ).all()
+        updated = 0
+        for row in rows:
+            if not row.employee_id:
+                continue
+            row.employee_id_hash = hash_employee_id(row.employee_id)
+            updated += 1
+        if updated:
+            db.commit()
+        print(f"Payroll hash backfill complete: updated={updated}")
+    except Exception as exc:
+        db.rollback()
+        print(f"Payroll hash backfill failed: {exc}")
     finally:
         db.close()
 
@@ -491,6 +552,7 @@ register_error_handlers(app)
 # Timing middleware to log request duration
 @app.middleware("http")
 async def timing_middleware(request: Request, call_next):
+    runtime_schema_guard()
     start = time.perf_counter()
     response = await call_next(request)
     duration = (time.perf_counter() - start) * 1000  # ms

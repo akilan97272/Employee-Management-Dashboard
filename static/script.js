@@ -285,11 +285,13 @@ function renderCalendarMonth() {
         }
         
         let dotHtml = '';
+        const maxVisibleIndicators = 1;
         if (dotColors.length > 0) {
-            dotHtml = `<div class="flex flex-wrap gap-1 justify-center mt-1">${dotColors.slice(0, 4).map(c => `<span class="h-2.5 w-2.5 rounded-full ${c}" title="Event"></span>`).join('')}${dotColors.length > 4 ? `<span class="text-[8px] text-slate-400 font-bold">+${dotColors.length - 4}</span>` : ''}</div>`;
+            const hiddenCount = Math.max(0, dotColors.length - maxVisibleIndicators);
+            dotHtml = `<div class="absolute bottom-1 right-1 flex items-center gap-1 whitespace-nowrap">${dotColors.slice(0, maxVisibleIndicators).map(c => `<span class="h-2 w-2 rounded-full ${c}" title="Event"></span>`).join('')}${hiddenCount > 0 ? `<span class="text-[9px] text-slate-500 font-black">+${hiddenCount}</span>` : ''}</div>`;
         }
         
-        html += `<button class="p-2 text-xs ${bgClass} rounded cursor-pointer transition" onclick="selectDate('${dateStr}')">${day}${dotHtml}</button>`;
+        html += `<button class="h-16 p-2 text-xs ${bgClass} rounded cursor-pointer transition relative overflow-hidden" onclick="selectDate('${dateStr}')"><span class="absolute top-1 left-1 text-[10px] font-semibold">${day}</span>${dotHtml}</button>`;
     }
     
     // Next month days

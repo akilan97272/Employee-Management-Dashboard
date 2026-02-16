@@ -31,9 +31,9 @@
         <label class="block text-[11px] font-bold text-slate-500 uppercase mb-1">Department</label>
         <select name="department" class="w-full px-3 py-2 bg-slate-50 border border-slate-300 text-sm focus:border-slate-900 rounded-none">
           <option value="">All Departments</option>
-          <option value="IT" {% if department == 'IT' %}selected{% endif %}>Information Technology</option>
-          <option value="HR" {% if department == 'HR' %}selected{% endif %}>Human Resources</option>
-          <option value="Finance" {% if department == 'Finance' %}selected{% endif %}>Finance</option>
+          {% for dept in departments or [] %}
+          <option value="{{ dept }}" {% if department == dept %}selected{% endif %}>{{ dept }}</option>
+          {% endfor %}
         </select>
       </div>
 

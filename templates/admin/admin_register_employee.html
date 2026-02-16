@@ -62,9 +62,7 @@
                 <option value="{{ dept.name }}">{{ dept.name }}</option>
               {% endfor %}
             {% else %}
-              <option>IT</option>
-              <option>HR</option>
-              <option>Finance</option>
+              <option value="" selected>No departments configured</option>
             {% endif %}
           </select>
         </div>

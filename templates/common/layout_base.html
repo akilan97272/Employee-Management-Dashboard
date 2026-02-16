@@ -1388,14 +1388,19 @@ pastBtn.addEventListener('click', () => switchTab('past'));
         const dd = String(day).padStart(2, '0');
         const dateStr = `${year}-${mm}-${dd}`;
         const events = eventsMap[dateStr] || [];
-        const dots = events.slice(0, 3).map(e => `<span class="h-1.5 w-1.5 rounded-full ${eventColor(e.title, e.type)}"></span>`).join('');
-        const moreCount = events.length > 3 ? `<span class="ml-1 text-[9px] font-black text-slate-500">+${events.length - 3}</span>` : '';
+        const maxVisibleIndicators = 1;
+        const dots = events
+          .slice(0, maxVisibleIndicators)
+          .map(e => `<span class="h-1.5 w-1.5 rounded-full ${eventColor(e.title, e.type)}"></span>`)
+          .join('');
+        const hiddenCount = Math.max(0, events.length - maxVisibleIndicators);
+        const moreCount = hiddenCount > 0 ? `<span class="ml-1 text-[9px] font-black text-slate-500">+${hiddenCount}</span>` : '';
         const isToday = dateStr === todayStr;
         const todayClass = isToday ? 'bg-lime-200 border-lime-500' : '';
         cells += `
-          <button data-calendar-day="${dateStr}" class="h-10 border border-[var(--border)] text-xs text-slate-700 hover:bg-blue-50 relative ${todayClass}">
+          <button data-calendar-day="${dateStr}" class="h-10 border border-[var(--border)] text-xs text-slate-700 hover:bg-blue-50 relative overflow-hidden ${todayClass}">
             <div class="absolute top-1 left-1 text-[10px] font-semibold">${day}</div>
-            <div class="absolute bottom-1 right-1 flex items-center gap-1">${dots}${moreCount}</div>
+            <div class="absolute bottom-1 right-1 flex items-center gap-1 whitespace-nowrap">${dots}${moreCount}</div>
           </button>
         `;
       }

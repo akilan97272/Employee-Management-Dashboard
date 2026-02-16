@@ -339,6 +339,7 @@ class Payroll(Base):
     __tablename__ = "payrolls"
     id = Column(Integer, primary_key=True, index=True)
     employee_id = Column(String(60), ForeignKey("users.employee_id"), nullable=False, index=True)
+    employee_id_hash = Column(String(64), nullable=True, index=True)
     month = Column(Integer, nullable=False)
     year = Column(Integer, nullable=False)
     present_days = Column(Integer, default=0)
@@ -473,3 +474,26 @@ class SecurityEventRecord(Base):
     fingerprint = Column(String(64), nullable=False, unique=True, index=True)
     payload_json = Column(Text, nullable=False)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+
+class SecurityMitreRule(Base):
+    __tablename__ = "security_mitre_rules"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String(120), nullable=False)
+    enabled = Column(Boolean, default=True, nullable=False, index=True)
+    priority = Column(Integer, default=100, nullable=False, index=True)
+    source_type = Column(String(20), nullable=True, index=True)  # request | audit | any
+    audit_event_pattern = Column(String(255), nullable=True)
+    path_pattern = Column(String(255), nullable=True)
+    method_pattern = Column(String(64), nullable=True)
+    status_pattern = Column(String(64), nullable=True)
+    details_pattern = Column(String(255), nullable=True)
+    raw_pattern = Column(String(255), nullable=True)
+    tactic_id = Column(String(20), nullable=False)
+    tactic = Column(String(120), nullable=False)
+    technique_id = Column(String(20), nullable=False)
+    technique = Column(String(160), nullable=False)
+    confidence = Column(String(20), default="medium", nullable=False)
+    reason = Column(Text, nullable=False)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)

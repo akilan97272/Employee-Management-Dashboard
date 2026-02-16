@@ -68,26 +68,114 @@
     --sec-danger: #b91c1c;
   }
   .security-tab-bar {
-    border-radius: 14px;
-    background: var(--sec-panel);
-    border: 1px solid var(--sec-border);
-    padding: 8px;
-    box-shadow: 0 6px 18px rgba(11, 18, 32, 0.08);
+    position: sticky;
+    top: 10px;
+    z-index: 20;
+    border-radius: 18px;
+    background: linear-gradient(180deg, #f9fbff 0%, #f2f6fd 100%);
+    border: 1px solid #d3e0f2;
+    padding: 12px;
+    box-shadow: 0 14px 30px rgba(11, 18, 32, 0.1);
+    backdrop-filter: blur(2px);
+  }
+  .security-tab-row {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  .security-tab-row::-webkit-scrollbar {
+    height: 7px;
+  }
+  .security-tab-row::-webkit-scrollbar-thumb {
+    background: #c5d3e7;
+    border-radius: 999px;
   }
   .security-tab {
-    border-radius: 10px;
-    padding: 8px 14px;
-    font-weight: 700;
+    border-radius: 12px;
+    padding: 9px 14px;
+    font-weight: 800;
+    font-size: 10px;
+    line-height: 1;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     color: var(--sec-muted);
-    border-color: var(--sec-border);
-    background: var(--sec-surface);
+    border-color: #cbd8ea;
+    background: #fbfdff;
+    transition: all 0.16s ease-out;
+    white-space: nowrap;
+  }
+  .security-tab:hover {
+    border-color: #9fb7d8;
+    color: #233246;
   }
   .security-tab.is-active {
-    background: var(--sec-primary);
-    border-color: var(--sec-primary);
+    background: linear-gradient(135deg, #0b3558 0%, #0e4a78 100%);
+    border-color: #0b3558;
     color: #ffffff;
+    box-shadow: 0 8px 18px rgba(11, 53, 88, 0.32);
+  }
+  .security-tab-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+  .security-live-pill {
+    border-radius: 999px;
+    border: 1px solid #9adab9;
+    background: #ecfdf3;
+    color: #065f46;
+    padding: 6px 10px;
+    font-size: 10px;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .security-alert-btn {
+    border-radius: 12px;
+    border: 1px solid #cbd8ea;
+    background: #ffffff;
+    padding: 9px;
+    transition: all 0.16s ease-out;
+  }
+  .security-alert-btn:hover {
+    border-color: #5f85b2;
+    box-shadow: 0 8px 16px rgba(15, 23, 42, 0.12);
+  }
+  .security-notification-popup {
+    border-radius: 12px;
+    border: 1px solid #d3e0f2;
+    box-shadow: 0 20px 30px rgba(15, 23, 42, 0.16);
+    overflow: hidden;
+  }
+  @media (max-width: 1024px) {
+    .security-tab-bar {
+      top: 6px;
+      padding: 10px;
+    }
+    .security-tab-actions {
+      margin-left: 0;
+      width: 100%;
+      justify-content: flex-end;
+      padding-top: 6px;
+    }
+  }
+  @media (max-width: 640px) {
+    .security-tab {
+      padding: 9px 12px;
+      letter-spacing: 0.14em;
+    }
+    .security-live-pill {
+      padding: 5px 8px;
+      font-size: 9px;
+    }
   }
   .security-toolbar {
     border-radius: 12px;
@@ -200,6 +288,156 @@
     border-color: #fecaca;
     background: #fef2f2;
   }
+  .security-page {
+    position: relative;
+    padding-bottom: 18px;
+  }
+  .security-page::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 220px;
+    background: radial-gradient(120% 140% at 0% 0%, #eaf2ff 0%, rgba(234, 242, 255, 0) 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .security-page > * {
+    position: relative;
+    z-index: 1;
+  }
+  [data-tab-content] > .border,
+  #security-events-section > .border,
+  #security-hash-section > .border {
+    border-radius: 18px;
+    border-color: #d4e1f2;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+  }
+  .security-toolbar {
+    background: linear-gradient(180deg, #fbfdff 0%, #f4f8ff 100%);
+    border-color: #d4e1f2;
+  }
+  .security-input::placeholder {
+    color: #93a4bb;
+  }
+  [data-timeline],
+  [data-checklist-filter],
+  #exportChecklistCsv,
+  #exportChecklistPdf,
+  #eventsPrev,
+  #eventsNext,
+  #security-config-export,
+  #security-config-add,
+  #security-sample-events,
+  #security-clear-events {
+    border-radius: 10px;
+    border: 1px solid #ccd9eb;
+    background: #ffffff;
+    color: #3c4d63;
+    transition: all 0.14s ease-out;
+  }
+  [data-timeline]:hover,
+  [data-checklist-filter]:hover,
+  #exportChecklistCsv:hover,
+  #exportChecklistPdf:hover,
+  #eventsPrev:hover,
+  #eventsNext:hover,
+  #security-config-export:hover,
+  #security-config-add:hover,
+  #security-sample-events:hover,
+  #security-clear-events:hover {
+    border-color: #7ea1cc;
+    box-shadow: 0 8px 16px rgba(30, 64, 175, 0.12);
+    color: #1e3a5f;
+  }
+  [data-timeline].bg-slate-900,
+  [data-checklist-filter].bg-slate-900 {
+    border-color: #0b3558;
+    background: #0b3558;
+    color: #ffffff;
+  }
+  [data-event-card] {
+    border-left: 3px solid #cbd5e1;
+  }
+  [data-event-card][data-severity="Critical"] { border-left-color: #b91c1c; }
+  [data-event-card][data-severity="High"] { border-left-color: #c2410c; }
+  [data-event-card][data-severity="Medium"] { border-left-color: #b45309; }
+  [data-event-card][data-severity="Low"] { border-left-color: #0f766e; }
+  [data-hash-card] {
+    border-radius: 14px;
+    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+  }
+  #securityNotificationPopup [data-notification-item] {
+    transition: background 0.14s ease-out;
+  }
+  #securityConfigModal,
+  #mitreRuleModal,
+  #eventDetailModal,
+  #securityMetricsModal,
+  #securityRestartModal,
+  #securityManageModal {
+    backdrop-filter: blur(2px);
+  }
+  #securityConfigModal > div,
+  #mitreRuleModal > div,
+  #eventDetailModal > div,
+  #securityMetricsModal > div,
+  #securityRestartModal > div,
+  #securityManageModal > div {
+    border-radius: 18px;
+    border-color: #d4e1f2;
+    box-shadow: 0 26px 48px rgba(15, 23, 42, 0.22);
+  }
+  .security-page button:focus-visible,
+  .security-page a:focus-visible,
+  .security-page input:focus-visible,
+  .security-page select:focus-visible,
+  .security-page textarea:focus-visible {
+    outline: 2px solid #2563eb;
+    outline-offset: 2px;
+  }
+  @keyframes securityPanelIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes securityCardIn {
+    from { opacity: 0; transform: translateY(7px) scale(0.992); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  @keyframes securityShimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  .security-panel-enter {
+    animation: securityPanelIn 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .security-stagger-in {
+    animation: securityCardIn 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation-delay: var(--stagger-delay, 0ms);
+  }
+  .security-loading-target {
+    position: relative;
+    overflow: hidden;
+  }
+  .security-loading-target::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(110deg, rgba(255, 255, 255, 0) 15%, rgba(255, 255, 255, 0.62) 45%, rgba(255, 255, 255, 0) 75%);
+    transform: translateX(-100%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .security-loading-target.is-loading::after {
+    opacity: 1;
+    animation: securityShimmer 0.95s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .security-panel-enter,
+    .security-stagger-in,
+    .security-loading-target.is-loading::after {
+      animation: none !important;
+    }
+  }
 </style>
 
 <div class="print-only print-container">
@@ -229,7 +467,7 @@
 
 <div class="space-y-10 screen-only security-page">
   <div class="flex flex-wrap items-center justify-between gap-3 border border-[var(--border)] bg-white p-3 security-tab-bar">
-    <div class="flex flex-wrap items-center gap-2">
+    <div class="security-tab-row">
     <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-slate-900 text-white security-tab" data-tab-button="overview">Overview</button>
     <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-white text-slate-600 security-tab" data-tab-button="timeline">Timeline</button>
     <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-white text-slate-600 security-tab" data-tab-button="checklist">Checklist</button>
@@ -243,15 +481,16 @@
     </button>
     <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-white text-slate-600 security-tab" data-tab-button="hash">Hash History</button>
     </div>
-    <div class="relative">
-      <button id="securityNotificationButton" class="relative border border-[var(--border)] p-2 bg-white hover:border-blue-600" aria-label="Security notifications">
+    <div class="relative security-tab-actions">
+      <span data-security-live-status class="security-live-pill">Connecting</span>
+      <button id="securityNotificationButton" class="relative security-alert-btn" aria-label="Security notifications">
         <svg class="h-4 w-4 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"></path>
           <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
         </svg>
         <span id="securityNotificationBadge" class="hidden absolute -top-2 -right-2 text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full bg-red-600 text-white">0</span>
       </button>
-      <div id="securityNotificationPopup" class="hidden absolute right-0 mt-2 w-80 border border-[var(--border)] bg-white shadow-xl z-40">
+      <div id="securityNotificationPopup" class="hidden absolute right-0 mt-2 w-80 border border-[var(--border)] bg-white shadow-xl z-40 security-notification-popup">
         <div class="flex items-center justify-between px-4 py-3 border-b border-[var(--border)]">
           <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Notifications</div>
           <button id="securityMarkAllRead" class="text-[10px] font-black uppercase tracking-widest text-blue-600 hover:underline">Mark all as read</button>
@@ -333,6 +572,12 @@
       <p class="text-[10px] font-black uppercase tracking-widest text-slate-400">Log Locations</p>
       <p class="text-xs text-slate-500 mt-3">Security: {{ environment.logs.security }}</p>
       <p class="text-xs text-slate-500">Audit: {{ environment.logs.audit }}</p>
+      <p class="text-xs text-slate-500">Hash History: {{ environment.logs.hash_history }}</p>
+      <div class="mt-3 space-y-1 text-[11px] text-slate-500">
+        <div>security.log size: {{ security_files.get('logs/security.log', {}).get('size', 0) }} bytes</div>
+        <div>audit.log size: {{ security_files.get('logs/audit.log', {}).get('size', 0) }} bytes</div>
+        <div>hash_history.log size: {{ security_files.get('logs/hash_history.log', {}).get('size', 0) }} bytes</div>
+      </div>
       <button id="openMetricsModal" class="inline-block mt-4 text-xs font-black uppercase tracking-widest text-blue-600 hover:underline">
         Open Metrics
       </button>
@@ -383,9 +628,19 @@
       <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-white text-slate-600" data-timeline="daily">Daily</button>
       <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-white text-slate-600" data-timeline="weekly">Weekly</button>
       <button class="px-3 py-1 text-[10px] font-black uppercase tracking-widest border border-[var(--border)] bg-white text-slate-600" data-timeline="monthly">Monthly</button>
+      <span data-security-live-status class="ml-auto security-live-pill">Connecting</span>
     </div>
     <div class="h-64">
       <canvas id="securityTimelineChart"></canvas>
+    </div>
+    <div class="mt-6 border border-[var(--border)] bg-white p-4 rounded-xl">
+      <div class="flex items-center justify-between gap-3 mb-3">
+        <h4 class="text-[10px] font-black uppercase tracking-widest text-slate-500">Triggered Security Events</h4>
+        <span id="securityTimelineFeedCount" class="px-2 py-1 text-[9px] font-black uppercase tracking-widest border border-slate-200 text-slate-600 bg-slate-50">0 events</span>
+      </div>
+      <div id="securityTimelineFeed" class="max-h-80 overflow-y-auto space-y-2">
+        <div class="text-xs text-slate-400">Loading timeline events...</div>
+      </div>
     </div>
   </div>
 
@@ -718,6 +973,82 @@
       </div>
     </div>
   </div>
+
+  <div class="security-config-shell p-8">
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div class="flex items-center gap-3">
+        <div class="h-5 w-1 bg-emerald-600"></div>
+        <h3 class="text-xs font-black uppercase tracking-[0.2em]">MITRE Mapping Rules</h3>
+      </div>
+      <button id="mitre-rule-add" class="px-3 py-2 text-[10px] font-black uppercase tracking-widest border border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-400">
+        Add Rule
+      </button>
+    </div>
+    <p class="text-xs text-slate-500 mb-4">Rules are evaluated by priority (lower number runs first). First match maps the event.</p>
+    <div class="security-config-table-wrap p-4 md:p-5">
+      <div class="overflow-x-auto">
+        <table class="w-full text-xs security-config-table">
+          <thead>
+            <tr class="text-left text-[10px] uppercase tracking-widest text-slate-500">
+              <th class="py-2 pr-3">Priority</th>
+              <th class="py-2 pr-3">Rule</th>
+              <th class="py-2 pr-3">Scope</th>
+              <th class="py-2 pr-3">Mapping</th>
+              <th class="py-2 pr-3">Status</th>
+              <th class="py-2">Action</th>
+            </tr>
+          </thead>
+          <tbody id="mitre-rules-body">
+            {% for r in mitre_rules %}
+            <tr data-mitre-row
+                data-id="{{ r.id }}"
+                data-name="{{ r.name }}"
+                data-enabled="{{ 'true' if r.enabled else 'false' }}"
+                data-priority="{{ r.priority }}"
+                data-source-type="{{ r.source_type }}"
+                data-audit-event-pattern="{{ r.audit_event_pattern }}"
+                data-path-pattern="{{ r.path_pattern }}"
+                data-method-pattern="{{ r.method_pattern }}"
+                data-status-pattern="{{ r.status_pattern }}"
+                data-details-pattern="{{ r.details_pattern }}"
+                data-raw-pattern="{{ r.raw_pattern }}"
+                data-tactic-id="{{ r.tactic_id }}"
+                data-tactic="{{ r.tactic }}"
+                data-technique-id="{{ r.technique_id }}"
+                data-technique="{{ r.technique }}"
+                data-confidence="{{ r.confidence }}"
+                data-reason="{{ r.reason }}"
+                class="border-b border-[var(--border)]">
+              <td class="py-2 pr-3 font-mono">{{ r.priority }}</td>
+              <td class="py-2 pr-3">
+                <div class="font-semibold text-slate-700">{{ r.name }}</div>
+                <div class="text-[10px] text-slate-500">{{ r.updated_at }}</div>
+              </td>
+              <td class="py-2 pr-3">
+                <div>type={{ r.source_type }}</div>
+                <div class="text-[10px] text-slate-500">path={{ r.path_pattern or '*' }}</div>
+              </td>
+              <td class="py-2 pr-3">{{ r.technique_id }} {{ r.technique }} ({{ r.tactic_id }})</td>
+              <td class="py-2 pr-3">
+                {% if r.enabled %}
+                <span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border border-emerald-200 text-emerald-700 bg-emerald-50">Enabled</span>
+                {% else %}
+                <span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border border-slate-200 text-slate-600 bg-slate-50">Disabled</span>
+                {% endif %}
+              </td>
+              <td class="py-2">
+                <button type="button" data-mitre-open class="security-config-btn edit">Open</button>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not mitre_rules %}
+            <tr id="mitre-empty-row"><td colspan="6" class="py-5 text-center text-[10px] uppercase tracking-widest text-slate-400">No MITRE rules configured</td></tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
   </div>
 
   <div data-tab-content="events" class="space-y-10 hidden" id="security-events-section">
@@ -778,6 +1109,14 @@
          data-severity="{{ e.severity or '-' }}"
          data-threat-intel="{{ e.threat_intel or '-' }}"
          data-mitre="{{ e.mitre or '-' }}"
+         data-mitre-status="{{ e.mitre_status or '-' }}"
+         data-mitre-tactic-id="{{ e.mitre_tactic_id or '-' }}"
+         data-mitre-tactic="{{ e.mitre_tactic or '-' }}"
+         data-mitre-technique-id="{{ e.mitre_technique_id or '-' }}"
+         data-mitre-technique="{{ e.mitre_technique or '-' }}"
+         data-mitre-confidence="{{ e.mitre_confidence or '-' }}"
+         data-mitre-reason="{{ e.mitre_reason or '-' }}"
+         data-mitre-url="{{ e.mitre_url or '-' }}"
          data-investigate="{{ e.investigate or '-' }}"
          data-request-id="{{ e.request_id or '-' }}"
          data-user-id="{{ e.user_id or '-' }}"
@@ -825,6 +1164,20 @@
         <div class="mt-2">
           <p class="text-[10px] uppercase tracking-widest text-slate-400">Source Section</p>
           <p class="text-xs text-slate-600">{{ e.source_section or '-' }}</p>
+        </div>
+        <div class="mt-2">
+          <p class="text-[10px] uppercase tracking-widest text-slate-400">MITRE Mapping</p>
+          <p class="text-xs text-slate-700">
+            {% if e.mitre_status == 'mapped' %}
+              {{ e.mitre_technique_id or '-' }} {{ e.mitre_technique or '-' }}
+            {% else %}
+              not_mapped
+            {% endif %}
+          </p>
+          <p class="text-[10px] text-slate-500">
+            Tactic: {% if e.mitre_status == 'mapped' %}{{ e.mitre_tactic_id or '-' }} {{ e.mitre_tactic or '-' }}{% else %}-{% endif %}
+            | Confidence: {{ e.mitre_confidence or '-' }}
+          </p>
         </div>
         <div class="mt-3">
           <p class="text-xs font-black uppercase tracking-widest text-slate-500">Event</p>
@@ -986,6 +1339,96 @@
 </div>
 
 
+<div id="mitreRuleModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50 px-4">
+  <div class="bg-white w-full max-w-3xl border border-[var(--border)] p-6 max-h-[88vh] overflow-y-auto">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <div class="text-[10px] uppercase tracking-widest text-slate-400">MITRE Rule</div>
+        <h4 class="text-sm font-black uppercase tracking-widest text-slate-700" id="mitreRuleModalTitle">MITRE Rule</h4>
+      </div>
+      <button id="mitreRuleModalClose" class="text-[10px] font-black uppercase tracking-widest border border-[var(--border)] px-3 py-1 hover:border-blue-600 hover:text-blue-600">Close</button>
+    </div>
+    <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Name</span>
+        <input id="mitreRuleName" type="text" class="w-full border border-[var(--border)] px-3 py-2">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Priority</span>
+        <input id="mitreRulePriority" type="number" min="1" max="9999" class="w-full border border-[var(--border)] px-3 py-2">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Source Type</span>
+        <select id="mitreRuleSourceType" class="w-full border border-[var(--border)] px-3 py-2 bg-white">
+          <option value="any">any</option>
+          <option value="request">request</option>
+          <option value="audit">audit</option>
+        </select>
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Audit Event Pattern</span>
+        <input id="mitreRuleAuditEventPattern" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Path Pattern</span>
+        <input id="mitreRulePathPattern" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Method Pattern</span>
+        <input id="mitreRuleMethodPattern" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Status Pattern</span>
+        <input id="mitreRuleStatusPattern" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Details Pattern</span>
+        <input id="mitreRuleDetailsPattern" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Raw Pattern</span>
+        <input id="mitreRuleRawPattern" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Technique ID</span>
+        <input id="mitreRuleTechniqueId" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono" placeholder="T1110 or T1562.001">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Technique</span>
+        <input id="mitreRuleTechnique" type="text" class="w-full border border-[var(--border)] px-3 py-2">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Tactic ID</span>
+        <input id="mitreRuleTacticId" type="text" class="w-full border border-[var(--border)] px-3 py-2 font-mono" placeholder="TA0001">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Tactic</span>
+        <input id="mitreRuleTactic" type="text" class="w-full border border-[var(--border)] px-3 py-2">
+      </label>
+      <label class="space-y-1">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Confidence</span>
+        <select id="mitreRuleConfidence" class="w-full border border-[var(--border)] px-3 py-2 bg-white">
+          <option value="low">low</option>
+          <option value="medium">medium</option>
+          <option value="high">high</option>
+        </select>
+      </label>
+      <label class="space-y-1 md:col-span-3">
+        <span class="text-[10px] uppercase tracking-widest text-slate-400">Reason</span>
+        <textarea id="mitreRuleReason" rows="3" class="w-full border border-[var(--border)] px-3 py-2"></textarea>
+      </label>
+      <label class="inline-flex items-center gap-2 md:col-span-3">
+        <input id="mitreRuleEnabled" type="checkbox" class="h-4 w-4" checked>
+        <span class="text-xs text-slate-600">Enabled</span>
+      </label>
+    </div>
+    <div class="mt-5 flex items-center justify-end gap-2">
+      <button id="mitreRuleDelete" type="button" class="security-config-btn delete hidden">Delete</button>
+      <button id="mitreRuleSave" type="button" class="security-config-btn save">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="eventDetailModal" class="fixed inset-0 bg-black/50 hidden items-center justify-center z-50">
   <div class="bg-white w-full max-w-xl mx-4 border border-[var(--border)] p-6 max-h-[85vh] overflow-y-auto">
     <div class="flex items-center justify-between">
@@ -1032,8 +1475,14 @@
         <div><span class="font-semibold">Hits (10m):</span> <span id="modalHits"></span></div>
         <div><span class="font-semibold">Threat Intel:</span> <span id="modalThreatIntel"></span></div>
       </div>
-      <div class="grid grid-cols-2 gap-2">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
         <div><span class="font-semibold">MITRE:</span> <span id="modalMitre"></span></div>
+        <div><span class="font-semibold">MITRE Status:</span> <span id="modalMitreStatus"></span></div>
+        <div><span class="font-semibold">Technique:</span> <span id="modalMitreTechnique"></span></div>
+        <div><span class="font-semibold">Tactic:</span> <span id="modalMitreTactic"></span></div>
+        <div><span class="font-semibold">Confidence:</span> <span id="modalMitreConfidence"></span></div>
+        <div><span class="font-semibold">Reference:</span> <a id="modalMitreUrl" href="#" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline"></a></div>
+        <div class="md:col-span-2"><span class="font-semibold">Mapping Reason:</span> <span id="modalMitreReason"></span></div>
         <div><span class="font-semibold">Investigate:</span> <span id="modalInvestigate"></span></div>
       </div>
       <div><span class="font-semibold">Occurred:</span> <span id="modalOccurred"></span></div>
@@ -1048,10 +1497,87 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script type="application/json" id="security-events-json">{{ events | tojson }}</script>
 <script type="application/json" id="security-configuration-features-json">{{ configuration_features | tojson }}</script>
+<script type="application/json" id="security-mitre-rules-json">{{ mitre_rules | tojson }}</script>
+<script type="application/json" id="security-dashboard-signature-json">{{ dashboard_reload_signature | tojson }}</script>
 <script>
   let timelineData = [];
   let timelineChart = null;
   let currentTimelineMode = 'hourly';
+  const prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let liveLoadingTargets = [];
+  let liveLoadingClearTimer = null;
+
+  function buildLiveLoadingTargets() {
+    const targets = [];
+    const overviewCards = Array.from(document.querySelectorAll('#security-overview-section [data-overview-item]')).slice(0, 6);
+    const timelineCards = Array.from(document.querySelectorAll('#security-timeline-section [data-timeline-item]')).slice(0, 1);
+    const eventCardsInitial = Array.from(document.querySelectorAll('#security-events-section [data-event-card]')).slice(0, 3);
+    [...overviewCards, ...timelineCards, ...eventCardsInitial].forEach((el) => {
+      if (!el || targets.includes(el)) return;
+      el.classList.add('security-loading-target');
+      targets.push(el);
+    });
+    return targets;
+  }
+
+  function setLiveRefreshLoading(isLoading) {
+    if (!liveLoadingTargets.length) {
+      liveLoadingTargets = buildLiveLoadingTargets();
+    }
+    if (!liveLoadingTargets.length) return;
+    if (liveLoadingClearTimer) {
+      clearTimeout(liveLoadingClearTimer);
+      liveLoadingClearTimer = null;
+    }
+    if (isLoading) {
+      liveLoadingTargets.forEach((el) => el.classList.add('is-loading'));
+      return;
+    }
+    liveLoadingClearTimer = setTimeout(() => {
+      liveLoadingTargets.forEach((el) => el.classList.remove('is-loading'));
+    }, 130);
+  }
+
+  function animatePanelEnter(panel) {
+    if (!panel || prefersReducedMotion) return;
+    panel.classList.remove('security-panel-enter');
+    void panel.offsetWidth;
+    panel.classList.add('security-panel-enter');
+    const items = Array.from(panel.querySelectorAll(
+      '[data-overview-item], [data-timeline-item], [data-checklist-status], [data-feature-card], [data-control-status], [data-event-card], [data-failure-card], [data-hash-row], [data-config-row], .security-config-card'
+    )).filter((el) => el.offsetParent !== null).slice(0, 16);
+    items.forEach((item, idx) => {
+      item.classList.remove('security-stagger-in');
+      item.style.setProperty('--stagger-delay', `${Math.min(idx * 16, 160)}ms`);
+      requestAnimationFrame(() => item.classList.add('security-stagger-in'));
+    });
+  }
+
+  function setTimelineQuickFilterState(mode) {
+    document.querySelectorAll('[data-timeline]').forEach((btn) => {
+      const active = btn.getAttribute('data-timeline') === mode;
+      btn.classList.toggle('bg-slate-900', active);
+      btn.classList.toggle('text-white', active);
+      btn.classList.toggle('border-slate-900', active);
+      btn.classList.toggle('bg-white', !active);
+      btn.classList.toggle('text-slate-600', !active);
+    });
+  }
+
+  function setChecklistQuickFilterState(mode) {
+    document.querySelectorAll('[data-checklist-filter]').forEach((btn) => {
+      const active = btn.getAttribute('data-checklist-filter') === mode;
+      btn.classList.toggle('bg-slate-900', active);
+      btn.classList.toggle('text-white', active);
+      btn.classList.toggle('border-slate-900', active);
+      if (!active) {
+        btn.classList.remove('text-emerald-600', 'text-red-600');
+        if (btn.getAttribute('data-checklist-filter') === 'pass') btn.classList.add('text-emerald-600');
+        if (btn.getAttribute('data-checklist-filter') === 'fail') btn.classList.add('text-red-600');
+      }
+      btn.classList.toggle('bg-white', !active);
+    });
+  }
 
   function updateOverviewSummary(summary) {
     if (!summary) return;
@@ -1070,10 +1596,22 @@
   }
 
   async function refreshSecurityMetrics() {
+    setLiveRefreshLoading(true);
     try {
       const res = await fetch('/admin/security/live', { cache: 'no-store' });
       if (!res.ok) return;
       const data = await res.json();
+      const nextReloadSig = String(data.dashboard_reload_signature || '');
+      if (nextReloadSig) dashboardReloadSignature = nextReloadSig;
+      const nextConfigCount = Number(data.configuration_count || configurationCount || 0);
+      const nextMitreRuleCount = Number(data.mitre_rule_count || mitreRulesCount || 0);
+      const requiresStructuralReload = nextConfigCount !== configurationCount || nextMitreRuleCount !== mitreRulesCount;
+      if (requiresStructuralReload) {
+        configurationCount = nextConfigCount;
+        mitreRulesCount = nextMitreRuleCount;
+        window.location.reload();
+        return;
+      }
       const metrics = data.metrics || {};
       Object.keys(metrics).forEach((id) => {
         const m = metrics[id];
@@ -1085,11 +1623,13 @@
       updateOverviewSummary(data.summary || {});
       if (Array.isArray(data.events)) {
         timelineData = data.events;
-        securityTotalEvents = Number((data.summary || {}).total_events || timelineData.length || 0);
+        securityTotalEvents = Number((data.summary || {}).total_events || timelineData.length || securityTotalEvents || 0);
         buildTimeline(currentTimelineMode);
       }
     } catch (e) {
       // silent
+    } finally {
+      setLiveRefreshLoading(false);
     }
   }
 
@@ -1100,8 +1640,13 @@
   const markAllReadButton = document.getElementById('securityMarkAllRead');
   const notificationItems = Array.from(document.querySelectorAll('[data-notification-item]'));
   const eventCards = Array.from(document.querySelectorAll('[data-event-card]'));
+  const securityLiveStatusBadges = Array.from(document.querySelectorAll('[data-security-live-status]'));
   const readKey = 'security_notifications_read';
+  const initialDashboardReloadSignature = JSON.parse(document.getElementById('security-dashboard-signature-json')?.textContent || '""');
+  let dashboardReloadSignature = String(initialDashboardReloadSignature || '');
   let securityTotalEvents = Number('{{ summary.total_events }}') || 0;
+  let configurationCount = Number('{{ configurations|length }}') || 0;
+  let mitreRulesCount = Number('{{ mitre_rules|length }}') || 0;
 
   function getReadSet() {
     try {
@@ -1223,8 +1768,103 @@
 
   updateNotificationBadges();
 
-  refreshSecurityMetrics();
-  setInterval(refreshSecurityMetrics, 10000);
+  let securityLiveSource = null;
+  let securityLiveReconnectTimer = null;
+
+  function setSecurityLiveStatus(state) {
+    if (!securityLiveStatusBadges.length) return;
+    const normalized = String(state || '').toLowerCase();
+    securityLiveStatusBadges.forEach((badge) => {
+      badge.classList.remove(
+        'border-emerald-200', 'text-emerald-700', 'bg-emerald-50',
+        'border-amber-200', 'text-amber-700', 'bg-amber-50',
+        'border-red-200', 'text-red-700', 'bg-red-50',
+        'border-slate-200', 'text-slate-600', 'bg-slate-50'
+      );
+      if (normalized === 'live') {
+        badge.textContent = 'Live';
+        badge.classList.add('border-emerald-200', 'text-emerald-700', 'bg-emerald-50');
+        return;
+      }
+      if (normalized === 'reconnecting') {
+        badge.textContent = 'Reconnecting';
+        badge.classList.add('border-amber-200', 'text-amber-700', 'bg-amber-50');
+        return;
+      }
+      if (normalized === 'offline') {
+        badge.textContent = 'Offline';
+        badge.classList.add('border-red-200', 'text-red-700', 'bg-red-50');
+        return;
+      }
+      badge.textContent = 'Connecting';
+      badge.classList.add('border-slate-200', 'text-slate-600', 'bg-slate-50');
+    });
+  }
+
+  function startSecurityLiveStream() {
+    if (typeof EventSource === 'undefined') {
+      setSecurityLiveStatus('offline');
+      refreshSecurityMetrics();
+      setInterval(refreshSecurityMetrics, 10000);
+      return;
+    }
+    setSecurityLiveStatus('connecting');
+    if (securityLiveSource) {
+      securityLiveSource.close();
+      securityLiveSource = null;
+    }
+    securityLiveSource = new EventSource('/admin/security/live/stream');
+    securityLiveSource.addEventListener('security_update', (evt) => {
+      setLiveRefreshLoading(true);
+      try {
+        const data = JSON.parse(evt.data || '{}');
+        const nextReloadSig = String(data.dashboard_reload_signature || '');
+        if (nextReloadSig) dashboardReloadSignature = nextReloadSig;
+        const nextConfigCount = Number(data.configuration_count || configurationCount || 0);
+        const nextMitreRuleCount = Number(data.mitre_rule_count || mitreRulesCount || 0);
+        const requiresStructuralReload = nextConfigCount !== configurationCount || nextMitreRuleCount !== mitreRulesCount;
+        if (requiresStructuralReload) {
+          configurationCount = nextConfigCount;
+          mitreRulesCount = nextMitreRuleCount;
+          window.location.reload();
+          return;
+        }
+        const metrics = data.metrics || {};
+        Object.keys(metrics).forEach((id) => {
+          const m = metrics[id];
+          document.querySelectorAll(`[data-feature="${id}"][data-metric="coverage"]`).forEach(el => el.textContent = `${m.coverage}%`);
+          document.querySelectorAll(`[data-feature="${id}"][data-metric="score"]`).forEach(el => el.textContent = m.score);
+          document.querySelectorAll(`[data-feature="${id}"][data-metric="events"]`).forEach(el => el.textContent = m.events);
+          document.querySelectorAll(`[data-feature="${id}"][data-metric-bar="coverage"]`).forEach(el => el.style.width = `${m.coverage}%`);
+        });
+        updateOverviewSummary(data.summary || {});
+        if (Array.isArray(data.events)) {
+          timelineData = data.events;
+          securityTotalEvents = Number((data.summary || {}).total_events || timelineData.length || securityTotalEvents || 0);
+          buildTimeline(currentTimelineMode);
+        }
+        setSecurityLiveStatus('live');
+      } catch (e) {
+        // ignore malformed events
+      } finally {
+        setLiveRefreshLoading(false);
+      }
+    });
+    securityLiveSource.onerror = () => {
+      setSecurityLiveStatus('reconnecting');
+      if (securityLiveSource) {
+        securityLiveSource.close();
+        securityLiveSource = null;
+      }
+      if (securityLiveReconnectTimer) return;
+      securityLiveReconnectTimer = setTimeout(() => {
+        securityLiveReconnectTimer = null;
+        startSecurityLiveStream();
+      }, 3000);
+    };
+  }
+
+  startSecurityLiveStream();
 
   const tabButtons = document.querySelectorAll('[data-tab-button]');
   const tabPanels = document.querySelectorAll('[data-tab-content]');
@@ -1253,9 +1893,12 @@
   }
 
   function setActiveTab(tabId) {
+    let activePanel = null;
     saveTab(tabId);
     tabPanels.forEach(panel => {
-      panel.classList.toggle('hidden', panel.getAttribute('data-tab-content') !== tabId);
+      const isActive = panel.getAttribute('data-tab-content') === tabId;
+      panel.classList.toggle('hidden', !isActive);
+      if (isActive) activePanel = panel;
     });
     tabButtons.forEach(btn => {
       const active = btn.getAttribute('data-tab-button') === tabId;
@@ -1266,6 +1909,7 @@
       btn.classList.toggle('bg-white', !active);
       btn.classList.toggle('text-slate-600', !active);
     });
+    if (activePanel) requestAnimationFrame(() => animatePanelEnter(activePanel));
     if (tabId === 'timeline') {
       setTimeout(() => buildTimeline(currentTimelineMode), 50);
     }
@@ -1309,79 +1953,129 @@
 
   function buildTimeline(mode) {
     currentTimelineMode = mode || currentTimelineMode;
-    const bucketsByFeature = {};
-    timelineData.forEach(e => {
-      if (!e.timestamp) return;
-      const key = bucketKey(currentTimelineMode, e.timestamp);
-      const feature = e.feature_id || 'unknown';
-      if (!bucketsByFeature[feature]) bucketsByFeature[feature] = {};
-      bucketsByFeature[feature][key] = (bucketsByFeature[feature][key] || 0) + 1;
-    });
-    const allLabels = new Set();
-    Object.values(bucketsByFeature).forEach(buckets => {
-      Object.keys(buckets).forEach(label => allLabels.add(label));
-    });
-    const labels = Array.from(allLabels).sort();
-    const featureColorMap = {
-      'request': '#1d4ed8',
-      'audit': '#0f766e',
-      'force-https': '#1e40af',
-      'secure-connection': '#1f6feb',
-      'hsts': '#1d4ed8',
-      'https-headers': '#0ea5e9',
-      'csrf': '#16a34a',
-      'cors': '#22c55e',
-      'coop': '#0f766e',
-      'coep': '#14b8a6',
-      'corp': '#0d9488',
-      'request-id': '#7c3aed',
-      'activity-logging': '#6366f1',
-      'audit-trail': '#3b82f6',
-      'xss': '#f97316',
-      'headers': '#f59e0b',
-      'content-type': '#ea580c',
-      'body-limit': '#b45309',
-      'secure-session': '#9333ea',
-      'session-hijacking': '#be123c',
-      'session-security': '#9f1239',
-      'data-integrity': '#0f172a',
-      'input-validation': '#15803d',
-      'input-limits': '#166534',
-      'password-cracking': '#dc2626',
-      'login-limiter': '#ef4444',
-      'authentication': '#2563eb',
-      'rbac': '#0ea5e9',
-      'waf': '#0b3a63',
-      'encryption': '#0f766e',
-      'key-management': '#0b1220',
-      'secrets-redaction': '#64748b'
-    };
-    const palette = [
-      '#1d4ed8', '#0f766e', '#b45309', '#7c3aed', '#dc2626',
-      '#0284c7', '#0ea5e9', '#9333ea', '#16a34a', '#ea580c',
-      '#7f1d1d', '#164e63'
-    ];
-    const featureKeys = Object.keys(bucketsByFeature).sort();
-    const datasets = featureKeys.map((feature, idx) => {
-      const color = featureColorMap[feature] || palette[idx % palette.length];
-      const fillColor = color + '26';
-      return {
-        label: feature,
-        data: labels.map(label => bucketsByFeature[feature][label] || 0),
-        borderColor: color,
-        backgroundColor: fillColor,
-        fill: true,
-        tension: 0.35,
-        pointRadius: 2,
-        borderWidth: 3
-      };
-    });
-    const labelText = currentTimelineMode === 'daily' ? 'Events per day' : currentTimelineMode === 'weekly' ? 'Events per week' : currentTimelineMode === 'monthly' ? 'Events per month' : 'Events per hour';
+    setTimelineQuickFilterState(currentTimelineMode);
+    if (ctx?.parentElement) {
+      ctx.parentElement.classList.add('security-loading-target', 'is-loading');
+    }
+    const now = new Date();
+    const counts = {};
+    const pad2 = (n) => String(n).padStart(2, '0');
 
-    if (!ctx || !window.Chart) return;
+    function floorToHour(d) {
+      const x = new Date(d);
+      x.setMinutes(0, 0, 0);
+      return x;
+    }
+    function floorToDay(d) {
+      const x = new Date(d);
+      x.setHours(0, 0, 0, 0);
+      return x;
+    }
+    function floorToWeek(d) {
+      const x = floorToDay(d);
+      const day = x.getDay();
+      const diff = (day + 6) % 7; // Monday start
+      x.setDate(x.getDate() - diff);
+      return x;
+    }
+    function floorToMonth(d) {
+      const x = new Date(d.getFullYear(), d.getMonth(), 1);
+      x.setHours(0, 0, 0, 0);
+      return x;
+    }
+    function addStep(d, modeValue, step) {
+      const x = new Date(d);
+      if (modeValue === 'hourly') x.setHours(x.getHours() + step);
+      else if (modeValue === 'daily') x.setDate(x.getDate() + step);
+      else if (modeValue === 'weekly') x.setDate(x.getDate() + (7 * step));
+      else x.setMonth(x.getMonth() + step);
+      return x;
+    }
+    function keyForDate(d, modeValue) {
+      if (modeValue === 'hourly') return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())} ${pad2(d.getHours())}`;
+      if (modeValue === 'daily') return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+      if (modeValue === 'weekly') {
+        const weekStart = floorToWeek(d);
+        return `${weekStart.getFullYear()}-W${pad2(Math.ceil((((weekStart - new Date(weekStart.getFullYear(), 0, 1)) / 86400000) + 1) / 7))}`;
+      }
+      return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}`;
+    }
+    function labelForDate(d, modeValue) {
+      if (modeValue === 'hourly') return `${pad2(d.getDate())} ${pad2(d.getHours())}:00`;
+      if (modeValue === 'daily') return `${pad2(d.getDate())}/${pad2(d.getMonth() + 1)}`;
+      if (modeValue === 'weekly') return `Wk ${pad2(Math.ceil((((d - new Date(d.getFullYear(), 0, 1)) / 86400000) + 1) / 7))}`;
+      return `${d.toLocaleString('en-US', { month: 'short' })} ${String(d.getFullYear()).slice(-2)}`;
+    }
+
+    const windowSize = currentTimelineMode === 'hourly'
+      ? 24
+      : currentTimelineMode === 'daily'
+        ? 14
+        : currentTimelineMode === 'weekly'
+          ? 12
+          : 12;
+
+    const startDate = currentTimelineMode === 'hourly'
+      ? floorToHour(addStep(now, 'hourly', -(windowSize - 1)))
+      : currentTimelineMode === 'daily'
+        ? floorToDay(addStep(now, 'daily', -(windowSize - 1)))
+        : currentTimelineMode === 'weekly'
+          ? floorToWeek(addStep(now, 'weekly', -(windowSize - 1)))
+          : floorToMonth(addStep(now, 'monthly', -(windowSize - 1)));
+
+    const bucketDates = Array.from({ length: windowSize }, (_, i) => addStep(startDate, currentTimelineMode, i));
+    bucketDates.forEach((d) => {
+      counts[keyForDate(d, currentTimelineMode)] = 0;
+    });
+
+    timelineData.forEach((e) => {
+      const d = parseEventDate(e.timestamp);
+      if (!d) return;
+      const bucketDate = currentTimelineMode === 'hourly'
+        ? floorToHour(d)
+        : currentTimelineMode === 'daily'
+          ? floorToDay(d)
+          : currentTimelineMode === 'weekly'
+            ? floorToWeek(d)
+            : floorToMonth(d);
+      const key = keyForDate(bucketDate, currentTimelineMode);
+      if (Object.prototype.hasOwnProperty.call(counts, key)) {
+        counts[key] = (counts[key] || 0) + 1;
+      }
+    });
+
+    const labels = bucketDates.map((d) => labelForDate(d, currentTimelineMode));
+    const values = bucketDates.map((d) => counts[keyForDate(d, currentTimelineMode)] || 0);
+    const hasAnyData = values.some((v) => v > 0);
+    const datasets = [{
+      type: 'line',
+      label: 'Total Activity',
+      data: values,
+      borderColor: '#1d4ed8',
+      backgroundColor: 'rgba(29, 78, 216, 0.16)',
+      borderWidth: 2.5,
+      pointRadius: labels.length <= 2 ? 3.5 : 2,
+      pointHoverRadius: 4.5,
+      tension: 0.35,
+      fill: true,
+      yAxisID: 'y',
+      spanGaps: true,
+    }];
+    const labelText = currentTimelineMode === 'daily'
+      ? 'Security activity per day'
+      : currentTimelineMode === 'weekly'
+        ? 'Security activity per week'
+        : currentTimelineMode === 'monthly'
+          ? 'Security activity per month'
+          : 'Security activity per hour';
+
+    if (!ctx || !window.Chart) {
+      if (ctx?.parentElement) ctx.parentElement.classList.remove('is-loading');
+      return;
+    }
     if (timelineChart) timelineChart.destroy();
     timelineChart = new Chart(ctx, {
-      type: 'bar',
+      type: 'line',
       data: {
         labels,
         datasets
@@ -1389,15 +2083,130 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { display: true, position: 'bottom', labels: { boxWidth: 10, color: '#64748b' } },
+          legend: { display: true, position: 'bottom', labels: { boxWidth: 10, color: '#64748b', usePointStyle: true } },
           title: { display: true, text: labelText, color: '#0f172a', font: { weight: '600', size: 12 } }
         },
         scales: {
-          x: { ticks: { color: '#94a3b8' } },
-          y: { ticks: { color: '#94a3b8' }, beginAtZero: true }
+          x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148, 163, 184, 0.2)' } },
+          y: {
+            beginAtZero: true,
+            ticks: { color: '#94a3b8' },
+            grid: { color: 'rgba(148, 163, 184, 0.18)' },
+            title: { display: true, text: hasAnyData ? 'Event Count' : 'No events in selected range', color: '#64748b' }
+          }
         }
       }
+    });
+    renderTimelineEventFeed(currentTimelineMode, document.getElementById('security-timeline-search')?.value || '');
+    setTimeout(() => ctx?.parentElement?.classList.remove('is-loading'), 100);
+  }
+
+  function renderTimelineEventFeed(mode, searchRaw = '') {
+    const feed = document.getElementById('securityTimelineFeed');
+    const countEl = document.getElementById('securityTimelineFeedCount');
+    if (!feed || !Array.isArray(timelineData)) return;
+
+    const now = new Date();
+    const search = String(searchRaw || '').trim().toLowerCase();
+    const start = new Date(now);
+    if (mode === 'hourly') start.setHours(start.getHours() - 24);
+    else if (mode === 'daily') start.setDate(start.getDate() - 14);
+    else if (mode === 'weekly') start.setDate(start.getDate() - (7 * 12));
+    else start.setMonth(start.getMonth() - 12);
+
+    const items = timelineData
+      .map((e) => ({ e, d: parseEventDate(e.timestamp) }))
+      .filter((x) => x.d && x.d >= start && x.d <= now)
+      .sort((a, b) => b.d - a.d)
+      .map((x) => x.e)
+      .filter((e) => {
+        if (!search) return true;
+        const hay = [
+          e.timestamp,
+          e.event,
+          e.rule,
+          e.severity,
+          e.type,
+          e.source_section,
+          e.user_name,
+          e.user_id
+        ].map(v => String(v || '').toLowerCase()).join(' ');
+        return hay.includes(search);
+      });
+
+    if (countEl) {
+      countEl.textContent = `${items.length} event${items.length === 1 ? '' : 's'}`;
+    }
+
+    feed.innerHTML = '';
+    if (!items.length) {
+      const empty = document.createElement('div');
+      empty.className = 'text-xs text-slate-400';
+      empty.textContent = 'No triggered security events found in this range.';
+      feed.appendChild(empty);
+      return;
+    }
+
+    items.slice(0, 300).forEach((e) => {
+      const row = document.createElement('div');
+      row.className = 'border border-[var(--border)] bg-slate-50/60 px-3 py-2 rounded-lg';
+
+      const top = document.createElement('div');
+      top.className = 'flex flex-wrap items-center gap-2';
+
+      const ts = document.createElement('span');
+      ts.className = 'text-[10px] font-black uppercase tracking-widest text-slate-500';
+      ts.textContent = String(e.timestamp || '-');
+
+      const sev = document.createElement('span');
+      sev.className = 'px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border rounded-full';
+      const severity = String(e.severity || 'Info');
+      if (severity === 'Critical') sev.className += ' border-red-300 text-red-700 bg-red-50';
+      else if (severity === 'High') sev.className += ' border-orange-300 text-orange-700 bg-orange-50';
+      else if (severity === 'Medium') sev.className += ' border-amber-300 text-amber-700 bg-amber-50';
+      else if (severity === 'Low') sev.className += ' border-emerald-300 text-emerald-700 bg-emerald-50';
+      else sev.className += ' border-slate-200 text-slate-600 bg-slate-50';
+      sev.textContent = severity;
+
+      const typ = document.createElement('span');
+      typ.className = 'px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border border-slate-200 text-slate-600 bg-white rounded-full';
+      typ.textContent = String(e.type || 'event');
+
+      top.appendChild(ts);
+      top.appendChild(sev);
+      top.appendChild(typ);
+
+      const rule = document.createElement('div');
+      rule.className = 'mt-1 text-[11px] text-slate-700';
+      const ruleLabel = document.createElement('span');
+      ruleLabel.className = 'font-bold text-slate-500';
+      ruleLabel.textContent = 'Triggered Security: ';
+      const ruleText = document.createElement('span');
+      ruleText.textContent = String(e.rule || '-');
+      rule.appendChild(ruleLabel);
+      rule.appendChild(ruleText);
+
+      const evt = document.createElement('div');
+      evt.className = 'mt-1 text-xs text-slate-600';
+      const evtLabel = document.createElement('span');
+      evtLabel.className = 'font-bold text-slate-500';
+      evtLabel.textContent = 'Event: ';
+      const evtText = document.createElement('span');
+      evtText.textContent = String(e.event || '-');
+      evt.appendChild(evtLabel);
+      evt.appendChild(evtText);
+
+      const meta = document.createElement('div');
+      meta.className = 'mt-1 text-[11px] text-slate-500';
+      meta.textContent = `Source: ${e.source_section || '-'} | User: ${e.user_name || e.user_id || '-'}`;
+
+      row.appendChild(top);
+      row.appendChild(rule);
+      row.appendChild(evt);
+      row.appendChild(meta);
+      feed.appendChild(row);
     });
   }
 
@@ -1409,6 +2218,12 @@
       buildTimeline(mode);
     });
   });
+  const timelineSearchInput = document.getElementById('security-timeline-search');
+  if (timelineSearchInput) {
+    timelineSearchInput.addEventListener('input', () => {
+      renderTimelineEventFeed(currentTimelineMode, timelineSearchInput.value);
+    });
+  }
 
   const tabFilters = {
     overview: {
@@ -1525,6 +2340,9 @@
     if (key === 'events') {
       paginateEvents();
     }
+    if (key === 'checklist') {
+      setChecklistQuickFilterState(values.checklist);
+    }
     if (key === 'configurations') {
       const emptyFilter = document.getElementById('security-config-empty-filter');
       const emptyStatic = document.getElementById('security-config-empty-static');
@@ -1552,7 +2370,13 @@
     const start = (eventsPage - 1) * eventsPageSize;
     const end = start + eventsPageSize;
     visibleCards.forEach((card, idx) => {
-      card.style.display = (idx >= start && idx < end) ? '' : 'none';
+      const inPage = idx >= start && idx < end;
+      card.style.display = inPage ? '' : 'none';
+      if (inPage && !prefersReducedMotion) {
+        card.classList.remove('security-stagger-in');
+        card.style.setProperty('--stagger-delay', `${Math.min((idx - start) * 16, 120)}ms`);
+        requestAnimationFrame(() => card.classList.add('security-stagger-in'));
+      }
     });
     if (eventsPrev) eventsPrev.disabled = eventsPage <= 1;
     if (eventsNext) eventsNext.disabled = eventsPage >= totalPages;
@@ -1629,9 +2453,34 @@
   const configModalCancel = document.getElementById('configModalCancel');
   const configModalDelete = document.getElementById('configModalDelete');
   const configFeatureOptions = JSON.parse(document.getElementById('security-configuration-features-json')?.textContent || '[]');
+  const initialMitreRules = JSON.parse(document.getElementById('security-mitre-rules-json')?.textContent || '[]');
+  const mitreRulesBody = document.getElementById('mitre-rules-body');
+  const mitreRuleAdd = document.getElementById('mitre-rule-add');
+  const mitreRuleModal = document.getElementById('mitreRuleModal');
+  const mitreRuleModalTitle = document.getElementById('mitreRuleModalTitle');
+  const mitreRuleModalClose = document.getElementById('mitreRuleModalClose');
+  const mitreRuleName = document.getElementById('mitreRuleName');
+  const mitreRulePriority = document.getElementById('mitreRulePriority');
+  const mitreRuleSourceType = document.getElementById('mitreRuleSourceType');
+  const mitreRuleAuditEventPattern = document.getElementById('mitreRuleAuditEventPattern');
+  const mitreRulePathPattern = document.getElementById('mitreRulePathPattern');
+  const mitreRuleMethodPattern = document.getElementById('mitreRuleMethodPattern');
+  const mitreRuleStatusPattern = document.getElementById('mitreRuleStatusPattern');
+  const mitreRuleDetailsPattern = document.getElementById('mitreRuleDetailsPattern');
+  const mitreRuleRawPattern = document.getElementById('mitreRuleRawPattern');
+  const mitreRuleTacticId = document.getElementById('mitreRuleTacticId');
+  const mitreRuleTactic = document.getElementById('mitreRuleTactic');
+  const mitreRuleTechniqueId = document.getElementById('mitreRuleTechniqueId');
+  const mitreRuleTechnique = document.getElementById('mitreRuleTechnique');
+  const mitreRuleConfidence = document.getElementById('mitreRuleConfidence');
+  const mitreRuleReason = document.getElementById('mitreRuleReason');
+  const mitreRuleEnabled = document.getElementById('mitreRuleEnabled');
+  const mitreRuleSave = document.getElementById('mitreRuleSave');
+  const mitreRuleDelete = document.getElementById('mitreRuleDelete');
   const dataStorageModeKey = 'DATA_STORAGE_MODE';
   let activeConfigRow = null;
   let configModalMode = 'edit';
+  let activeMitreRuleId = null;
 
   function populateConfigFeatureSelect() {
     if (!configModalFeatureSelect) return;
@@ -1992,6 +2841,208 @@
 
   populateConfigFeatureSelect();
 
+  function mitreRuleRowHtml(rule) {
+    const enabled = String(rule.enabled) === 'true' || rule.enabled === true;
+    const safe = (v) => String(v ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    return `
+      <tr data-mitre-row
+          data-id="${safe(rule.id)}"
+          data-name="${safe(rule.name)}"
+          data-enabled="${enabled ? 'true' : 'false'}"
+          data-priority="${safe(rule.priority)}"
+          data-source-type="${safe(rule.source_type || 'any')}"
+          data-audit-event-pattern="${safe(rule.audit_event_pattern || '')}"
+          data-path-pattern="${safe(rule.path_pattern || '')}"
+          data-method-pattern="${safe(rule.method_pattern || '')}"
+          data-status-pattern="${safe(rule.status_pattern || '')}"
+          data-details-pattern="${safe(rule.details_pattern || '')}"
+          data-raw-pattern="${safe(rule.raw_pattern || '')}"
+          data-tactic-id="${safe(rule.tactic_id)}"
+          data-tactic="${safe(rule.tactic)}"
+          data-technique-id="${safe(rule.technique_id)}"
+          data-technique="${safe(rule.technique)}"
+          data-confidence="${safe(rule.confidence || 'medium')}"
+          data-reason="${safe(rule.reason || '')}"
+          class="border-b border-[var(--border)]">
+        <td class="py-2 pr-3 font-mono">${safe(rule.priority)}</td>
+        <td class="py-2 pr-3">
+          <div class="font-semibold text-slate-700">${safe(rule.name)}</div>
+          <div class="text-[10px] text-slate-500">${safe(rule.updated_at || '-')}</div>
+        </td>
+        <td class="py-2 pr-3">
+          <div>type=${safe(rule.source_type || 'any')}</div>
+          <div class="text-[10px] text-slate-500">path=${safe(rule.path_pattern || '*')}</div>
+        </td>
+        <td class="py-2 pr-3">${safe(rule.technique_id)} ${safe(rule.technique)} (${safe(rule.tactic_id)})</td>
+        <td class="py-2 pr-3">
+          ${enabled
+            ? '<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border border-emerald-200 text-emerald-700 bg-emerald-50">Enabled</span>'
+            : '<span class="px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border border-slate-200 text-slate-600 bg-slate-50">Disabled</span>'}
+        </td>
+        <td class="py-2"><button type="button" data-mitre-open class="security-config-btn edit">Open</button></td>
+      </tr>
+    `;
+  }
+
+  function renderMitreRules(items) {
+    if (!mitreRulesBody) return;
+    if (!Array.isArray(items) || !items.length) {
+      mitreRulesBody.innerHTML = '<tr id="mitre-empty-row"><td colspan="6" class="py-5 text-center text-[10px] uppercase tracking-widest text-slate-400">No MITRE rules configured</td></tr>';
+      return;
+    }
+    mitreRulesBody.innerHTML = items.map(mitreRuleRowHtml).join('');
+  }
+
+  function openMitreModalFromRow(row) {
+    if (!mitreRuleModal || !row) return;
+    activeMitreRuleId = row.getAttribute('data-id');
+    if (mitreRuleModalTitle) mitreRuleModalTitle.textContent = 'Edit MITRE Rule';
+    if (mitreRuleName) mitreRuleName.value = row.getAttribute('data-name') || '';
+    if (mitreRulePriority) mitreRulePriority.value = row.getAttribute('data-priority') || '100';
+    if (mitreRuleSourceType) mitreRuleSourceType.value = row.getAttribute('data-source-type') || 'any';
+    if (mitreRuleAuditEventPattern) mitreRuleAuditEventPattern.value = row.getAttribute('data-audit-event-pattern') || '';
+    if (mitreRulePathPattern) mitreRulePathPattern.value = row.getAttribute('data-path-pattern') || '';
+    if (mitreRuleMethodPattern) mitreRuleMethodPattern.value = row.getAttribute('data-method-pattern') || '';
+    if (mitreRuleStatusPattern) mitreRuleStatusPattern.value = row.getAttribute('data-status-pattern') || '';
+    if (mitreRuleDetailsPattern) mitreRuleDetailsPattern.value = row.getAttribute('data-details-pattern') || '';
+    if (mitreRuleRawPattern) mitreRuleRawPattern.value = row.getAttribute('data-raw-pattern') || '';
+    if (mitreRuleTacticId) mitreRuleTacticId.value = row.getAttribute('data-tactic-id') || '';
+    if (mitreRuleTactic) mitreRuleTactic.value = row.getAttribute('data-tactic') || '';
+    if (mitreRuleTechniqueId) mitreRuleTechniqueId.value = row.getAttribute('data-technique-id') || '';
+    if (mitreRuleTechnique) mitreRuleTechnique.value = row.getAttribute('data-technique') || '';
+    if (mitreRuleConfidence) mitreRuleConfidence.value = row.getAttribute('data-confidence') || 'medium';
+    if (mitreRuleReason) mitreRuleReason.value = row.getAttribute('data-reason') || '';
+    if (mitreRuleEnabled) mitreRuleEnabled.checked = (row.getAttribute('data-enabled') || 'true') === 'true';
+    if (mitreRuleDelete) mitreRuleDelete.classList.remove('hidden');
+    mitreRuleModal.classList.remove('hidden');
+    mitreRuleModal.classList.add('flex');
+  }
+
+  function openMitreModalCreate() {
+    if (!mitreRuleModal) return;
+    activeMitreRuleId = null;
+    if (mitreRuleModalTitle) mitreRuleModalTitle.textContent = 'Create MITRE Rule';
+    if (mitreRuleName) mitreRuleName.value = '';
+    if (mitreRulePriority) mitreRulePriority.value = '100';
+    if (mitreRuleSourceType) mitreRuleSourceType.value = 'any';
+    if (mitreRuleAuditEventPattern) mitreRuleAuditEventPattern.value = '';
+    if (mitreRulePathPattern) mitreRulePathPattern.value = '';
+    if (mitreRuleMethodPattern) mitreRuleMethodPattern.value = '';
+    if (mitreRuleStatusPattern) mitreRuleStatusPattern.value = '';
+    if (mitreRuleDetailsPattern) mitreRuleDetailsPattern.value = '';
+    if (mitreRuleRawPattern) mitreRuleRawPattern.value = '';
+    if (mitreRuleTacticId) mitreRuleTacticId.value = 'TA0001';
+    if (mitreRuleTactic) mitreRuleTactic.value = 'Initial Access';
+    if (mitreRuleTechniqueId) mitreRuleTechniqueId.value = '';
+    if (mitreRuleTechnique) mitreRuleTechnique.value = '';
+    if (mitreRuleConfidence) mitreRuleConfidence.value = 'medium';
+    if (mitreRuleReason) mitreRuleReason.value = '';
+    if (mitreRuleEnabled) mitreRuleEnabled.checked = true;
+    if (mitreRuleDelete) mitreRuleDelete.classList.add('hidden');
+    mitreRuleModal.classList.remove('hidden');
+    mitreRuleModal.classList.add('flex');
+  }
+
+  function closeMitreModal() {
+    if (!mitreRuleModal) return;
+    mitreRuleModal.classList.add('hidden');
+    mitreRuleModal.classList.remove('flex');
+    activeMitreRuleId = null;
+  }
+
+  function mitrePayload() {
+    const data = new URLSearchParams({
+      name: (mitreRuleName?.value || '').trim(),
+      priority: String(mitreRulePriority?.value || '100').trim(),
+      source_type: String(mitreRuleSourceType?.value || 'any').trim(),
+      audit_event_pattern: String(mitreRuleAuditEventPattern?.value || '').trim(),
+      path_pattern: String(mitreRulePathPattern?.value || '').trim(),
+      method_pattern: String(mitreRuleMethodPattern?.value || '').trim(),
+      status_pattern: String(mitreRuleStatusPattern?.value || '').trim(),
+      details_pattern: String(mitreRuleDetailsPattern?.value || '').trim(),
+      raw_pattern: String(mitreRuleRawPattern?.value || '').trim(),
+      tactic_id: String(mitreRuleTacticId?.value || '').trim(),
+      tactic: String(mitreRuleTactic?.value || '').trim(),
+      technique_id: String(mitreRuleTechniqueId?.value || '').trim(),
+      technique: String(mitreRuleTechnique?.value || '').trim(),
+      confidence: String(mitreRuleConfidence?.value || 'medium').trim(),
+      reason: String(mitreRuleReason?.value || '').trim(),
+      enabled: mitreRuleEnabled?.checked ? 'true' : 'false'
+    });
+    return data;
+  }
+
+  async function saveMitreRule() {
+    const payload = mitrePayload();
+    if (!payload.get('name') || !payload.get('tactic_id') || !payload.get('tactic') || !payload.get('technique_id') || !payload.get('technique') || !payload.get('reason')) {
+      window.showToast?.('Name, tactic, technique, and reason are required.', 'warning');
+      return;
+    }
+    const endpoint = activeMitreRuleId
+      ? `/admin/security/mitre-rules/${encodeURIComponent(activeMitreRuleId)}/update`
+      : '/admin/security/mitre-rules/create';
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/x-www-form-urlencoded',
+        'x-csrf-token': csrfToken
+      },
+      body: payload.toString()
+    });
+    if (!res.ok) {
+      window.showToast?.('Failed to save MITRE rule.', 'error');
+      return;
+    }
+    const data = await res.json();
+    renderMitreRules(data.items || []);
+    closeMitreModal();
+    window.showToast?.('MITRE rule saved.', 'success');
+  }
+
+  async function deleteMitreRule() {
+    if (!activeMitreRuleId) return;
+    const ok = window.showConfirm ? await window.showConfirm('Delete this MITRE rule?') : confirm('Delete this MITRE rule?');
+    if (!ok) return;
+    const res = await fetch(`/admin/security/mitre-rules/${encodeURIComponent(activeMitreRuleId)}/delete`, {
+      method: 'POST',
+      headers: { 'x-csrf-token': csrfToken }
+    });
+    if (!res.ok) {
+      window.showToast?.('Failed to delete MITRE rule.', 'error');
+      return;
+    }
+    const data = await res.json();
+    renderMitreRules(data.items || []);
+    closeMitreModal();
+    window.showToast?.('MITRE rule deleted.', 'success');
+  }
+
+  if (mitreRuleAdd) mitreRuleAdd.addEventListener('click', openMitreModalCreate);
+  if (mitreRulesBody) {
+    mitreRulesBody.addEventListener('click', (event) => {
+      const target = event.target;
+      if (!(target instanceof HTMLElement)) return;
+      if (!target.matches('[data-mitre-open]')) return;
+      const row = target.closest('[data-mitre-row]');
+      if (!row) return;
+      openMitreModalFromRow(row);
+    });
+  }
+  if (mitreRuleModalClose) mitreRuleModalClose.addEventListener('click', closeMitreModal);
+  if (mitreRuleModal) {
+    mitreRuleModal.addEventListener('click', (e) => {
+      if (e.target === mitreRuleModal) closeMitreModal();
+    });
+  }
+  if (mitreRuleSave) mitreRuleSave.addEventListener('click', saveMitreRule);
+  if (mitreRuleDelete) mitreRuleDelete.addEventListener('click', deleteMitreRule);
+  renderMitreRules(initialMitreRules);
+
   document.querySelectorAll('[data-filter]').forEach(btn => {
     btn.addEventListener('click', () => {
       const type = btn.getAttribute('data-filter');
@@ -2022,6 +3073,7 @@
       const checklistFilter = document.getElementById('security-checklist-filter');
       if (checklistFilter) checklistFilter.value = filter;
       applyTabFilter('checklist');
+      setChecklistQuickFilterState(filter);
     });
   });
 
@@ -2037,6 +3089,12 @@
   const modalSeverity = document.getElementById('modalSeverity');
   const modalThreatIntel = document.getElementById('modalThreatIntel');
   const modalMitre = document.getElementById('modalMitre');
+  const modalMitreStatus = document.getElementById('modalMitreStatus');
+  const modalMitreTechnique = document.getElementById('modalMitreTechnique');
+  const modalMitreTactic = document.getElementById('modalMitreTactic');
+  const modalMitreConfidence = document.getElementById('modalMitreConfidence');
+  const modalMitreReason = document.getElementById('modalMitreReason');
+  const modalMitreUrl = document.getElementById('modalMitreUrl');
   const modalInvestigate = document.getElementById('modalInvestigate');
   const modalOccurred = document.getElementById('modalOccurred');
   const modalRequestId = document.getElementById('modalRequestId');
@@ -2078,6 +3136,29 @@
     }
     modalThreatIntel.textContent = card.getAttribute('data-threat-intel') || '-';
     modalMitre.textContent = card.getAttribute('data-mitre') || '-';
+    if (modalMitreStatus) modalMitreStatus.textContent = card.getAttribute('data-mitre-status') || '-';
+    if (modalMitreTechnique) {
+      const techniqueId = card.getAttribute('data-mitre-technique-id') || '-';
+      const techniqueName = card.getAttribute('data-mitre-technique') || '-';
+      modalMitreTechnique.textContent = techniqueId === '-' ? '-' : `${techniqueId} ${techniqueName}`;
+    }
+    if (modalMitreTactic) {
+      const tacticId = card.getAttribute('data-mitre-tactic-id') || '-';
+      const tacticName = card.getAttribute('data-mitre-tactic') || '-';
+      modalMitreTactic.textContent = tacticId === '-' ? '-' : `${tacticId} ${tacticName}`;
+    }
+    if (modalMitreConfidence) modalMitreConfidence.textContent = card.getAttribute('data-mitre-confidence') || '-';
+    if (modalMitreReason) modalMitreReason.textContent = card.getAttribute('data-mitre-reason') || '-';
+    if (modalMitreUrl) {
+      const mitreUrl = card.getAttribute('data-mitre-url') || '-';
+      if (mitreUrl && mitreUrl !== '-') {
+        modalMitreUrl.textContent = mitreUrl;
+        modalMitreUrl.href = mitreUrl;
+      } else {
+        modalMitreUrl.textContent = '-';
+        modalMitreUrl.removeAttribute('href');
+      }
+    }
     modalInvestigate.textContent = card.getAttribute('data-investigate') || '-';
     modalOccurred.textContent = card.getAttribute('data-occurred-at') || '-';
     modalRequestId.textContent = card.getAttribute('data-request-id') || '-';
@@ -2152,6 +3233,14 @@
         ['hits', 'Hits', card.getAttribute('data-hits')],
         ['threat_intel', 'Threat Intel', card.getAttribute('data-threat-intel')],
         ['mitre', 'MITRE', card.getAttribute('data-mitre')],
+        ['mitre_status', 'MITRE Status', card.getAttribute('data-mitre-status')],
+        ['mitre_technique_id', 'MITRE Technique ID', card.getAttribute('data-mitre-technique-id')],
+        ['mitre_technique', 'MITRE Technique', card.getAttribute('data-mitre-technique')],
+        ['mitre_tactic_id', 'MITRE Tactic ID', card.getAttribute('data-mitre-tactic-id')],
+        ['mitre_tactic', 'MITRE Tactic', card.getAttribute('data-mitre-tactic')],
+        ['mitre_confidence', 'MITRE Confidence', card.getAttribute('data-mitre-confidence')],
+        ['mitre_reason', 'MITRE Reason', card.getAttribute('data-mitre-reason')],
+        ['mitre_url', 'MITRE URL', card.getAttribute('data-mitre-url')],
         ['investigate', 'Investigate', card.getAttribute('data-investigate')],
         ['occurred', 'Occurred', card.getAttribute('data-occurred-at')],
         ['timestamp', 'Timestamp', card.getAttribute('data-timestamp')]

@@ -125,6 +125,7 @@
 <script>
 const leaveFilterButtons = Array.from(document.querySelectorAll('.filter-pill'));
 const leaveRows = Array.from(document.querySelectorAll('tbody tr[data-status]'));
+const leaveActionForms = Array.from(document.querySelectorAll('form[action="/admin/leave/update"]'));
 
 function applyLeaveFilter(status) {
     leaveRows.forEach(row => {
@@ -138,6 +139,65 @@ leaveFilterButtons.forEach(btn => {
         leaveFilterButtons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         applyLeaveFilter(btn.dataset.filter || 'all');
+    });
+});
+
+async function refreshLeaveBadge() {
+    try {
+        const res = await fetch('/api/leave_count');
+        if (!res.ok) return;
+        const data = await res.json();
+        const badge = document.getElementById('leaveCountBadge');
+        if (!badge) return;
+        const count = Number(data.count || 0);
+        if (count > 0) {
+            badge.textContent = String(count);
+            badge.classList.remove('hidden');
+        } else {
+            badge.textContent = '0';
+            badge.classList.add('hidden');
+        }
+    } catch (_) {}
+}
+
+function markRowArchived(row, action) {
+    row.dataset.status = action === 'approve' ? 'approved' : 'rejected';
+    const actionsCell = row.querySelector('td:last-child .flex');
+    if (!actionsCell) return;
+    actionsCell.innerHTML = '<span class="px-4 py-2 bg-slate-100 text-slate-400 text-[9px] font-bold uppercase tracking-[0.2em]">Archived_Entry</span>';
+}
+
+leaveActionForms.forEach(form => {
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const row = form.closest('tr[data-status]');
+        const actionInput = form.querySelector('input[name="action"]');
+        const action = actionInput ? actionInput.value : '';
+
+        leaveActionForms
+            .filter(f => f.closest('tr[data-status]') === row)
+            .forEach(f => {
+                const btn = f.querySelector('button');
+                if (btn) btn.disabled = true;
+            });
+
+        try {
+            const res = await fetch(form.action, {
+                method: 'POST',
+                body: new FormData(form),
+                credentials: 'same-origin'
+            });
+            if (!res.ok) throw new Error('Leave update failed');
+            if (row) {
+                markRowArchived(row, action);
+                const activeFilterBtn = document.querySelector('.filter-pill.active');
+                const activeFilter = activeFilterBtn ? activeFilterBtn.dataset.filter || 'all' : 'all';
+                applyLeaveFilter(activeFilter);
+            }
+            refreshLeaveBadge();
+        } catch (_) {
+            form.submit();
+        }
     });
 });
 </script>

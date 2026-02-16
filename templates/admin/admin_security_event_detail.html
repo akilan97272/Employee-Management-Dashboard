@@ -49,6 +49,12 @@
       <div class="md:col-span-2"><span class="font-semibold">Evidence:</span> <span class="whitespace-pre-line">{{ event.evidence or '-' }}</span></div>
       <div><span class="font-semibold">Threat Intel:</span> {{ event.threat_intel or '-' }}</div>
       <div><span class="font-semibold">MITRE:</span> {{ event.mitre or '-' }}</div>
+      <div><span class="font-semibold">MITRE Status:</span> {{ event.mitre_status or '-' }}</div>
+      <div><span class="font-semibold">MITRE Technique:</span> {% if event.mitre_technique_id and event.mitre_technique_id != '-' %}{{ event.mitre_technique_id }} {{ event.mitre_technique or '' }}{% else %}-{% endif %}</div>
+      <div><span class="font-semibold">MITRE Tactic:</span> {% if event.mitre_tactic_id and event.mitre_tactic_id != '-' %}{{ event.mitre_tactic_id }} {{ event.mitre_tactic or '' }}{% else %}-{% endif %}</div>
+      <div><span class="font-semibold">MITRE Confidence:</span> {{ event.mitre_confidence or '-' }}</div>
+      <div class="md:col-span-2"><span class="font-semibold">MITRE Reason:</span> {{ event.mitre_reason or '-' }}</div>
+      <div class="md:col-span-2"><span class="font-semibold">MITRE Link:</span> {% if event.mitre_url and event.mitre_url != '-' %}<a class="text-blue-600 hover:underline" href="{{ event.mitre_url }}" target="_blank" rel="noopener noreferrer">{{ event.mitre_url }}</a>{% else %}-{% endif %}</div>
       <div><span class="font-semibold">Hits:</span> {{ event.hits or '-' }}</div>
       <div><span class="font-semibold">Occurred:</span> {{ event.occurred_at or '-' }}</div>
       <div class="md:col-span-2"><span class="font-semibold">Raw Log:</span> <span class="whitespace-pre-line break-words">{{ event.raw_log or '-' }}</span></div>
