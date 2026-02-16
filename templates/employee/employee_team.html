@@ -3,129 +3,137 @@
 {% block page_title %}My Team{% endblock %}
 
 {% block content %}
-
-
 <style>
-/* =========================================
-   PREMIUM CORPORATE TEAM STYLES
-   ========================================= */
+    :root {
+        --canvas: #f8fafc;
+        --ink: #020617;
+        --slate-900: #0f172a;
+        --blue-modern: #4f46e5;
+        --glass-border: rgba(15, 23, 42, 0.08);
+        --accent-soft: #f1f5f9;
+    }
 
-:root {
-  --glass-bg: rgba(255, 255, 255, 0.88);
-  --glass-border: rgba(226, 232, 240, 0.7);
-  --corp-navy: #0f172a;
-  --accent-indigo: #6366f1;
-}
+    body { 
+        background-color: var(--canvas); 
+        color: var(--ink); 
+        font-family: 'Inter', -apple-system, sans-serif;
+        letter-spacing: -0.01em;
+    }
 
-/* Header Banner */
-.team-banner {
-  background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-  border-radius: 1.5rem;
-  padding: 2.5rem;
-  color: white;
-  position: relative;
-  overflow: hidden;
-}
+    /* Minimalist Containers */
+    .studio-card {
+        background: white;
+        border: 1px solid var(--glass-border);
+        border-radius: 1.25rem;
+        transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    }
 
-.team-banner::after {
-  content: "";
-  position: absolute;
-  top: -50%;
-  right: -10%;
-  width: 300px;
-  height: 300px;
-  background: rgba(99, 102, 241, 0.1);
-  border-radius: 50%;
-  filter: blur(60px);
-}
+    /* Executive Header */
+    .exec-header {
+        background: var(--slate-900);
+        color: white;
+        padding: 4rem 3rem;
+        border-radius: 2rem;
+        position: relative;
+        overflow: hidden;
+    }
 
-/* Member Card Polish */
-.member-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
+    .exec-header::before {
+        content: "";
+        position: absolute;
+        top: 0; right: 0;
+        width: 40%; height: 100%;
+        background: linear-gradient(225deg, rgba(79, 70, 229, 0.2) 0%, transparent 70%);
+    }
 
-.member-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--accent-indigo);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
-}
+    /* Avatar Design */
+    .avatar-exec {
+        width: 44px; height: 44px;
+        border-radius: 12px;
+        background: var(--accent-soft);
+        color: var(--slate-900);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 0.9rem;
+    }
 
-/* Avatar Styling */
-.member-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 800;
-  font-size: 1.25rem;
-  background: #f1f5f9;
-  color: #475569;
-}
+    .avatar-leader {
+        background: var(--blue-modern);
+        color: white;
+        box-shadow: 0 10px 15px -3px rgba(79, 70, 229, 0.3);
+    }
 
-.leader-avatar {
-  background: var(--accent-indigo);
-  color: white;
-  box-shadow: 0 8px 15px -3px rgba(99, 102, 241, 0.4);
-}
+    /* Status Dot */
+    .pulse-indicator {
+        width: 6px; height: 6px;
+        border-radius: 50%;
+        background: #10b981;
+        position: relative;
+    }
 
-/* Badges */
-.badge-premium {
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 4px 10px;
-  border-radius: 6px;
-}
+    .pulse-indicator::after {
+        content: "";
+        position: absolute;
+        width: 100%; height: 100%;
+        background: inherit;
+        border-radius: inherit;
+        animation: pulse-ring 1.5s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+    }
 
-.badge-leader {
-  background: rgba(255, 255, 255, 0.15);
-  backdrop-filter: blur(4px);
-  color: #fff;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-}
+    @keyframes pulse-ring {
+        0% { transform: scale(.7); opacity: 1; }
+        80%, 100% { transform: scale(2.5); opacity: 0; }
+    }
 
-.project-card {
-  background: var(--glass-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  cursor: pointer;
-}
+    /* Initiative Cards */
+    .initiative-card {
+        padding: 1.5rem;
+        border: 1px solid var(--glass-border);
+        border-radius: 1rem;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
 
-.project-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--accent-indigo);
-  box-shadow: 0 16px 24px -8px rgba(0, 0, 0, 0.05);
-}
+    .initiative-card:hover {
+        border-color: var(--blue-modern);
+        background: #fcfcfd;
+        transform: translateY(-2px);
+    }
 
-.reveal {
-  opacity: 0;
-  transform: translateY(15px);
-  animation: slideUp 0.6s ease forwards;
-}
+    /* Task Row */
+    .task-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1fr;
+        padding: 1rem;
+        align-items: center;
+        border-bottom: 1px solid #f1f5f9;
+    }
 
-@keyframes slideUp {
-  to { opacity: 1; transform: translateY(0); }
-}
+    .task-row:last-child { border-bottom: none; }
 
-/* 🔥 DEBUG FORCE VISIBILITY */
-.collaborators,
-.leadership-hub,
-.team-members,
-[data-team],
-[data-member] {
-  opacity: 1 !important;
-  transform: none !important;
-  visibility: visible !important;
-}
+    /* Buttons */
+    .btn-exec {
+        background: white;
+        color: var(--slate-900);
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        transition: all 0.2s;
+    }
+
+    .btn-exec:hover {
+        background: var(--blue-modern);
+        color: white;
+        transform: scale(1.02);
+    }
+
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
 </style>
 
 <div class="max-w-6xl mx-auto space-y-8 p-4">
@@ -173,11 +181,14 @@
   <section class="space-y-4">
     <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest px-2">Leadership Hub</h3>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-      {% if item.leader %}
-      <div class="member-card p-6 rounded-[1.5rem] flex items-center gap-5 border-l-4 border-l-indigo-500">
-        <div class="member-avatar leader-avatar">
-          {{ item.leader.name[0] }}
+    <header class="exec-header flex flex-col md:flex-row justify-between items-end gap-6 shadow-xl">
+        <div class="space-y-4">
+            <div class="flex items-center gap-3">
+                <span class="px-3 py-1 bg-white/10 backdrop-blur-md text-white text-[9px] font-black uppercase tracking-widest rounded-full">Unit Overview</span>
+                <span class="text-blue-300 text-xs font-mono">CODE: {{ item.team.id|default('TS-01') }}</span>
+            </div>
+            <h1 class="text-6xl font-black tracking-tight text-white">{{ item.team.name }}</h1>
+            <p class="text-slate-400 text-xl font-light">Lead Division: <span class="text-blue-200 font-medium">{{ item.team.department }}</span></p>
         </div>
         <div>
           <h4 class="font-extrabold text-slate-900 leading-tight">{{ item.leader.name }}</h4>
@@ -190,44 +201,135 @@
                 </svg>
             </span>
         </div>
-      </div>
-      {% else %}
-      <div class="member-card p-6 rounded-[1.5rem] flex items-center gap-5 border-l-4 border-l-slate-200">
-        <div class="member-avatar">?</div>
-        <div>
-          <h4 class="font-extrabold text-slate-900 leading-tight">Leader Unassigned</h4>
-          <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mt-0.5">Team Leader</p>
+    </header>
+
+    <div class="grid grid-cols-12 gap-10">
+        
+        <div class="col-span-12 lg:col-span-4 space-y-8">
+            <section>
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                    <span class="h-px w-8 bg-slate-200"></span> Leadership
+                </h3>
+                <div class="studio-card p-6 border-l-4 border-l-blue-600">
+                    {% if item.leader %}
+                    <div class="flex items-center gap-4">
+                        <div class="avatar-exec avatar-leader">
+                            {{ item.leader.name[0] }}
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-slate-900 leading-none">{{ item.leader.name }}</h4>
+                            <p class="text-[10px] font-bold text-blue-600 uppercase tracking-widest mt-2">Team Lead</p>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-sm text-slate-400 italic">No lead assigned.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <section>
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] flex items-center gap-3">
+                        <span class="h-px w-8 bg-slate-200"></span> Personnel
+                    </h3>
+                    <select id="memberStatusFilter" class="bg-transparent text-[10px] font-black border-none text-slate-400 focus:ring-0 cursor-pointer">
+                        <option value="all">ALL MEMBERS</option>
+                        <option value="active">ACTIVE ONLY</option>
+                    </select>
+                </div>
+                <div class="space-y-3 max-h-[480px] overflow-y-auto custom-scroll pr-3">
+                    {% for m in item.members %}
+                    {% if not item.leader or m.id != item.leader.id %}
+                    <div class="studio-card p-4 flex items-center justify-between hover:bg-slate-50/50" data-member-status="{{ 'active' if m.is_active else 'inactive' }}">
+                        <div class="flex items-center gap-4">
+                            <div class="avatar-exec">
+                                {{ m.name[0] }}
+                            </div>
+                            <div>
+                                <p class="text-sm font-bold text-slate-800">{{ m.name }}</p>
+                                <p class="text-[9px] text-slate-400 font-bold uppercase tracking-tight">{{ m.role|default('Team Associate') }}</p>
+                            </div>
+                        </div>
+                        {% if m.is_active %}
+                        <div class="pulse-indicator" title="Active"></div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
         </div>
       </div>
       {% endif %}
     </div>
   </section>
 
-  <section class="space-y-4">
-    <div class="flex items-center justify-between px-2">
-      <h3 class="text-xs font-black text-slate-400 uppercase tracking-widest">Collaborators</h3>
-      <div class="h-px bg-slate-100 flex-1 mx-4"></div>
-    </div>
+        <div class="col-span-12 lg:col-span-8 space-y-12">
+            
+            <section>
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                    <span class="h-px w-8 bg-slate-200"></span> Strategic Initiatives
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {% set team_projects = projects_by_team.get(item.team.id, []) %}
+                    {% for project in team_projects %}
+                    <div class="initiative-card studio-card group" onclick="openProjectModal(this)" 
+                         data-project-name="{{ project.name }}" 
+                         data-project-status="{{ project.status }}"
+                         data-project-description="{{ project.description }}"
+                         data-project-task-items='{{ project_tasks_map.get(project.id, []) | tojson }}'>
+                        <div class="flex justify-between items-start mb-6">
+                            <span class="text-[8px] font-black tracking-widest uppercase px-3 py-1 bg-slate-100 text-slate-500 rounded-full">{{ project.status }}</span>
+                            <div class="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                                </svg>
+                            </div>
+                        </div>
+                        <h4 class="text-xl font-bold text-slate-900 mb-2">{{ project.name }}</h4>
+                        <p class="text-xs text-slate-500 leading-relaxed mb-6">{{ project.description|default('Analysis of active unit objectives and key results.') }}</p>
+                        
+                        <div class="pt-4 border-t border-slate-50 flex items-center justify-between">
+                            <div class="flex -space-x-2">
+                                <div class="w-7 h-7 rounded-full border-2 border-white bg-slate-100"></div>
+                                <div class="w-7 h-7 rounded-full border-2 border-white bg-blue-100"></div>
+                            </div>
+                            <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">{{ project_task_counts.get(project.id, 0) }} LOGS</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
 
-    {% if item.members %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-h-80 overflow-auto pr-1">
-      {% for m in item.members %}
-        {% if not item.leader or m.id != item.leader.id %}
-        <div class="member-card p-5 rounded-2xl flex items-center gap-4" data-member-status="{{ 'active' if m.is_active else 'inactive' }}">
-          <div class="member-avatar {% if m.active_leader %}leader-avatar{% endif %}">
-            {{ m.name[0] }}
-          </div>
-          <div>
-            <p class="font-bold text-slate-900 text-sm tracking-tight">{{ m.name }}</p>
-            <p class="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{{ m.role if m.role else 'Member' }}</p>
-          </div>
-          {% if m.active_leader %}
-          <div class="ml-auto text-amber-500">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-            </svg>
-          </div>
-          {% endif %}
+            <section>
+                <h3 class="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em] mb-6 flex items-center gap-3">
+                    <span class="h-px w-8 bg-slate-200"></span> Operational Backlog
+                </h3>
+                <div class="studio-card overflow-hidden">
+                    <div class="bg-slate-50/50 task-row">
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Description</span>
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Urgency</span>
+                        <span class="text-[9px] font-black text-slate-400 uppercase tracking-widest">Phase</span>
+                    </div>
+                    {% for task in assigned_tasks %}
+                    <div class="task-row hover:bg-slate-50 transition-colors">
+                        <div>
+                            <p class="text-sm font-bold text-slate-800">{{ task.title }}</p>
+                            <p class="text-[10px] text-slate-400 font-medium">{{ task.project.name if task.project else 'General Assignment' }}</p>
+                        </div>
+                        <div>
+                            <span class="text-[9px] font-black px-2 py-1 rounded-md
+                                {% if task.priority == 'high' %} text-red-600 bg-red-50 {% else %} text-blue-600 bg-blue-50 {% endif %}">
+                                {{ task.priority|upper }}
+                            </span>
+                        </div>
+                        <div>
+                            <span class="text-xs font-semibold text-slate-600 capitalize">{{ task.status }}</span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
         </div>
         {% endif %}
       {% endfor %}
@@ -265,10 +367,20 @@
           </script>
           <div class="flex items-start justify-between">
             <div>
-              <h4 class="font-extrabold text-slate-900 text-sm tracking-tight">{{ task.title }}</h4>
-              <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mt-1">
-                Project: {{ task.project.name if task.project else 'Personal' }}
-              </p>
+                <span class="text-[10px] font-black text-blue-600 uppercase tracking-[0.3em]">Project Focus</span>
+                <h3 id="projectModalName" class="text-4xl font-black text-slate-900 mt-2"></h3>
+                <p id="projectModalMeta" class="text-xs font-bold text-slate-400 uppercase tracking-widest mt-4"></p>
+            </div>
+
+            <div class="grid grid-cols-2 gap-6">
+                <div class="p-6 bg-slate-50 rounded-2xl">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Completion Status</p>
+                    <p id="projectModalTasks" class="text-lg font-bold text-slate-900"></p>
+                </div>
+                <div class="p-6 bg-slate-50 rounded-2xl">
+                    <p class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Target Timeline</p>
+                    <p id="projectDeadlineDisplay" class="text-lg font-bold text-slate-900">Q1 Deployment</p>
+                </div>
             </div>
             <span class="text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded-full
               {% if task.status == 'done' %} bg-emerald-100 text-emerald-700
@@ -490,7 +602,7 @@
             ? '<span class="text-[9px] font-black uppercase tracking-widest text-emerald-600">Completed</span>'
             : `
               <button type="button"
-                      class="text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800"
+                      class="text-[9px] font-black uppercase tracking-widest text-blue-600 hover:text-blue-800"
                       data-task-id="${item.id}"
                       onclick="markProjectTaskComplete(this)">
                 Mark Complete

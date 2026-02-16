@@ -1,117 +1,126 @@
 {% extends "common/layout_base.html" %}
 
-{% block page_title %}Assign Task{% endblock %}
+{% block page_title %}Management Console | Task Control{% endblock %}
 
 {% block content %}
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap');
-
 :root {
-  --ink: #111827;
-  --muted: #6b7280;
-  --card: #ffffff;
-  --surface: #f9fafb;
-  --line: rgba(148, 163, 184, 0.35);
-  --accent: #1d4ed8;
-  --accent-strong: #1e40af;
-  --accent-soft: rgba(59, 130, 246, 0.12);
+  --brand: #6366f1;
+  --brand-hover: #4f46e5;
+  --brand-soft: rgba(99, 102, 241, 0.08);
+  --bg-main: #f8fafc;
+  --surface: #ffffff;
+  --text-main: #0f172a;
+  --text-muted: #64748b;
+  --border-subtle: #e2e8f0;
+  --radius-xl: 20px;
+  --radius-lg: 12px;
+  --shadow-float: 0 10px 25px -5px rgba(0, 0, 0, 0.04), 0 8px 10px -6px rgba(0, 0, 0, 0.04);
 }
 
 body {
-  font-family: 'Space Grotesk', sans-serif;
-  background:
-    radial-gradient(900px 600px at 15% 5%, rgba(59, 130, 246, 0.08), transparent),
-    radial-gradient(700px 500px at 90% 20%, rgba(14, 165, 233, 0.08), transparent),
-    var(--surface);
-  color: var(--ink);
+ 
+  background-color: var(--bg-main);
+  background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.03) 0px, transparent 50%), 
+                    radial-gradient(at 100% 100%, rgba(99, 102, 241, 0.03) 0px, transparent 50%);
+  color: var(--text-main);
+  min-height: 100vh;
 }
 
-.page-shell {
-  max-width: 1000px;
+.shell-container {
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2.5rem 2rem 3rem;
+  padding: 3rem 2rem;
+  animation: fadeIn 0.6s ease-out;
 }
 
-.page-title {
-  font-size: 2.4rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
+/* --- HEADER --- */
+.page-header {
+  margin-bottom: 3rem;
 }
 
-.page-subtitle {
-  color: var(--muted);
-  font-size: 0.95rem;
-}
-
-.panel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 22px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-}
-
-.panel-header {
-  padding: 1.4rem 1.8rem;
-  border-bottom: 1px solid var(--line);
-}
-
-.panel-title {
-  font-size: 0.95rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
-
-.form-grid {
-  padding: 1.6rem 1.8rem 1.9rem;
-  display: grid;
-  gap: 1rem;
-}
-
-.label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-input, textarea, select {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  padding: 0.75rem 0.9rem;
-  font-size: 0.95rem;
-  background: #fff;
-  outline: none;
-  transition: border 0.2s ease, box-shadow 0.2s ease;
-}
-
-input:focus, textarea:focus, select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-}
-
-.action-btn {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-  padding: 0.8rem 1.8rem;
-  border-radius: 999px;
-  border: none;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.75rem;
-}
-
-.action-btn:hover {
-  background: var(--accent-strong);
-}
-
-.assignee-card {
+.operator-badge {
+  background: white;
+  padding: 0.5rem 1rem;
+  border-radius: 99px;
+  border: 1px solid var(--border-subtle);
   display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: var(--shadow-sm);
+}
+
+/* --- DASHBOARD CARDS --- */
+.card-premium {
+  background: var(--surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-float);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* --- FORM ELEMENTS --- */
+.form-label-caps {
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.input-modern {
+  width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-lg);
+  border: 1.5px solid var(--border-subtle);
+  background: #fdfdfd;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.input-modern:focus {
+  outline: none;
+  border-color: var(--brand);
+  box-shadow: 0 0 0 4px var(--brand-soft);
+  background: #fff;
+}
+
+/* --- DATA TABLE --- */
+.directive-row {
+  display: grid;
+  grid-template-columns: 2.5fr 1fr 1fr auto;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid var(--border-subtle);
+  transition: all 0.3s;
+  cursor: pointer;
+}
+
+.directive-row:hover {
+  background: #f1f5f9;
+  transform: scale(1.005);
+}
+
+.directive-row:last-child { border-bottom: none; }
+
+/* --- STATUS PILLS --- */
+.badge-status {
+  padding: 4px 12px;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  display: inline-flex;
   align-items: center;
   justify-content: space-between;
   padding: 0.6rem 0.8rem;
@@ -127,186 +136,262 @@ input:focus, textarea:focus, select:focus {
   background: var(--accent-soft);
 }
 
-.assignee-check {
-  font-weight: 800;
-  color: var(--accent);
+.badge-pending { background: #fef3c7; color: #92400e; }
+.badge-progress { background: #dbeafe; color: #1e40af; }
+.badge-done { background: #dcfce7; color: #166534; }
+
+/* --- PRIORITY DOTS --- */
+.prio-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin-right: 15px;
+  position: relative;
 }
 
-.mono {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
+.prio-high { background: #ef4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+.prio-medium { background: #f59e0b; box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+.prio-low { background: #10b981; box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
 
-.filter-pill {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  background: #fff;
-  transition: all 0.2s ease;
-}
-
-.filter-pill.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.task-card {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1rem 1.1rem;
-  background: #fff;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-}
-
-.task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 26px rgba(15, 23, 42, 0.1);
-}
-
-.status-pill {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 800;
-  padding: 0.3rem 0.6rem;
-  border-radius: 999px;
-}
-
-.status-pending { background: rgba(245, 158, 11, 0.12); color: #b45309; }
-.status-in-progress { background: rgba(59, 130, 246, 0.12); color: #1d4ed8; }
-.status-done { background: rgba(16, 185, 129, 0.12); color: #047857; }
-
-.modal-backdrop {
-  background: rgba(15, 23, 42, 0.6);
-}
-
-.assignee-pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.12);
-  color: #1d4ed8;
-  font-size: 0.7rem;
-  font-weight: 700;
-}
-
-.assignee-preview {
+/* --- AVATAR STACK --- */
+.avatar-stack {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+  align-items: center;
 }
 
-.scroll-box {
-  max-height: 90px;
-  overflow-y: auto;
-  padding-right: 4px;
+.avatar-item {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  background: #e2e8f0;
+  margin-left: -10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.6rem;
+  font-weight: 700;
+  color: #64748b;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.avatar-item:last-child { margin-left: 0; }
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- MODAL REFINEMENT --- */
+.modal-overlay-blur {
+  background: rgba(15, 23, 42, 0.4);
+  backdrop-filter: blur(8px);
+}
+
+.modal-content-premium {
+  background: white;
+  border-radius: 24px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalPop {
+  from { opacity: 0; transform: scale(0.95) translateY(20px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.assignee-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  cursor: pointer;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+.assignee-card:last-child {
+  margin-bottom: 0;
+}
+
+.assignee-card:hover {
+  background: #f1f5f9;
+  border-color: var(--border-subtle);
+}
+
+.assignee-card.active {
+  background: #e0e7ff;
+  border-color: var(--brand);
+  font-weight: 600;
+}
+
+.assignee-card .mono {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: 6px;
+}
+
+.assignee-check {
+  color: var(--brand);
+  font-weight: bold;
+  font-size: 1.1rem;
+}
+
+.assignee-check.hidden {
+  display: none;
+}
+
+.hidden {
+  display: none;
 }
 </style>
 
-<div class="page-shell space-y-8">
-  <div>
-    <h1 class="page-title">Assign Task</h1>
-    <p class="page-subtitle">Create tasks and assign them to team members.</p>
-  </div>
-
-  <section class="panel">
-    <div class="panel-header">
-      <div class="panel-title">Task Brief</div>
-      <div class="mono">Assignments are visible only to managers</div>
+<div class="shell-container mt-0">
+  <header class="page-header flex flex-col md:flex-row md:items-end justify-between gap-6">
+    <div>
+      <h1 class="text-6xl font-extrabold tracking-tight text-slate-900">Task <span class="text-blue-600">Control.</span></h1>
+      <p class="text-slate-500 font-medium mt-2 text-lg">Manage organizational flow and team directives.</p>
     </div>
-    <form action="/manager/create_task" method="POST" class="form-grid" id="assignTaskForm">
-      <div>
-        <label class="label">Task Objective</label>
-        <input type="text" name="title" required placeholder="Define the task outcome">
-      </div>
-      <div>
-        <label class="label">Details</label>
-        <textarea name="description" rows="3" placeholder="Optional details for the task"></textarea>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <label class="label">Priority</label>
-          <select name="priority">
-            <option value="low">Low</option>
-            <option value="medium" selected>Medium</option>
-            <option value="high">High</option>
-          </select>
+    <div class="operator-badge">
+        <span class="text-[10px] font-black text-slate-400 uppercase tracking-widest">Active Operator</span>
+        <div class="flex items-center gap-2">
+            <div class="w-2.5 h-2.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]"></div>
+            <span class="text-sm font-bold text-slate-700">{{ user.name }}</span>
         </div>
-        <div>
-          <label class="label">Due Date</label>
-          <input type="date" name="due_date">
-        </div>
-      </div>
-      <div>
-        <label class="label">Project Linkage</label>
-        <select name="project_id">
-          <option value="">-- No Project --</option>
-          {% for p in projects %}
-          <option value="{{ p.id }}">{{ p.name }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div>
-        <label class="label">Assign To</label>
-        <input id="taskAssigneeSearch" type="text" placeholder="Filter personnel">
-        <div id="taskAssigneeCards" class="hidden mt-3 space-y-2 max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3"></div>
-        <input type="hidden" id="taskAssignees" name="assignees" value="">
-      </div>
-      <div class="flex justify-end">
-        <button type="submit" class="action-btn">Assign Task</button>
-      </div>
-    </form>
-  </section>
-
-  <section class="panel">
-    <div class="panel-header flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <div class="panel-title">Manage Tasks</div>
-        <div class="mono">Tasks created by you</div>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" class="filter-pill active" data-filter="all">All</button>
-        <button type="button" class="filter-pill" data-filter="pending">Pending</button>
-        <button type="button" class="filter-pill" data-filter="in-progress">In Progress</button>
-        <button type="button" class="filter-pill" data-filter="done">Done</button>
-      </div>
     </div>
-    <div class="p-6 space-y-4">
-      {% for task in tasks %}
-      <div class="task-card" data-status="{{ task.status }}"
-           data-id="{{ task.id }}"
-           data-title="{{ task.title | e }}"
-           data-description="{{ task.description | e }}"
-           data-priority="{{ task.priority }}"
-           data-due-date="{{ task.due_date.strftime('%Y-%m-%d') if task.due_date else '' }}"
-           data-assignee="{{ task.assignee.name if task.assignee else '' }}"
-           data-assignee-id="{{ task.assignee.employee_id if task.assignee else task.user_id }}"
-         data-assignees="{{ (task.assignee.name if task.assignee else 'Unknown') ~ ' (' ~ (task.assignee.employee_id if task.assignee else task.user_id) ~ ')' }}"
-           data-project="{{ task.project_info.name if task.project_info else 'No project' }}">
-        <div class="flex items-start justify-between gap-3">
+  </header>
+
+  <div class="grid grid-cols-12 gap-8">
+    <aside class="col-span-12 lg:col-span-4">
+      <div class="card-premium p-8 sticky top-8 border-t-4 border-t-indigo-500 overflow-visible">
+        <div class="flex items-center gap-3 mb-8">
+            <div class="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                <i class="bi bi-plus-square-dotted text-xl"></i>
+            </div>
+            <h2 class="text-lg font-bold">New Directive</h2>
+        </div>
+        
+        <form action="/manager/create_task" method="POST" class="space-y-6">
           <div>
-            <div class="text-lg font-bold">{{ task.title }}</div>
-            <div class="mono">Assigned to</div>
-            <div class="assignee-preview" data-assignee-preview></div>
+            <label class="form-label-caps">Objective Title</label>
+            <input type="text" name="title" class="input-modern" placeholder="Internal Security Audit" required>
           </div>
-          <span class="status-pill status-{{ task.status }}">{{ task.status }}</span>
+
+          <div>
+            <label class="form-label-caps">Description (Optional)</label>
+            <textarea name="description" class="input-modern h-24 resize-none" placeholder="Add task details..."></textarea>
+          </div>
+
+          <div class="relative z-20">
+            <label class="form-label-caps">Assign Lead</label>
+            <div class="relative">
+                <input id="taskAssigneeSearch" type="text" class="input-modern" placeholder="Find team member...">
+                <div id="taskAssigneeCards" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto"></div>
+                <input type="hidden" id="taskAssignees" name="assignees" value="">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label class="form-label-caps">Priority</label>
+              <select name="priority" class="input-modern">
+                <option value="low">Low</option>
+                <option value="medium" selected>Medium</option>
+                <option value="high">High</option>
+              </select>
+            </div>
+            <div>
+              <label class="form-label-caps">Timeline</label>
+              <input type="date" name="due_date" class="input-modern">
+            </div>
+          </div>
+
+          <button type="submit" class="w-full py-4 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-indigo-600 transition-all shadow-lg hover:shadow-indigo-200 hover:-translate-y-0.5 mt-2">
+            Initialize Task
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <main class="col-span-12 lg:col-span-8">
+      <div class="card-premium">
+        <div class="card-header">
+          <h3 class="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Active Stream</h3>
+          <div class="flex gap-2">
+            <span class="text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">{{ tasks|length }} Units</span>
+          </div>
         </div>
-        <p class="text-sm text-slate-600 mt-3">{{ task.description or "No description" }}</p>
-        <div class="flex flex-wrap gap-3 text-xs text-slate-500 mt-3">
-          <span>Priority: {{ task.priority }}</span>
-          <span>Due: {{ task.due_date.strftime('%b %d, %Y') if task.due_date else '—' }}</span>
-          <span>Project: {{ task.project_info.name if task.project_info else 'No project' }}</span>
+        
+        <div class="divide-y divide-slate-100">
+          {% for task in tasks %}
+          <div class="directive-row" onclick="openTaskDetail(this)"
+            data-id="{{ task.id }}"
+            data-title="{{ task.title | e }}"
+            data-description="{{ task.description | e }}"
+            data-assignee="{{ task.assignee.name if task.assignee else '' }}"
+            data-priority="{{ task.priority }}"
+            data-status="{{ task.status }}"
+            data-dueDate="{{ task.due_date.strftime('%Y-%m-%d') if task.due_date else '' }}">
+            
+            <div class="flex items-center">
+              <div class="prio-indicator prio-{{ task.priority }}"></div>
+              <div>
+                <div class="text-[15px] font-bold text-slate-800">{{ task.title }}</div>
+                <div class="flex items-center gap-3 mt-1.5">
+                    <span class="font-mono text-[10px] text-indigo-500 font-bold">#{{ task.id }}</span>
+                    <span class="text-[11px] text-slate-400 font-semibold"><i class="bi bi-calendar4-event mr-1"></i> Due {{ task.due_date.strftime('%b %d') if task.due_date else 'TBD' }}</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="avatar-stack">
+              <div class="avatar-item" style="background: #e0e7ff; color: #4338ca;">JS</div>
+              <div class="avatar-item">MK</div>
+              <div class="avatar-item bg-slate-50 text-slate-400">+2</div>
+            </div>
+
+            <div>
+              <span class="badge-status badge-{{ task.status }}">
+                {{ task.status | title }}
+              </span>
+            </div>
+
+            <div class="text-slate-300">
+                <i class="bi bi-chevron-right"></i>
+            </div>
+          </div>
+          {% else %}
+          <div class="py-24 text-center">
+            <div class="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mx-auto mb-6 text-slate-200 border-2 border-dashed border-slate-200">
+                <i class="bi bi-shield-check text-4xl"></i>
+            </div>
+            <p class="text-slate-400 font-bold">Workspace Optimal. No tasks pending.</p>
+          </div>
+          {% endfor %}
         </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<div id="taskDetailModal" class="fixed inset-0 hidden items-center justify-center z-50 p-6 modal-overlay-blur">
+  <div class="absolute inset-0" onclick="closeTaskDetail()"></div>
+  <div class="relative modal-content-premium w-full max-w-xl overflow-hidden">
+    <div class="h-1.5 bg-gradient-to-r from-indigo-500 to-purple-500"></div>
+    <div class="p-10">
+      <div class="flex justify-between items-start mb-8">
+        <div>
+          <h2 id="taskDetailTitle" class="text-2xl font-black text-slate-900 tracking-tight"></h2>
+          <p id="taskDetailMeta" class="text-indigo-500 text-sm font-bold mt-1"></p>
+        </div>
+        <button onclick="closeTaskDetail()" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors">
+          <i class="bi bi-x-lg text-slate-400"></i>
+        </button>
       </div>
       {% else %}
       <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No tasks created yet.</div>
@@ -315,63 +400,38 @@ input:focus, textarea:focus, select:focus {
   </section>
 </div>
 
-<div id="taskDetailModal" class="fixed inset-0 hidden items-center justify-center">
-  <div class="absolute inset-0 modal-backdrop" id="taskDetailBackdrop"></div>
-  <div class="relative bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
-    <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-      <div>
-        <div class="panel-title">Task Details</div>
-        <div class="text-lg font-bold" id="taskDetailTitle"></div>
-        <div class="mono" id="taskDetailMeta"></div>
-      </div>
-      <button type="button" id="closeTaskDetail" class="mono">Close</button>
-    </div>
-    <div class="p-6 space-y-4">
-      <form action="/manager/tasks/update" method="POST" class="space-y-4" id="taskEditForm">
-        <input type="hidden" name="task_id" id="taskEditId">
-        <div class="flex justify-between items-center">
-          <button type="submit" form="taskDeleteForm" class="px-4 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold">Delete</button>
-          <button type="submit" class="action-btn">Save Changes</button>
+      <form action="/manager/tasks/update" method="POST" class="space-y-6">
+        <input type="hidden" id="taskEditId" name="task_id">
+        
+        <div class="grid grid-cols-2 gap-6">
+            <div>
+                <label class="form-label-caps">Priority Level</label>
+                <select id="taskEditPriority" name="priority" class="input-modern">
+                    <option value="low">Low</option>
+                    <option value="medium">Medium</option>
+                    <option value="high">High</option>
+                </select>
+            </div>
+            <div>
+                <label class="form-label-caps">Status Flow</label>
+                <select id="taskEditStatus" name="status" class="input-modern">
+                    <option value="pending">Pending</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="done">Done</option>
+                </select>
+            </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div class="border rounded-xl p-4 bg-slate-50/60">
-            <div class="label">Assigned By</div>
-            <div class="text-sm font-medium">{{ user.name }} ({{ user.employee_id }})</div>
-          </div>
-          <div class="border rounded-xl p-4 bg-slate-50/60">
-            <div class="label">Assigned To</div>
-            <div class="text-sm font-medium scroll-box" id="taskDetailAssignees"></div>
-          </div>
-        </div>
+
         <div>
-          <label class="label">Title</label>
-          <input type="text" name="title" id="taskEditTitle" required>
+          <label class="form-label-caps">Objective Description</label>
+          <textarea id="taskEditDescription" name="description" class="input-modern h-32 resize-none" placeholder="Elaborate on the task requirements..."></textarea>
         </div>
-        <div>
-          <label class="label">Description</label>
-          <textarea name="description" rows="3" id="taskEditDescription"></textarea>
-        </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="label">Priority</label>
-            <select name="priority" id="taskEditPriority">
-              <option value="low">Low</option>
-              <option value="medium">Medium</option>
-              <option value="high">High</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">Status</label>
-            <select name="status" id="taskEditStatus">
-              <option value="pending">Pending</option>
-              <option value="in-progress">In Progress</option>
-              <option value="done">Done</option>
-            </select>
-          </div>
-          <div>
-            <label class="label">Due Date</label>
-            <input type="date" name="due_date" id="taskEditDueDate">
-          </div>
+
+        <div class="flex gap-4 pt-4">
+          <button type="submit" class="flex-1 py-4 bg-indigo-600 text-white rounded-xl font-bold shadow-xl shadow-indigo-100 hover:bg-indigo-700 transition-all">Save Changes</button>
+          <button type="button" id="taskDeleteBtn" class="px-6 py-4 bg-red-50 text-red-600 rounded-xl font-bold hover:bg-red-100 transition-all">
+            <i class="bi bi-trash3"></i>
+          </button>
         </div>
       </form>
       <form action="/manager/tasks/delete" method="POST" id="taskDeleteForm" data-confirm="Delete this task?">
@@ -382,177 +442,157 @@ input:focus, textarea:focus, select:focus {
 </div>
 
 <script>
-const taskSearch = document.getElementById('taskAssigneeSearch');
-const taskCards = document.getElementById('taskAssigneeCards');
-const taskAssigneesInput = document.getElementById('taskAssignees');
-const selectedIds = new Set();
-let searchTimer = null;
-
-function renderTaskResults(items) {
-  if (!taskCards) return;
-  taskCards.innerHTML = '';
-  if (!items.length) {
-    taskCards.classList.add('hidden');
-    return;
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Page loaded - initializing task control');
+  
+  // UI Logic for opening detail
+  function openTaskDetail(el) {
+    const data = el.dataset;
+    document.getElementById('taskDetailTitle').textContent = data.title;
+    document.getElementById('taskDetailMeta').textContent = `Assigned to ${data.assignee || 'Unassigned'} • Due ${data.dueDate || 'No date'}`;
+    document.getElementById('taskEditId').value = data.id;
+    document.getElementById('taskEditDescription').value = data.description || '';
+    document.getElementById('taskEditPriority').value = data.priority;
+    document.getElementById('taskEditStatus').value = data.status;
+    
+    const modal = document.getElementById('taskDetailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
   }
-  items.forEach(emp => {
-    const card = document.createElement('div');
-    card.className = 'assignee-card task-assignee-card';
-    card.dataset.empId = emp.employee_id;
-    card.dataset.empName = emp.name;
-    if (selectedIds.has(emp.employee_id)) {
-      card.classList.add('active');
-    }
 
-    const left = document.createElement('div');
-    left.innerHTML = `${emp.name} <span class="mono">#${emp.employee_id}</span>`;
-    const check = document.createElement('div');
-    check.className = 'assignee-check' + (selectedIds.has(emp.employee_id) ? '' : ' hidden');
-    check.textContent = '✓';
+  function closeTaskDetail() {
+    const modal = document.getElementById('taskDetailModal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+  }
 
-    card.appendChild(left);
-    card.appendChild(check);
+  // Assignee Search Functionality
+  const taskSearch = document.getElementById('taskAssigneeSearch');
+  const taskCards = document.getElementById('taskAssigneeCards');
+  const taskAssigneesInput = document.getElementById('taskAssignees');
+  const selectedIds = new Set();
+  let searchTimer = null;
 
-    card.addEventListener('click', () => {
-      const id = emp.employee_id;
-      if (selectedIds.has(id)) {
-        selectedIds.delete(id);
-        card.classList.remove('active');
-        check.classList.add('hidden');
-      } else {
-        selectedIds.add(id);
-        card.classList.add('active');
-        check.classList.remove('hidden');
-      }
-      taskAssigneesInput.value = Array.from(selectedIds).join(',');
-    });
-
-    taskCards.appendChild(card);
-  });
-  taskCards.classList.remove('hidden');
-}
-
-async function fetchParticipants(term) {
-  const response = await fetch(`/manager/participant_search?q=${encodeURIComponent(term)}`);
-  if (!response.ok) return [];
-  return await response.json();
-}
-
-if (taskSearch) {
-  taskSearch.addEventListener('input', () => {
-    const term = taskSearch.value.trim();
-    if (!term) {
+  function renderTaskResults(items) {
+    if (!taskCards) return;
+    taskCards.innerHTML = '';
+    if (!items.length) {
       taskCards.classList.add('hidden');
       return;
     }
-    if (searchTimer) {
-      clearTimeout(searchTimer);
-    }
-    searchTimer = setTimeout(async () => {
-      const results = await fetchParticipants(term);
-      renderTaskResults(Array.isArray(results) ? results : []);
-    }, 200);
-  });
-}
+    
+    // Add padding to the container
+    taskCards.style.padding = '8px';
+    
+    items.forEach(emp => {
+      const card = document.createElement('div');
+      card.className = 'assignee-card task-assignee-card';
+      card.dataset.empId = emp.employee_id;
+      card.dataset.empName = emp.name;
+      if (selectedIds.has(emp.employee_id)) {
+        card.classList.add('active');
+      }
 
-const today = new Date().toISOString().split('T')[0];
-document.querySelectorAll('input[type="date"]').forEach(input => {
-  input.min = today;
-});
+      const left = document.createElement('div');
+      left.innerHTML = `${emp.name} <span class="mono">#${emp.employee_id}</span>`;
+      const check = document.createElement('div');
+      check.className = 'assignee-check' + (selectedIds.has(emp.employee_id) ? '' : ' hidden');
+      check.textContent = '✓';
 
-const taskFilterButtons = Array.from(document.querySelectorAll('[data-filter]'));
-const taskCardsList = Array.from(document.querySelectorAll('.task-card'));
+      card.appendChild(left);
+      card.appendChild(check);
 
-function applyTaskFilter(status) {
-  taskCardsList.forEach(card => {
-    const cardStatus = card.dataset.status || '';
-    if (status === 'all' || cardStatus === status) {
-      card.style.display = '';
-    } else {
-      card.style.display = 'none';
-    }
-  });
-}
+      card.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const id = emp.employee_id;
+        if (selectedIds.has(id)) {
+          selectedIds.delete(id);
+          card.classList.remove('active');
+          check.classList.add('hidden');
+        } else {
+          selectedIds.add(id);
+          card.classList.add('active');
+          check.classList.remove('hidden');
+        }
+        taskAssigneesInput.value = Array.from(selectedIds).join(',');
+        console.log('Selected assignees:', taskAssigneesInput.value);
+      });
 
-taskFilterButtons.forEach(btn => {
-  btn.addEventListener('click', () => {
-    taskFilterButtons.forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    applyTaskFilter(btn.dataset.filter || 'all');
-  });
-});
-
-const taskDetailModal = document.getElementById('taskDetailModal');
-const taskDetailBackdrop = document.getElementById('taskDetailBackdrop');
-const taskDetailClose = document.getElementById('closeTaskDetail');
-
-function parseAssignees(value) {
-  return (value || '')
-    .split(',')
-    .map(item => item.trim())
-    .filter(Boolean);
-}
-
-function renderAssigneePreview(card) {
-  const container = card.querySelector('[data-assignee-preview]');
-  if (!container) return;
-  const list = parseAssignees(card.dataset.assignees);
-  container.innerHTML = '';
-  if (!list.length) return;
-
-  const preview = list.slice(0, 2);
-  preview.forEach(name => {
-    const pill = document.createElement('span');
-    pill.className = 'assignee-pill';
-    pill.textContent = name;
-    container.appendChild(pill);
-  });
-
-  if (list.length > 2) {
-    const more = document.createElement('span');
-    more.className = 'assignee-pill';
-    more.textContent = `+${list.length - 2}`;
-    container.appendChild(more);
+      taskCards.appendChild(card);
+    });
+    taskCards.classList.remove('hidden');
   }
-}
 
-function openTaskDetail(card) {
-  document.getElementById('taskDetailTitle').textContent = card.dataset.title || '-';
-  document.getElementById('taskDetailMeta').textContent = `${card.dataset.assignee || '-'} · ${card.dataset.project || 'No project'}`;
-  const fullAssignees = parseAssignees(card.dataset.assignees);
-  const assigneesEl = document.getElementById('taskDetailAssignees');
-  assigneesEl.innerHTML = '';
-  if (!fullAssignees.length) {
-    assigneesEl.textContent = '-';
-  } else {
-    fullAssignees.forEach(name => {
-      const row = document.createElement('div');
-      row.textContent = name;
-      assigneesEl.appendChild(row);
+  async function fetchParticipants(term) {
+    const response = await fetch(`/manager/participant_search?q=${encodeURIComponent(term)}`);
+    if (!response.ok) return [];
+    return await response.json();
+  }
+
+  if (taskSearch) {
+    taskSearch.addEventListener('input', () => {
+      const term = taskSearch.value.trim();
+      if (!term) {
+        taskCards.classList.add('hidden');
+        return;
+      }
+      if (searchTimer) {
+        clearTimeout(searchTimer);
+      }
+      searchTimer = setTimeout(async () => {
+        const results = await fetchParticipants(term);
+        renderTaskResults(Array.isArray(results) ? results : []);
+      }, 200);
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!taskSearch.parentElement.contains(e.target)) {
+        taskCards.classList.add('hidden');
+      }
+    });
+
+    // Close dropdown on escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        taskCards.classList.add('hidden');
+      }
     });
   }
-  document.getElementById('taskEditId').value = card.dataset.id || '';
-  document.getElementById('taskDeleteId').value = card.dataset.id || '';
-  document.getElementById('taskEditTitle').value = card.dataset.title || '';
-  document.getElementById('taskEditDescription').value = card.dataset.description || '';
-  document.getElementById('taskEditPriority').value = card.dataset.priority || 'medium';
-  document.getElementById('taskEditStatus').value = card.dataset.status || 'pending';
-  document.getElementById('taskEditDueDate').value = card.dataset.dueDate || '';
-  taskDetailModal.classList.remove('hidden');
-  taskDetailModal.classList.add('flex');
-}
 
-function closeTaskDetail() {
-  taskDetailModal.classList.add('hidden');
-  taskDetailModal.classList.remove('flex');
-}
+  // Set minimum date to today
+  const today = new Date().toISOString().split('T')[0];
+  document.querySelectorAll('input[type="date"]').forEach(input => {
+    input.min = today;
+    console.log('Date input min set to:', today);
+  });
 
-taskCardsList.forEach(card => {
-  card.addEventListener('click', () => openTaskDetail(card));
-  renderAssigneePreview(card);
+  // Delete task via fetch to avoid nested forms
+  const taskDeleteBtn = document.getElementById('taskDeleteBtn');
+  if (taskDeleteBtn) {
+    taskDeleteBtn.addEventListener('click', async () => {
+      const id = document.getElementById('taskEditId').value;
+      if (!id) return;
+      if (!confirm('Delete this task? This action cannot be undone.')) return;
+      const fd = new FormData();
+      fd.append('task_id', id);
+      try {
+        const res = await fetch('/manager/tasks/delete', { method: 'POST', body: fd });
+        if (res.redirected) {
+          window.location = res.url;
+        } else {
+          window.location.reload();
+        }
+      } catch (err) {
+        console.error('Delete failed', err);
+        window.location.reload();
+      }
+    });
+  }
+
+  // Expose functions as global so they can be called from inline handlers
+  window.openTaskDetail = openTaskDetail;
+  window.closeTaskDetail = closeTaskDetail;
 });
-
-if (taskDetailBackdrop) taskDetailBackdrop.addEventListener('click', closeTaskDetail);
-if (taskDetailClose) taskDetailClose.addEventListener('click', closeTaskDetail);
 </script>
 {% endblock %}

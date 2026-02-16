@@ -1,347 +1,349 @@
 {% extends "common/layout_base.html" %}
 
-{% block page_title %}Schedule Meeting{% endblock %}
+{% block page_title %}Enterprise Meeting Hub{% endblock %}
 
 {% block content %}
 
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700;800&family=IBM+Plex+Mono:wght@500&display=swap');
+  :root {
+    --primary: #0f172a;
+    --accent: #2563eb;
+    --accent-glow: rgba(37, 99, 235, 0.15);
+    --surface: #ffffff;
+    --canvas: #f8fafc;
+    --border: #e2e8f0;
+    --text-main: #1e293b;
+    --text-muted: #64748b;
+  }
 
-:root {
-  --ink: #0f172a;
-  --muted: #64748b;
-  --card: #ffffff;
-  --surface: #f8fafc;
-  --line: rgba(148, 163, 184, 0.4);
-  --accent: #0f766e;
-  --accent-strong: #115e59;
-  --accent-soft: rgba(20, 184, 166, 0.1);
-}
+  body {
+    background: var(--canvas);
+    color: var(--text-main);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    letter-spacing: -0.01em;
+  }
 
-body {
-  font-family: 'Space Grotesk', sans-serif;
-  background:
-    radial-gradient(900px 600px at 10% 0%, rgba(20, 184, 166, 0.08), transparent),
-    radial-gradient(700px 500px at 90% 10%, rgba(59, 130, 246, 0.08), transparent),
-    var(--surface);
-  color: var(--ink);
-}
+  /* --- LAYOUT --- */
+  .hub-shell {
+    display: flex;
+    gap: 2.5rem;
+    padding: 3rem;
+    max-width: 1400px;
+    margin: 0 auto;
+    min-height: 90vh;
+  }
 
-.page-shell {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 2.5rem 2rem 3rem;
-}
+  /* --- COMMAND SIDEBAR --- */
+  .command-sidebar {
+    flex: 0 0 400px;
+    position: sticky;
+    top: 2rem;
+    height: fit-content;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 2.5rem;
+    box-shadow: 0 4px 20px -5px rgba(0,0,0,0.05);
+  }
 
-.page-title {
-  font-size: 2.5rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-}
+  .sidebar-header {
+    margin-bottom: 2rem;
+  }
 
-.page-subtitle {
-  color: var(--muted);
-  font-size: 0.95rem;
-}
+  .sidebar-header h2 {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: -0.03em;
+  }
 
-.panel {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 20px;
-  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
-}
+  /* --- FORM REFINEMENT --- */
+  .form-group { margin-bottom: 1.5rem; }
 
-.panel-header {
-  padding: 1.25rem 1.5rem;
-  border-bottom: 1px solid var(--line);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 1rem;
-}
+  .form-label {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.6rem;
+    display: block;
+    letter-spacing: 0.05em;
+  }
 
-.panel-title {
-  font-size: 1rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--muted);
-}
+  .premium-input {
+    width: 100%;
+    padding: 0.8rem 1rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--border);
+    background: #f8fafc;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    font-size: 0.95rem;
+  }
 
-.form-grid {
-  padding: 1.5rem;
-  display: grid;
-  gap: 1rem;
-}
+  .premium-input:focus {
+    outline: none;
+    border-color: var(--accent);
+    background: white;
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
 
-.label {
-  font-size: 0.75rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  font-weight: 700;
-}
+  .btn-execute {
+    width: 100%;
+    padding: 1rem;
+    background: var(--primary);
+    color: white;
+    border-radius: 12px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    transition: transform 0.2s, background 0.2s;
+    border: none;
+    cursor: pointer;
+  }
 
-input, textarea, select {
-  width: 100%;
-  border-radius: 12px;
-  border: 1px solid var(--line);
-  padding: 0.75rem 0.9rem;
-  font-size: 0.95rem;
-  background: #fff;
-  outline: none;
-  transition: border 0.2s ease, box-shadow 0.2s ease;
-}
+  .btn-execute:hover {
+    background: #000;
+    transform: translateY(-2px);
+  }
 
-input:focus, textarea:focus, select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
-}
+  /* --- TIMELINE FEED --- */
+  .timeline-feed { flex: 1; }
 
-.action-btn {
-  background: var(--accent);
-  color: #fff;
-  font-weight: 700;
-  padding: 0.8rem 1.6rem;
-  border-radius: 999px;
-  border: none;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 0.75rem;
-}
+  .feed-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2.5rem;
+  }
 
-.action-btn:hover {
-  background: var(--accent-strong);
-}
+  .feed-title {
+    font-size: 3rem;
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    color: var(--primary);
+  }
 
-.assignee-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.8rem;
-  border-radius: 10px;
-  border: 1px solid transparent;
-  background: #fff;
-  cursor: pointer;
-  font-size: 0.85rem;
-}
+  .session-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1.5rem 2rem;
+    margin-bottom: 1.25rem;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 2rem;
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: pointer;
+  }
 
-.assignee-card.active {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
+  .session-card:hover {
+    transform: scale(1.02);
+    box-shadow: 0 20px 40px -15px rgba(0,0,0,0.1);
+    border-color: var(--accent);
+  }
 
-.assignee-check {
-  font-weight: 800;
-  color: var(--accent);
-}
+  .time-block {
+    text-align: center;
+    padding-right: 2rem;
+    border-right: 2px solid var(--canvas);
+  }
 
-.meeting-card {
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 1.1rem 1.2rem;
-  background: #fff;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  cursor: pointer;
-}
+  .time-main {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 1.25rem;
+    color: var(--accent);
+  }
 
-.meeting-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.12);
-}
+  .time-sub {
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+  }
 
-.status-pill {
-  font-size: 0.65rem;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  font-weight: 800;
-  padding: 0.3rem 0.6rem;
-  border-radius: 999px;
-}
+  .title-area h3 {
+    font-size: 1.15rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 0.5rem;
+  }
 
-.status-upcoming { background: rgba(59, 130, 246, 0.1); color: #1d4ed8; }
-.status-ongoing { background: rgba(16, 185, 129, 0.12); color: #047857; }
-.status-completed { background: rgba(148, 163, 184, 0.2); color: #475569; }
+  .tag-group {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+  }
 
-.mono {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 0.75rem;
-  color: var(--muted);
-}
+  .tag {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.3rem 0.8rem;
+    border-radius: 99px;
+    background: var(--canvas);
+    color: var(--text-muted);
+  }
 
-.filter-pill {
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--muted);
-  background: #fff;
-  transition: all 0.2s ease;
-}
+  .tag-accent {
+    background: var(--accent-glow);
+    color: var(--accent);
+  }
 
-.filter-pill.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
+  /* --- MODAL DESIGN --- */
+  .modal-overlay {
+    backdrop-filter: blur(12px);
+    background: rgba(15, 23, 42, 0.3);
+  }
 
-.modal-backdrop {
-  background: rgba(15, 23, 42, 0.6);
-}
+  .modal-window {
+    background: white;
+    border-radius: 32px;
+    width: 100%;
+    max-width: 650px;
+    overflow: hidden;
+    box-shadow: 0 30px 60px -12px rgba(0,0,0,0.25);
+    animation: modalPop 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
 
-.scroll-box {
-  max-height: 90px;
-  overflow-y: auto;
-  padding-right: 4px;
-}
+  @keyframes modalPop {
+    from { transform: scale(0.9) translateY(20px); opacity: 0; }
+    to { transform: scale(1) translateY(0); opacity: 1; }
+  }
 
-.meeting-list {
-  max-height: 520px;
-  overflow-y: auto;
-}
+  .modal-hero {
+    background: var(--primary);
+    padding: 3rem;
+    color: white;
+  }
+
+  .modal-body { padding: 3rem; }
+
 </style>
 
-<div class="page-shell space-y-8">
-  <div class="flex flex-wrap items-end justify-between gap-4">
-    <div>
-      <h1 class="page-title">Schedule Meeting</h1>
-      <p class="page-subtitle">Create new meetings and track upcoming sessions.</p>
+<div class="hub-shell">
+  <aside class="command-sidebar">
+    <div class="sidebar-header">
+      <h2>Scheduler</h2>
+      <p class="text-sm text-slate-400">Deploy a new team synchronization</p>
     </div>
-  </div>
 
-  <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
-    <section class="panel lg:col-span-5">
-      <div class="panel-header">
-        <div>
-          <div class="panel-title">New Session</div>
-          <div class="mono">Auto-generated secure meeting link</div>
-        </div>
+    <form action="/manager/create_meeting" method="POST">
+      <div class="form-group">
+        <label class="form-label">Subject</label>
+        <input type="text" name="title" class="premium-input" placeholder="Sprint Planning..." required>
       </div>
-      <form action="/manager/create_meeting" method="POST" class="form-grid" id="scheduleMeetingForm">
-        <div>
-          <label class="label">Session Title</label>
-          <input type="text" name="title" required placeholder="Quarterly planning sync">
-        </div>
-        <div>
-          <label class="label">Agenda Outline</label>
-          <textarea name="description" rows="3" placeholder="Agenda highlights..."></textarea>
-        </div>
-        <div>
-          <label class="label">Date & Time</label>
-          <input type="datetime-local" name="meeting_datetime" required>
-        </div>
-        <div>
-          <label class="label">Project Context</label>
-          <select name="project_id">
-            <option value="">-- General --</option>
-            {% for p in projects %}
-            <option value="{{ p.id }}">{{ p.name }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div>
-          <label class="label">Participants</label>
-          <input id="meetingAssigneeSearch" type="text" placeholder="Filter by name or ID">
-          <div id="meetingAssigneeCards" class="hidden mt-3 space-y-2 max-h-52 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3"></div>
-          <input type="hidden" id="meetingAssignees" name="assignees" value="">
-        </div>
-        <div>
-          <label class="label">Meeting Link</label>
-          <div class="flex flex-col gap-2">
-            <input id="meetingLinkPreview" type="text" readonly>
-            <div class="flex justify-between items-center">
-              <span class="mono">Auto-generated and saved with the meeting</span>
-              <button type="button" id="regenerateMeetingLink" class="mono">Regenerate</button>
-            </div>
-          </div>
-          <input type="hidden" id="meetingLinkInput" name="meeting_link" value="">
-          <input type="hidden" id="meetingRoomInput" name="room_name" value="">
-        </div>
-        <div class="flex justify-end">
-          <button type="submit" class="action-btn">Schedule Meeting</button>
-        </div>
-      </form>
-    </section>
 
-    <section class="panel lg:col-span-7">
-      <div class="panel-header">
-        <div>
-          <div class="panel-title">Your Meetings</div>
-          <div class="mono">Latest first</div>
-        </div>
-        <div class="flex flex-wrap gap-2">
-          <button type="button" class="filter-pill active" data-filter="all">All</button>
-          <button type="button" class="filter-pill" data-filter="upcoming">Future</button>
-          <button type="button" class="filter-pill" data-filter="ongoing">Ongoing</button>
-          <button type="button" class="filter-pill" data-filter="completed">Past</button>
-        </div>
+      <div class="form-group">
+        <label class="form-label">Project Domain</label>
+        <select name="project_id" class="premium-input">
+          <option value="">Internal Systems</option>
+          {% for p in projects %}
+          <option value="{{ p.id }}">{{ p.name }}</option>
+          {% endfor %}
+        </select>
       </div>
-      <div class="p-6 space-y-4 meeting-list">
-        {% for meeting in meetings %}
-        <div class="meeting-card" data-status="{{ meeting.status | lower }}"
-             data-title="{{ meeting.title | e }}"
-             data-datetime="{{ meeting.meeting_datetime | e }}"
-             data-project="{{ meeting.project_name | e }}"
-             data-description="{{ meeting.description | e }}"
-             data-link="{{ meeting.meeting_link | e }}"
-             data-organizer="{{ meeting.organizer | e }}"
-             data-attendees="{{ meeting.attendees | e }}"
-             data-assignees="{{ meeting.assignees | e }}"
-             data-attended="{{ meeting.attended | e }}"
-             data-not-attended="{{ meeting.not_attended | e }}">
-          <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="text-lg font-bold">{{ meeting.title }}</div>
-              <div class="mono">{{ meeting.meeting_datetime }} · {{ meeting.project_name }}</div>
-            </div>
-            <span class="status-pill status-{{ meeting.status | lower }}">{{ meeting.status }}</span>
-          </div>
-          <p class="text-sm text-slate-600 mt-3">{{ meeting.description or "No description" }}</p>
-          <p class="text-sm text-slate-500 mt-2">Attendees: {{ meeting.assignees }}</p>
-          {% if meeting.meeting_link %}
-          <a href="{{ meeting.meeting_link }}" target="_blank" class="inline-flex items-center mt-3 text-sm font-semibold text-emerald-700 hover:text-emerald-900">
-            Join meeting
-          </a>
-          {% endif %}
+
+      <div class="form-group">
+        <label class="form-label">Timestamp</label>
+        <input type="datetime-local" name="meeting_datetime" class="premium-input" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Collaborators</label>
+        <div class="relative">
+          <input id="meetingAssigneeSearch" type="text" class="premium-input" placeholder="Type name...">
+          <div id="meetingAssigneeCards" class="hidden absolute w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto"></div>
+        </div>
+        <input type="hidden" id="meetingAssignees" name="assignees">
+      </div>
+
+      <button type="submit" class="btn-execute">
+        <i class="bi bi-send-fill"></i>
+        <span>Confirm Session</span>
+      </button>
+    </form>
+  </aside>
+
+  <main class="timeline-feed">
+    <header class="feed-header">
+      <h1 class="feed-title ">Active <span class="text-blue-600">Timeline.</span></h1>
+      <div class="flex items-center gap-3">
+        <div class="h-2 w-2 rounded-full bg-green-500 animate-pulse"></div>
+        <span class="text-xs font-bold text-slate-500 uppercase tracking-widest">Live Updates</span>
+      </div>
+    </header>
+
+    {% for meeting in meetings %}
+    <div class="session-card"
+         onclick="openDetail(this)"
+         data-title="{{ meeting.title | e }}"
+         data-datetime="{{ meeting.meeting_datetime | e }}"
+         data-project="{{ meeting.project_name | e }}"
+         data-description="{{ meeting.description | e }}"
+         data-link="{{ meeting.meeting_link | e }}"
+         data-organizer="{{ meeting.organizer | e }}">
+      
+      <div class="time-block">
+        <div class="time-main">{{ meeting.meeting_datetime.split(' ')[1] if ' ' in meeting.meeting_datetime else meeting.meeting_datetime }}</div>
+        <div class="time-sub">EST / Local</div>
+      </div>
+
+      <div class="title-area">
+        <h3>{{ meeting.title }}</h3>
+        <div class="tag-group">
+          <span class="tag tag-accent"><i class="bi bi-diagram-3 mr-1"></i> {{ meeting.project_name }}</span>
+          <span class="tag"><i class="bi bi-person-badge mr-1"></i> {{ meeting.organizer }}</span>
         </div>
         {% else %}
         <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No meetings scheduled yet.</div>
         {% endfor %}
       </div>
-    </section>
-  </div>
+
+      <div class="action-area">
+        {% if meeting.meeting_link %}
+        <a href="{{ meeting.meeting_link }}" target="_blank" onclick="event.stopPropagation()" class="h-12 w-12 flex items-center justify-center rounded-xl bg-slate-50 border border-slate-200 text-slate-900 hover:bg-blue-600 hover:text-white hover:border-blue-600 transition-all">
+          <i class="bi bi-camera-video-fill"></i>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+    {% else %}
+    <div class="flex flex-col items-center justify-center py-32 opacity-40">
+      <i class="bi bi-cloud-slash text-6xl mb-4"></i>
+      <p class="font-bold">No sessions active</p>
+    </div>
+    {% endfor %}
+  </main>
 </div>
 
-<div id="meetingDetailModal" class="fixed inset-0 hidden items-center justify-center">
-  <div class="absolute inset-0 modal-backdrop" id="meetingDetailBackdrop"></div>
-  <div class="relative bg-white rounded-2xl w-full max-w-2xl mx-4 shadow-2xl">
-    <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-      <div>
-        <div class="panel-title">Meeting Details</div>
-        <div class="text-lg font-bold" id="detailTitle"></div>
-        <div class="mono" id="detailMeta"></div>
+<div id="meetingDetailModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4 modal-overlay">
+  <div class="absolute inset-0" id="meetingDetailBackdrop"></div>
+  <div class="modal-window">
+    <div class="modal-hero">
+      <div class="flex justify-between items-start mb-8">
+        <span class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Meeting Analytics</span>
+        <button id="closeMeetingDetail" class="text-white opacity-40 hover:opacity-100 transition-opacity">
+          <i class="bi bi-x-lg text-xl"></i>
+        </button>
       </div>
-      <button type="button" id="closeMeetingDetail" class="mono">Close</button>
+      <h2 id="detailTitle" class="text-4xl font-black tracking-tighter mb-2"></h2>
+      <div id="detailMeta" class="text-blue-400 font-bold text-sm"></div>
     </div>
-    <div class="p-6 space-y-4">
-      <div>
-        <div class="label">Description</div>
-        <div class="text-sm text-slate-700" id="detailDescription"></div>
-      </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div class="border rounded-xl p-4 bg-slate-50/60">
-          <div class="label">Sender</div>
-          <div class="text-sm font-medium" id="detailOrganizer"></div>
+    <div class="modal-body">
+      <label class="form-label">Objective</label>
+      <p id="detailDescription" class="text-lg text-slate-600 leading-relaxed mb-8"></p>
+      
+      <div class="grid grid-cols-2 gap-8 border-t border-slate-100 pt-8">
+        <div>
+          <label class="form-label">Organizer</label>
+          <div id="detailOrganizer" class="font-bold text-slate-900"></div>
         </div>
-        <div class="border rounded-xl p-4 bg-slate-50/60">
-          <div class="label">Sent To</div>
-          <div class="flex items-center justify-between gap-2">
-            <div class="text-sm font-medium scroll-box" id="detailAssignees"></div>
-            <button type="button" class="mono" id="viewAssigneesBtn">View all</button>
-          </div>
+        <div>
+          <label class="form-label">Digital Venue</label>
+          <a id="detailLink" href="#" target="_blank" class="text-blue-600 font-bold hover:underline block truncate"></a>
         </div>
       </div>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -368,18 +370,37 @@ input:focus, textarea:focus, select:focus {
   </div>
 </div>
 
-<div id="meetingListModal" class="fixed inset-0 hidden items-center justify-center">
-  <div class="absolute inset-0 modal-backdrop" id="meetingListBackdrop"></div>
-  <div class="relative bg-white rounded-2xl w-full max-w-lg mx-4 shadow-2xl">
-    <div class="px-6 py-5 border-b border-slate-200 flex items-center justify-between">
-      <div class="panel-title" id="meetingListTitle">Participants</div>
-      <button type="button" id="closeMeetingList" class="mono">Close</button>
-    </div>
-    <div class="p-6">
-      <ul id="meetingListItems" class="space-y-2 text-sm text-slate-700 max-h-72 overflow-y-auto"></ul>
-    </div>
-  </div>
-</div>
+<script>
+  function openDetail(card) {
+    const data = card.dataset;
+    document.getElementById('detailTitle').textContent = data.title;
+    document.getElementById('detailMeta').textContent = `${data.datetime} | ${data.project}`;
+    document.getElementById('detailDescription').textContent = data.description || "No agenda specified for this session.";
+    document.getElementById('detailOrganizer').textContent = data.organizer;
+    
+    const linkEl = document.getElementById('detailLink');
+    linkEl.textContent = data.link ? "Join via Virtual Terminal" : "No link available";
+    linkEl.href = data.link || "#";
+
+    const modal = document.getElementById('meetingDetailModal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+  }
+
+  function closeDetail() {
+    document.getElementById('meetingDetailModal').classList.add('hidden');
+    document.getElementById('meetingDetailModal').classList.remove('flex');
+  }
+
+  document.getElementById('closeMeetingDetail').onclick = closeDetail;
+  document.getElementById('meetingDetailBackdrop').onclick = closeDetail;
+
+  // Initialize Date Minimums
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  document.querySelectorAll('input[type="datetime-local"]').forEach(i => i.min = now.toISOString().slice(0,16));
+</script>
+
 
 <script>
 const meetingSearch = document.getElementById('meetingAssigneeSearch');
