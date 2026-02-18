@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -625,6 +625,19 @@ def root_redirect():
     return RedirectResponse("/login", status_code=303)
 
 
+@app.post("/api/session/touch")
+async def session_touch(request: Request):
+    if "session" not in request.scope:
+        return JSONResponse({"ok": False, "reason": "no_session"}, status_code=503)
+    session = request.session
+    user_id = session.get("user_id")
+    if not user_id:
+        return JSONResponse({"ok": False, "reason": "unauthenticated"}, status_code=401)
+    session["_last_seen"] = int(time.time())
+    session.setdefault("_created", session["_last_seen"])
+    return JSONResponse({"ok": True})
+
+
 
 # On startup, auto-sync DB schema (create missing tables/columns)
 @app.on_event("startup")
@@ -639,7 +652,8 @@ def startup_event():
 
 @app.on_event("shutdown")
 def shutdown_scheduler():
-    scheduler.shutdown()
+    if scheduler.running:
+        scheduler.shutdown(wait=False)
 
 
 

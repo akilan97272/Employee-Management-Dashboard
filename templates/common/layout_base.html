@@ -1102,7 +1102,7 @@ document.addEventListener("DOMContentLoaded", function() {
             <div class="flex items-center gap-2 mb-4 text-[10px] font-black uppercase tracking-widest text-slate-400">
                <i class="bi bi-list-stars text-blue-500"></i> Selected Day Agenda
             </div>
-            <div id="aiCalendarList" class="space-y-3 min-h-[100px]">
+            <div id="aiCalendarList" class="space-y-3 min-h-[100px] max-h-[260px] overflow-y-auto pr-1">
                <div class="flex flex-col items-center justify-center py-4 opacity-40 italic text-xs">
                   No tasks scheduled for this date.
                </div>
@@ -1783,6 +1783,73 @@ if (calendarSettings) {
 
     // Preload regional settings in background to reduce perceived delay.
     setTimeout(() => { ensureCalendarSettingsLoaded(); }, 0);
+  </script>
+
+  <script>
+    (function () {
+      const path = window.location.pathname || '';
+      const protectedPrefixes = ['/admin', '/employee', '/manager', '/leader'];
+      if (!protectedPrefixes.some((prefix) => path.startsWith(prefix))) return;
+
+      let lastActivityAt = Date.now();
+      let lastTouchAt = 0;
+      let inFlight = false;
+
+      const TOUCH_INTERVAL_MS = 30000;
+      const MIN_TOUCH_GAP_MS = 45000;
+      const ACTIVE_WINDOW_MS = 120000;
+
+      function markActivity() {
+        lastActivityAt = Date.now();
+      }
+
+      async function touchSession(force) {
+        if (document.hidden || inFlight) return;
+        const now = Date.now();
+        const recentlyActive = (now - lastActivityAt) <= ACTIVE_WINDOW_MS;
+        if (!force && !recentlyActive) return;
+        if (!force && (now - lastTouchAt) < MIN_TOUCH_GAP_MS) return;
+
+        inFlight = true;
+        try {
+          const res = await fetch('/api/session/touch', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'x-requested-with': 'XMLHttpRequest' }
+          });
+          if (res.status === 401) {
+            window.location.href = '/login';
+            return;
+          }
+          if (res.ok) {
+            lastTouchAt = Date.now();
+          }
+        } catch (_) {
+          // Ignore transient network errors.
+        } finally {
+          inFlight = false;
+        }
+      }
+
+      ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'pointerdown'].forEach((eventName) => {
+        window.addEventListener(eventName, markActivity, { passive: true });
+      });
+
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) {
+          markActivity();
+          void touchSession(true);
+        }
+      });
+
+      setTimeout(function () {
+        void touchSession(true);
+      }, 5000);
+
+      setInterval(function () {
+        void touchSession(false);
+      }, TOUCH_INTERVAL_MS);
+    })();
   </script>
 
   <script>window.__layoutCalendarManaged = true;</script>

@@ -221,6 +221,42 @@
 
   .modal-body { padding: 3rem; }
 
+  .selected-assignees {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .selected-assignee-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid #bfdbfe;
+    background: #eff6ff;
+    color: #1e3a8a;
+    font-size: 0.75rem;
+    font-weight: 700;
+  }
+
+  .selected-assignee-chip button {
+    border: none;
+    background: transparent;
+    color: #1d4ed8;
+    font-size: 0.8rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+  }
+
+  .selected-assignees-empty {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 600;
+  }
+
 </style>
 
 <div class="hub-shell">
@@ -258,6 +294,9 @@
           <div id="meetingAssigneeCards" class="hidden absolute w-full mt-2 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-48 overflow-y-auto"></div>
         </div>
         <input type="hidden" id="meetingAssignees" name="assignees">
+        <div id="meetingSelectedList" class="selected-assignees">
+          <span class="selected-assignees-empty">No collaborators selected.</span>
+        </div>
       </div>
 
       <button type="submit" class="btn-execute">
@@ -277,14 +316,17 @@
     </header>
 
     {% for meeting in meetings %}
-    <div class="session-card"
+    <div class="session-card meeting-card"
          onclick="openDetail(this)"
          data-title="{{ meeting.title | e }}"
          data-datetime="{{ meeting.meeting_datetime | e }}"
          data-project="{{ meeting.project_name | e }}"
          data-description="{{ meeting.description | e }}"
          data-link="{{ meeting.meeting_link | e }}"
-         data-organizer="{{ meeting.organizer | e }}">
+         data-organizer="{{ meeting.organizer | e }}"
+         data-assignees="{{ meeting.attendees | e }}"
+         data-attended="{{ meeting.attended | e }}"
+         data-not-attended="{{ meeting.not_attended | e }}">
       
       <div class="time-block">
         <div class="time-main">{{ meeting.meeting_datetime.split(' ')[1] if ' ' in meeting.meeting_datetime else meeting.meeting_datetime }}</div>
@@ -297,9 +339,6 @@
           <span class="tag tag-accent"><i class="bi bi-diagram-3 mr-1"></i> {{ meeting.project_name }}</span>
           <span class="tag"><i class="bi bi-person-badge mr-1"></i> {{ meeting.organizer }}</span>
         </div>
-        {% else %}
-        <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No meetings scheduled yet.</div>
-        {% endfor %}
       </div>
 
       <div class="action-area">
@@ -321,7 +360,7 @@
 
 <div id="meetingDetailModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4 modal-overlay">
   <div class="absolute inset-0" id="meetingDetailBackdrop"></div>
-  <div class="modal-window">
+  <div class="modal-window" id="meetingDetailWindow">
     <div class="modal-hero">
       <div class="flex justify-between items-start mb-8">
         <span class="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Meeting Analytics</span>
@@ -346,7 +385,14 @@
           <a id="detailLink" href="#" target="_blank" class="text-blue-600 font-bold hover:underline block truncate"></a>
         </div>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="border rounded-xl p-4 bg-blue-50/60">
+          <div class="label">Sent To</div>
+          <div class="flex items-center justify-between gap-2">
+            <div class="text-sm font-medium scroll-box" id="detailAssignees"></div>
+            <button type="button" class="mono" id="viewAssigneesBtn">View all</button>
+          </div>
+        </div>
         <div class="border rounded-xl p-4 bg-emerald-50/60">
           <div class="label">Attended</div>
           <div class="flex items-center justify-between gap-2">
@@ -362,52 +408,57 @@
           </div>
         </div>
       </div>
-      <div>
-        <div class="label">Meeting Link</div>
-        <a id="detailLink" href="#" target="_blank" class="text-sm text-emerald-700 font-semibold hover:underline break-all"></a>
-      </div>
     </div>
   </div>
 </div>
 
-<script>
-  function openDetail(card) {
-    const data = card.dataset;
-    document.getElementById('detailTitle').textContent = data.title;
-    document.getElementById('detailMeta').textContent = `${data.datetime} | ${data.project}`;
-    document.getElementById('detailDescription').textContent = data.description || "No agenda specified for this session.";
-    document.getElementById('detailOrganizer').textContent = data.organizer;
-    
-    const linkEl = document.getElementById('detailLink');
-    linkEl.textContent = data.link ? "Join via Virtual Terminal" : "No link available";
-    linkEl.href = data.link || "#";
-
-    const modal = document.getElementById('meetingDetailModal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-  }
-
-  function closeDetail() {
-    document.getElementById('meetingDetailModal').classList.add('hidden');
-    document.getElementById('meetingDetailModal').classList.remove('flex');
-  }
-
-  document.getElementById('closeMeetingDetail').onclick = closeDetail;
-  document.getElementById('meetingDetailBackdrop').onclick = closeDetail;
-
-  // Initialize Date Minimums
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  document.querySelectorAll('input[type="datetime-local"]').forEach(i => i.min = now.toISOString().slice(0,16));
-</script>
-
+<div id="meetingListModal" class="fixed inset-0 hidden items-center justify-center z-50 p-4 modal-overlay" style="z-index: 70;">
+  <div class="absolute inset-0" id="meetingListBackdrop"></div>
+  <div class="relative bg-white w-full max-w-xl rounded-2xl border border-slate-200 shadow-2xl p-6" id="meetingListWindow">
+    <div class="flex items-center justify-between mb-4">
+      <h3 id="meetingListTitle" class="text-lg font-black text-slate-900">Participants</h3>
+      <button id="closeMeetingList" type="button" class="text-slate-400 hover:text-slate-700">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <ul id="meetingListItems" class="space-y-2 max-h-80 overflow-y-auto"></ul>
+  </div>
+</div>
 
 <script>
 const meetingSearch = document.getElementById('meetingAssigneeSearch');
 const meetingCards = document.getElementById('meetingAssigneeCards');
 const meetingAssigneesInput = document.getElementById('meetingAssignees');
+const meetingSelectedList = document.getElementById('meetingSelectedList');
 const selectedIds = new Set();
+const selectedEmployees = new Map();
 let searchTimer = null;
+
+function closeMeetingSuggestions() {
+  if (!meetingCards) return;
+  meetingCards.classList.add('hidden');
+}
+
+function syncAssigneesInput() {
+  if (!meetingAssigneesInput) return;
+  meetingAssigneesInput.value = Array.from(selectedIds).join(',');
+}
+
+function renderSelectedAssignees() {
+  if (!meetingSelectedList) return;
+  if (!selectedEmployees.size) {
+    meetingSelectedList.innerHTML = '<span class="selected-assignees-empty">No collaborators selected.</span>';
+    return;
+  }
+  meetingSelectedList.innerHTML = Array.from(selectedEmployees.entries())
+    .map(([id, name]) => `
+      <span class="selected-assignee-chip">
+        ${name} <span class="mono">#${id}</span>
+        <button type="button" data-remove-assignee="${id}" aria-label="Remove ${name}">&times;</button>
+      </span>
+    `)
+    .join('');
+}
 
 function renderMeetingResults(items) {
   if (!meetingCards) return;
@@ -438,14 +489,22 @@ function renderMeetingResults(items) {
       const id = emp.employee_id;
       if (selectedIds.has(id)) {
         selectedIds.delete(id);
+        selectedEmployees.delete(id);
         card.classList.remove('active');
         check.classList.add('hidden');
       } else {
         selectedIds.add(id);
+        selectedEmployees.set(id, emp.name);
         card.classList.add('active');
         check.classList.remove('hidden');
       }
-      meetingAssigneesInput.value = Array.from(selectedIds).join(',');
+      syncAssigneesInput();
+      renderSelectedAssignees();
+      closeMeetingSuggestions();
+      if (meetingSearch) {
+        meetingSearch.value = '';
+        meetingSearch.blur();
+      }
     });
 
     meetingCards.appendChild(card);
@@ -460,12 +519,17 @@ async function fetchParticipants(term) {
 }
 
 if (meetingSearch) {
+  meetingSearch.addEventListener('focus', () => {
+    if (searchTimer) clearTimeout(searchTimer);
+    searchTimer = setTimeout(async () => {
+      const term = meetingSearch.value.trim();
+      const results = await fetchParticipants(term);
+      renderMeetingResults(Array.isArray(results) ? results : []);
+    }, 100);
+  });
+
   meetingSearch.addEventListener('input', () => {
     const term = meetingSearch.value.trim();
-    if (!term) {
-      meetingCards.classList.add('hidden');
-      return;
-    }
     if (searchTimer) {
       clearTimeout(searchTimer);
     }
@@ -474,7 +538,39 @@ if (meetingSearch) {
       renderMeetingResults(Array.isArray(results) ? results : []);
     }, 200);
   });
+
+  meetingSearch.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeMeetingSuggestions();
+      meetingSearch.blur();
+    }
+  });
 }
+
+if (meetingSelectedList) {
+  meetingSelectedList.addEventListener('click', (event) => {
+    const target = event.target.closest('[data-remove-assignee]');
+    if (!target) return;
+    const id = target.getAttribute('data-remove-assignee');
+    if (!id) return;
+    selectedIds.delete(id);
+    selectedEmployees.delete(id);
+    syncAssigneesInput();
+    renderSelectedAssignees();
+  });
+}
+
+syncAssigneesInput();
+renderSelectedAssignees();
+
+document.addEventListener('click', (event) => {
+  if (!meetingCards || !meetingSearch) return;
+  const insideSearch = meetingSearch.contains(event.target);
+  const insideCards = meetingCards.contains(event.target);
+  if (!insideSearch && !insideCards) {
+    closeMeetingSuggestions();
+  }
+});
 
 function generateMeetingLink() {
   const base = 'https://meet.jit.si/';
@@ -531,9 +627,11 @@ filterButtons.forEach(btn => {
 const detailModal = document.getElementById('meetingDetailModal');
 const detailBackdrop = document.getElementById('meetingDetailBackdrop');
 const detailClose = document.getElementById('closeMeetingDetail');
+const detailWindow = document.getElementById('meetingDetailWindow');
 const meetingListModal = document.getElementById('meetingListModal');
 const meetingListBackdrop = document.getElementById('meetingListBackdrop');
 const meetingListClose = document.getElementById('closeMeetingList');
+const meetingListWindow = document.getElementById('meetingListWindow');
 const meetingListTitle = document.getElementById('meetingListTitle');
 const meetingListItems = document.getElementById('meetingListItems');
 const viewAssigneesBtn = document.getElementById('viewAssigneesBtn');
@@ -576,6 +674,7 @@ function openListModal(title, list) {
   }
   meetingListModal.classList.remove('hidden');
   meetingListModal.classList.add('flex');
+  meetingListModal.style.display = 'flex';
 }
 
 function openDetail(card) {
@@ -610,6 +709,7 @@ function closeDetail() {
 function closeListModal() {
   meetingListModal.classList.add('hidden');
   meetingListModal.classList.remove('flex');
+  meetingListModal.style.display = 'none';
 }
 
 meetingCardsList.forEach(card => {
@@ -618,11 +718,25 @@ meetingCardsList.forEach(card => {
 
 if (detailBackdrop) detailBackdrop.addEventListener('click', closeDetail);
 if (detailClose) detailClose.addEventListener('click', closeDetail);
+if (detailWindow) detailWindow.addEventListener('click', (event) => event.stopPropagation());
 if (meetingListBackdrop) meetingListBackdrop.addEventListener('click', closeListModal);
 if (meetingListClose) meetingListClose.addEventListener('click', closeListModal);
-if (viewAssigneesBtn) viewAssigneesBtn.addEventListener('click', () => openListModal('Sent To', currentAssignees));
-if (viewAttendedBtn) viewAttendedBtn.addEventListener('click', () => openListModal('Attended', currentAttended));
-if (viewNotAttendedBtn) viewNotAttendedBtn.addEventListener('click', () => openListModal('Not Attended', currentNotAttended));
+if (meetingListWindow) meetingListWindow.addEventListener('click', (event) => event.stopPropagation());
+if (viewAssigneesBtn) viewAssigneesBtn.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openListModal('Sent To', currentAssignees);
+});
+if (viewAttendedBtn) viewAttendedBtn.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openListModal('Attended', currentAttended);
+});
+if (viewNotAttendedBtn) viewNotAttendedBtn.addEventListener('click', (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  openListModal('Not Attended', currentNotAttended);
+});
 
 const urlParams = new URLSearchParams(window.location.search);
 const emailStatus = urlParams.get('email');

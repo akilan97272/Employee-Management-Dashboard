@@ -8,7 +8,7 @@ from .models import (
     Attendance, UnknownRFID, User, AttendanceLog, AttendanceDaily,
     Meeting, ProjectMeetingAssignee, MeetingAttendance, Project, ProjectTask,
     ProjectTaskAssignee, ProjectAssignment, Notification, Team, Task, LeaveRequest,
-    Room, InappropriateEntry
+    Room, InappropriateEntry, Department
 )
 from .app_context import get_current_user, create_notification
 from datetime import datetime, date, time, timedelta
@@ -679,14 +679,12 @@ def register_api_routes(app):
     @app.get("/api/departments")
     async def list_departments(db: Session = Depends(get_db)):
         departments = (
-            db.query(User.department)
+            db.query(Department.name)
             .filter(
-                User.department.isnot(None),
-                User.department != "",
-                User.is_active == True
+                Department.name.isnot(None),
+                Department.name != ""
             )
-            .distinct()
-            .order_by(User.department)
+            .order_by(Department.name.asc())
             .all()
         )
 

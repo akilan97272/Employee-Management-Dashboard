@@ -18,17 +18,23 @@
   <h3 class="text-xl font-bold mb-4">Assigned Tasks</h3>
   <div class="grid grid-cols-1 gap-6">
     {% for task in project.tasks %}
+    {% set valid_assignees = [] %}
+    {% for a in task.assignees %}
+      {% if a.employee %}
+        {% set _ = valid_assignees.append(a) %}
+      {% endif %}
+    {% endfor %}
     <div class="neo-card p-5 flex flex-col md:flex-row md:items-center md:justify-between gap-4 hover:shadow-xl transition-shadow relative">
       <div class="flex items-center gap-4">
-        {% if task.assignees and task.assignees[0].employee.photo_path %}
-        <img src="{{ task.assignees[0].employee.photo_path }}" alt="{{ task.assignees[0].employee.name }}" class="w-14 h-14 rounded-full object-cover border-2 border-blue-400" />
+        {% if valid_assignees and valid_assignees[0].employee.photo_path %}
+        <img src="{{ valid_assignees[0].employee.photo_path }}" alt="{{ valid_assignees[0].employee.name }}" class="w-14 h-14 rounded-full object-cover border-2 border-blue-400" />
         {% else %}
-        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-700 border-2 border-blue-200">{{ task.assignees[0].employee.name[0] if task.assignees else '?' }}</div>
+        <div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center text-2xl font-bold text-blue-700 border-2 border-blue-200">{{ valid_assignees[0].employee.name[0] if valid_assignees else '?' }}</div>
         {% endif %}
         <div>
           <div class="font-bold text-lg">{{ task.title }}</div>
           <div class="text-xs opacity-60">Assigned to:
-            {% for a in task.assignees %}
+            {% for a in valid_assignees %}
               <span class="font-bold">
                 {{ a.employee.name }}
                 {% if a.status == 'completed' %}
@@ -39,10 +45,12 @@
                   <span class="ml-1 text-gray-400">Pending</span>
                 {% endif %}
               </span>{% if not loop.last %}, {% endif %}
+            {% else %}
+              <span class="font-bold text-gray-500">Unassigned</span>
             {% endfor %}
           </div>
           <div class="text-xs opacity-60">Employee ID:
-            {% for a in task.assignees %}{{ a.employee.employee_id }}{% if not loop.last %}, {% endif %}{% endfor %}
+            {% for a in valid_assignees %}{{ a.employee.employee_id }}{% if not loop.last %}, {% endif %}{% else %}-{% endfor %}
           </div>
         </div>
       </div>
@@ -54,7 +62,7 @@
       </div>
       <div class="mt-2 md:mt-0 text-sm text-gray-700 dark:text-gray-200">{{ task.description or 'No description provided.' }}</div>
       {% set assignees = [] %}
-      {% for a in task.assignees %}
+      {% for a in valid_assignees %}
         {% set _ = assignees.append({'employee_id': a.employee.employee_id, 'name': a.employee.name}) %}
       {% endfor %}
       {% set task_obj = {

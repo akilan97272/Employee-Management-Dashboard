@@ -249,6 +249,42 @@ body {
 .hidden {
   display: none;
 }
+
+.selected-task-assignees {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.selected-task-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid #c7d2fe;
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.selected-task-chip button {
+  border: none;
+  background: transparent;
+  color: #4338ca;
+  cursor: pointer;
+  font-size: 0.8rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.selected-task-empty {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
 </style>
 
 <div class="shell-container mt-0">
@@ -294,6 +330,9 @@ body {
                 <div id="taskAssigneeCards" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-50 max-h-56 overflow-y-auto"></div>
                 <input type="hidden" id="taskAssignees" name="assignees" value="">
             </div>
+            <div id="taskSelectedList" class="selected-task-assignees">
+              <span class="selected-task-empty">No leader selected.</span>
+            </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
@@ -329,7 +368,7 @@ body {
         
         <div class="divide-y divide-slate-100">
           {% for task in tasks %}
-          <div class="directive-row" onclick="openTaskDetail(this)"
+          <div class="directive-row"
             data-id="{{ task.id }}"
             data-title="{{ task.title | e }}"
             data-description="{{ task.description | e }}"
@@ -362,7 +401,13 @@ body {
             </div>
 
             <div class="text-slate-300">
-                <i class="bi bi-chevron-right"></i>
+                <button
+                  type="button"
+                  class="h-8 w-8 inline-flex items-center justify-center rounded-full hover:bg-slate-100 transition-colors"
+                  data-task-open
+                  aria-label="Open task details">
+                  <i class="bi bi-chevron-right"></i>
+                </button>
             </div>
           </div>
           {% else %}
@@ -389,17 +434,40 @@ body {
           <h2 id="taskDetailTitle" class="text-2xl font-black text-slate-900 tracking-tight"></h2>
           <p id="taskDetailMeta" class="text-indigo-500 text-sm font-bold mt-1"></p>
         </div>
-        <button onclick="closeTaskDetail()" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors">
-          <i class="bi bi-x-lg text-slate-400"></i>
-        </button>
+        <div class="flex items-center gap-2">
+          <button type="button" id="taskEditToggleBtn" class="px-3 py-2 text-xs font-bold uppercase tracking-wider rounded-lg bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors">
+            Edit Task
+          </button>
+          <button onclick="closeTaskDetail()" class="w-10 h-10 flex items-center justify-center hover:bg-slate-100 rounded-full transition-colors">
+            <i class="bi bi-x-lg text-slate-400"></i>
+          </button>
+        </div>
       </div>
-      {% else %}
-      <div class="text-sm text-slate-500 border border-dashed rounded-xl p-6 text-center">No tasks created yet.</div>
-      {% endfor %}
-    </div>
-  </section>
-</div>
-
+      <div id="taskReadOnlyDetails" class="space-y-4 mb-6">
+        <div>
+          <div class="form-label-caps">Description</div>
+          <div id="taskDetailDescription" class="text-sm text-slate-700 leading-relaxed bg-slate-50 border border-slate-200 rounded-lg p-3">-</div>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <div class="form-label-caps">Assigned Lead</div>
+            <div id="taskDetailAssignee" class="text-sm font-semibold text-slate-700">-</div>
+          </div>
+          <div>
+            <div class="form-label-caps">Due Date</div>
+            <div id="taskDetailDueDate" class="text-sm font-semibold text-slate-700">-</div>
+          </div>
+          <div>
+            <div class="form-label-caps">Priority</div>
+            <div id="taskDetailPriority" class="text-sm font-semibold text-slate-700">-</div>
+          </div>
+          <div>
+            <div class="form-label-caps">Status</div>
+            <div id="taskDetailStatus" class="text-sm font-semibold text-slate-700">-</div>
+          </div>
+        </div>
+      </div>
+      <div id="taskEditSection" class="hidden">
       <form action="/manager/tasks/update" method="POST" class="space-y-6">
         <input type="hidden" id="taskEditId" name="task_id">
         
@@ -437,6 +505,7 @@ body {
       <form action="/manager/tasks/delete" method="POST" id="taskDeleteForm" data-confirm="Delete this task?">
         <input type="hidden" name="task_id" id="taskDeleteId">
       </form>
+      </div>
     </div>
   </div>
 </div>
@@ -450,10 +519,20 @@ document.addEventListener('DOMContentLoaded', function() {
     const data = el.dataset;
     document.getElementById('taskDetailTitle').textContent = data.title;
     document.getElementById('taskDetailMeta').textContent = `Assigned to ${data.assignee || 'Unassigned'} • Due ${data.dueDate || 'No date'}`;
+    document.getElementById('taskDetailDescription').textContent = data.description || 'No description provided.';
+    document.getElementById('taskDetailAssignee').textContent = data.assignee || 'Unassigned';
+    document.getElementById('taskDetailDueDate').textContent = data.dueDate || 'No date';
+    document.getElementById('taskDetailPriority').textContent = (data.priority || '-').replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
+    document.getElementById('taskDetailStatus').textContent = (data.status || '-').replace('-', ' ').replace(/\b\w/g, c => c.toUpperCase());
     document.getElementById('taskEditId').value = data.id;
+    document.getElementById('taskDeleteId').value = data.id;
     document.getElementById('taskEditDescription').value = data.description || '';
     document.getElementById('taskEditPriority').value = data.priority;
     document.getElementById('taskEditStatus').value = data.status;
+    const editSection = document.getElementById('taskEditSection');
+    const editToggle = document.getElementById('taskEditToggleBtn');
+    if (editSection) editSection.classList.add('hidden');
+    if (editToggle) editToggle.textContent = 'Edit Task';
     
     const modal = document.getElementById('taskDetailModal');
     modal.classList.remove('hidden');
@@ -466,12 +545,56 @@ document.addEventListener('DOMContentLoaded', function() {
     modal.classList.remove('flex');
   }
 
+  const taskEditToggleBtn = document.getElementById('taskEditToggleBtn');
+  if (taskEditToggleBtn) {
+    taskEditToggleBtn.addEventListener('click', () => {
+      const editSection = document.getElementById('taskEditSection');
+      if (!editSection) return;
+      const isHidden = editSection.classList.contains('hidden');
+      editSection.classList.toggle('hidden', !isHidden);
+      taskEditToggleBtn.textContent = isHidden ? 'Hide Edit' : 'Edit Task';
+    });
+  }
+
+  // Open details from row click and explicit arrow button click.
+  document.querySelectorAll('.directive-row').forEach((row) => {
+    row.addEventListener('click', () => openTaskDetail(row));
+  });
+  document.querySelectorAll('[data-task-open]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const row = btn.closest('.directive-row');
+      if (row) openTaskDetail(row);
+    });
+  });
+
   // Assignee Search Functionality
   const taskSearch = document.getElementById('taskAssigneeSearch');
   const taskCards = document.getElementById('taskAssigneeCards');
   const taskAssigneesInput = document.getElementById('taskAssignees');
+  const taskSelectedList = document.getElementById('taskSelectedList');
   const selectedIds = new Set();
+  const selectedEmployees = new Map();
   let searchTimer = null;
+
+  function syncTaskAssigneesInput() {
+    taskAssigneesInput.value = Array.from(selectedIds).join(',');
+  }
+
+  function renderSelectedTaskAssignees() {
+    if (!taskSelectedList) return;
+    if (!selectedEmployees.size) {
+      taskSelectedList.innerHTML = '<span class="selected-task-empty">No leader selected.</span>';
+      return;
+    }
+    taskSelectedList.innerHTML = Array.from(selectedEmployees.entries()).map(([id, name]) => `
+      <span class="selected-task-chip">
+        ${name} <span class="mono">#${id}</span>
+        <button type="button" data-remove-task-assignee="${id}" aria-label="Remove ${name}">&times;</button>
+      </span>
+    `).join('');
+  }
 
   function renderTaskResults(items) {
     if (!taskCards) return;
@@ -507,15 +630,17 @@ document.addEventListener('DOMContentLoaded', function() {
         const id = emp.employee_id;
         if (selectedIds.has(id)) {
           selectedIds.delete(id);
+          selectedEmployees.delete(id);
           card.classList.remove('active');
           check.classList.add('hidden');
         } else {
           selectedIds.add(id);
+          selectedEmployees.set(id, emp.name);
           card.classList.add('active');
           check.classList.remove('hidden');
         }
-        taskAssigneesInput.value = Array.from(selectedIds).join(',');
-        console.log('Selected assignees:', taskAssigneesInput.value);
+        syncTaskAssigneesInput();
+        renderSelectedTaskAssignees();
       });
 
       taskCards.appendChild(card);
@@ -559,6 +684,22 @@ document.addEventListener('DOMContentLoaded', function() {
       }
     });
   }
+
+  if (taskSelectedList) {
+    taskSelectedList.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-remove-task-assignee]');
+      if (!target) return;
+      const id = target.getAttribute('data-remove-task-assignee');
+      if (!id) return;
+      selectedIds.delete(id);
+      selectedEmployees.delete(id);
+      syncTaskAssigneesInput();
+      renderSelectedTaskAssignees();
+    });
+  }
+
+  syncTaskAssigneesInput();
+  renderSelectedTaskAssignees();
 
   // Set minimum date to today
   const today = new Date().toISOString().split('T')[0];

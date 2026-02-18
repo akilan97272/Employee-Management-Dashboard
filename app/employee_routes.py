@@ -235,6 +235,7 @@ def register_employee_routes(app):
 
         project_task_counts = {}
         project_tasks_map = {}
+        project_assignees_map = {}
         if projects:
             project_ids_list = [p.id for p in projects]
             task_rows = (
@@ -268,6 +269,56 @@ def register_employee_routes(app):
                     "deadline": task.deadline.strftime("%Y-%m-%d") if task.deadline else None
                 })
 
+            # Build assignee chips per project: project assignments + task assignees.
+            assignee_ids_by_project = {}
+            assignment_rows = (
+                db.query(ProjectAssignment.project_id, ProjectAssignment.employee_id)
+                .filter(ProjectAssignment.project_id.in_(project_ids_list))
+                .all()
+            )
+            for project_id, employee_id in assignment_rows:
+                if not employee_id:
+                    continue
+                assignee_ids_by_project.setdefault(project_id, set()).add(employee_id)
+
+            task_assignee_rows = (
+                db.query(ProjectTask.project_id, ProjectTaskAssignee.employee_id)
+                .join(ProjectTaskAssignee, ProjectTask.id == ProjectTaskAssignee.task_id)
+                .filter(ProjectTask.project_id.in_(project_ids_list))
+                .all()
+            )
+            for project_id, employee_id in task_assignee_rows:
+                if not employee_id:
+                    continue
+                assignee_ids_by_project.setdefault(project_id, set()).add(employee_id)
+
+            all_employee_ids = {
+                emp_id
+                for emp_ids in assignee_ids_by_project.values()
+                for emp_id in emp_ids
+            }
+            users_by_employee_id = {}
+            if all_employee_ids:
+                assignee_users = (
+                    db.query(User)
+                    .filter(User.employee_id.in_(list(all_employee_ids)))
+                    .all()
+                )
+                users_by_employee_id = {u.employee_id: u for u in assignee_users}
+
+            for project_id, emp_ids in assignee_ids_by_project.items():
+                project_assignees_map[project_id] = []
+                for emp_id in sorted(emp_ids):
+                    assignee_user = users_by_employee_id.get(emp_id)
+                    if not assignee_user:
+                        continue
+                    project_assignees_map[project_id].append({
+                        "employee_id": assignee_user.employee_id,
+                        "name": assignee_user.name,
+                        "photo_path": assignee_user.photo_path or "",
+                        "has_photo_blob": bool(assignee_user.photo_blob),
+                    })
+
         projects_by_team = {}
         for team in teams:
             if team.project_id and team.project_id in assigned_project_ids:
@@ -289,7 +340,8 @@ def register_employee_routes(app):
                 "projects_by_team": projects_by_team,
                 "additional_projects": additional_projects,
                 "project_task_counts": project_task_counts,
-                "project_tasks_map": project_tasks_map
+                "project_tasks_map": project_tasks_map,
+                "project_assignees_map": project_assignees_map,
             }
         )
 
@@ -373,6 +425,21 @@ def register_employee_routes(app):
         # Per-assignee completion
         is_assigned.status = "completed"
         is_assigned.completed_at = datetime.datetime.utcnow()
+        assignee_statuses = [
+            row[0]
+            for row in db.query(ProjectTaskAssignee.status).filter(
+                ProjectTaskAssignee.task_id == task_id
+            ).all()
+        ]
+        if assignee_statuses and all(s == "completed" for s in assignee_statuses):
+            task.status = "completed"
+            task.completed_at = datetime.datetime.utcnow()
+        elif "in-progress" in assignee_statuses:
+            task.status = "in-progress"
+            task.completed_at = None
+        else:
+            task.status = "pending"
+            task.completed_at = None
         db.commit()
 
         # Notify the leader (and optionally manager) that this user completed the task
@@ -391,7 +458,7 @@ def register_employee_routes(app):
                 )
 
         if request.headers.get("X-Requested-With") == "XMLHttpRequest":
-            return {"ok": True, "task_id": task_id, "status": task.status}
+            return {"ok": True, "task_id": task_id, "status": is_assigned.status, "task_status": task.status}
 
         return RedirectResponse("/employee/team", status_code=303)
 
@@ -400,10 +467,12 @@ def register_employee_routes(app):
                                   user: User = Depends(get_current_user),
                                   db: Session = Depends(get_db),
                                   filter: str = None):
+        filter_value = (filter or "all").strip().lower()
         # Personal tasks
         task_query = db.query(Task).filter(Task.user_id == user.employee_id)
-        if filter in ["pending", "in-progress", "done"]:
-            task_query = task_query.filter(Task.status == filter)
+        if filter_value in ["pending", "in-progress", "done", "completed"]:
+            personal_status = "done" if filter_value in ["done", "completed"] else filter_value
+            task_query = task_query.filter(Task.status == personal_status)
         personal_tasks = task_query.order_by(Task.id.desc()).all()
 
         # Project tasks assigned to this user (ProjectTaskAssignee)
@@ -413,9 +482,9 @@ def register_employee_routes(app):
             .join(ProjectTaskAssignee, ProjectTask.id == ProjectTaskAssignee.task_id)
             .filter(ProjectTaskAssignee.employee_id == user.employee_id)
         )
-        if filter in ["pending", "in-progress", "done", "completed"]:
+        if filter_value in ["pending", "in-progress", "done", "completed"]:
             status_map = {"pending": "pending", "in-progress": "in-progress", "done": "completed", "completed": "completed"}
-            project_task_query = project_task_query.filter(ProjectTaskAssignee.status == status_map.get(filter, "pending"))
+            project_task_query = project_task_query.filter(ProjectTaskAssignee.status == status_map.get(filter_value, "pending"))
         project_tasks = project_task_query.order_by(ProjectTask.id.desc()).all()
 
         # Team and additional projects
@@ -452,7 +521,10 @@ def register_employee_routes(app):
                 "title": t.title,
                 "description": t.description,
                 "status": t.status,
-                "type": "personal"
+                "type": "personal",
+                "task_type": "personal",
+                "priority": t.priority or "medium",
+                "due_date": t.due_date
             } for t in personal_tasks
         ]
         # Add project tasks (directly assigned)
@@ -462,21 +534,27 @@ def register_employee_routes(app):
                 "title": pt.title,
                 "description": pt.description,
                 "status": pa.status,
-                "type": "project"
+                "type": "project",
+                "task_type": "project",
+                "priority": "medium",
+                "due_date": pt.deadline
             } for pt, pa in project_tasks
         ]
         # Add all project tasks from team/additional projects (avoid duplicates)
-        existing_ids = {t["id"] for t in tasks}
+        existing_ids = {(t["task_type"], t["id"]) for t in tasks}
         for pt, pa in all_project_tasks:
-            if pt.id not in existing_ids:
+            if ("project", pt.id) not in existing_ids:
                 tasks.append({
                     "id": pt.id,
                     "title": pt.title,
                     "description": pt.description,
                     "status": pa.status,
-                    "type": "project"
+                    "type": "project",
+                    "task_type": "project",
+                    "priority": "medium",
+                    "due_date": pt.deadline
                 })
-                existing_ids.add(pt.id)
+                existing_ids.add(("project", pt.id))
 
         # For stats, count both types
         pending = sum(1 for t in tasks if t["status"] in ["pending"])
@@ -500,24 +578,80 @@ def register_employee_routes(app):
         return RedirectResponse("/employee/tasks", status_code=303)
 
     @app.post("/employee/tasks/update")
-    async def update_task(task_id: int = Form(...), status: str = Form(...),
+    async def update_task(task_id: int = Form(...), status: str = Form(...), task_type: str = Form("personal"),
                           user: User = Depends(get_current_user),
                           db: Session = Depends(get_db)):
-        task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.employee_id).first()
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        task.status = status
+        task_type = (task_type or "personal").strip().lower()
+
+        if task_type == "project":
+            assignee = db.query(ProjectTaskAssignee).filter(
+                ProjectTaskAssignee.task_id == task_id,
+                ProjectTaskAssignee.employee_id == user.employee_id
+            ).first()
+            if not assignee:
+                raise HTTPException(status_code=404, detail="Task not found")
+
+            normalized_status = "completed" if status == "done" else status
+            if normalized_status not in {"pending", "in-progress", "completed"}:
+                raise HTTPException(status_code=400, detail="Invalid status")
+
+            assignee.status = normalized_status
+            assignee.completed_at = datetime.datetime.utcnow() if normalized_status == "completed" else None
+
+            project_task = db.query(ProjectTask).filter(ProjectTask.id == task_id).first()
+            if project_task:
+                assignee_statuses = [
+                    row[0]
+                    for row in db.query(ProjectTaskAssignee.status).filter(
+                        ProjectTaskAssignee.task_id == task_id
+                    ).all()
+                ]
+                if assignee_statuses and all(s == "completed" for s in assignee_statuses):
+                    project_task.status = "completed"
+                    project_task.completed_at = datetime.datetime.utcnow()
+                elif "in-progress" in assignee_statuses:
+                    project_task.status = "in-progress"
+                    project_task.completed_at = None
+                else:
+                    project_task.status = "pending"
+                    project_task.completed_at = None
+        else:
+            task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.employee_id).first()
+            if not task:
+                raise HTTPException(status_code=404, detail="Task not found")
+            task.status = status
+
         db.commit()
         return RedirectResponse("/employee/tasks", status_code=303)
 
     @app.post("/employee/tasks/delete")
-    async def delete_task(task_id: int = Form(...),
+    async def delete_task(task_id: int = Form(...), task_type: str = Form("personal"),
                           user: User = Depends(get_current_user),
                           db: Session = Depends(get_db)):
-        task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.employee_id).first()
-        if task:
-            db.delete(task)
-            db.commit()
+        task_type = (task_type or "personal").strip().lower()
+
+        if task_type == "project":
+            assignee = db.query(ProjectTaskAssignee).filter(
+                ProjectTaskAssignee.task_id == task_id,
+                ProjectTaskAssignee.employee_id == user.employee_id
+            ).first()
+            if assignee:
+                db.delete(assignee)
+                db.flush()
+
+                remaining = db.query(ProjectTaskAssignee).filter(
+                    ProjectTaskAssignee.task_id == task_id
+                ).count()
+                if remaining == 0:
+                    project_task = db.query(ProjectTask).filter(ProjectTask.id == task_id).first()
+                    if project_task:
+                        db.delete(project_task)
+                db.commit()
+        else:
+            task = db.query(Task).filter(Task.id == task_id, Task.user_id == user.employee_id).first()
+            if task:
+                db.delete(task)
+                db.commit()
         return RedirectResponse("/employee/tasks", status_code=303)
 
     @app.get("/employee/meetings", response_class=HTMLResponse)

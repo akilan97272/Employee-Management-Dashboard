@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from .app_context import get_current_user, get_db, hash_employee_id, templates
-from .models import Project, ProjectTask, ProjectTaskAssignee, Team, User
+from .app_context import create_notification, get_current_user, get_db, hash_employee_id, templates
+from .models import Project, ProjectAssignment, ProjectTask, ProjectTaskAssignee, Team, TeamMember, User
 
 router = APIRouter(prefix="/leader")
 
@@ -86,10 +86,24 @@ async def leader_dashboard(
     db: Session = Depends(get_db),
 ):
     my_team = db.query(Team).filter(Team.leader_id == user.id).first()
-    if not my_team or user.role not in ["manager", "employee"]:
+    if not my_team or user.role not in ["team_lead", "manager", "employee"]:
         raise HTTPException(status_code=403)
 
-    projects = db.query(Project).filter(Project.department == user.department).all()
+    projects = []
+    if my_team.project_id:
+        assigned_project = db.query(Project).filter(Project.id == my_team.project_id).first()
+        if assigned_project:
+            projects = [assigned_project]
+    available_members = (
+        db.query(User)
+        .filter(
+            User.is_active == True,
+            User.role != "admin",
+            User.id != user.id,
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
 
     return templates.TemplateResponse(
         "employee/employee_leader_dashboard.html",
@@ -98,12 +112,74 @@ async def leader_dashboard(
             "user": user,
             "team": my_team,
             "projects": projects,
+            "available_members": available_members,
         },
     )
 
 
+@router.post("/add_member")
+async def add_member(
+    employee_id: str = Form(...),
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    my_team = db.query(Team).filter(Team.leader_id == user.id).first()
+    if not my_team or user.role not in ["team_lead", "manager", "employee"]:
+        raise HTTPException(status_code=403)
+
+    member = db.query(User).filter(User.employee_id == employee_id).first()
+    if not member:
+        return RedirectResponse("/leader/dashboard?member_error=not_found", status_code=303)
+    if member.id == user.id:
+        return RedirectResponse("/leader/dashboard?member_error=invalid", status_code=303)
+    if member.role == "admin" or not member.is_active:
+        return RedirectResponse("/leader/dashboard?member_error=invalid", status_code=303)
+
+    # Reassign member to the leader's team (including cross-team transfers).
+    member.current_team_id = my_team.id
+    db.query(TeamMember).filter(TeamMember.user_id == member.id).delete(synchronize_session=False)
+    membership = (
+        db.query(TeamMember)
+        .filter(TeamMember.user_id == member.id, TeamMember.team_id == my_team.id)
+        .first()
+    )
+    if not membership:
+        db.add(TeamMember(user_id=member.id, team_id=my_team.id))
+
+    if my_team.project_id:
+        existing_assignment = (
+            db.query(ProjectAssignment)
+            .filter(
+                ProjectAssignment.project_id == my_team.project_id,
+                ProjectAssignment.employee_id == member.employee_id,
+            )
+            .first()
+        )
+        if not existing_assignment:
+            db.add(
+                ProjectAssignment(
+                    project_id=my_team.project_id,
+                    employee_id=member.employee_id,
+                    employee_id_hash=hash_employee_id(member.employee_id),
+                )
+            )
+
+    create_notification(
+        db,
+        member.id,
+        "Team assigned",
+        f"You have been added to team {my_team.name}.",
+        "team",
+        "/employee/team",
+    )
+    db.commit()
+
+    return RedirectResponse("/leader/dashboard?member_added=1", status_code=303)
+
+
 @router.post("/assign_task")
 async def assign_task(
+    request: Request,
     project_id: int = Form(...),
     title: str = Form(...),
     deadline: str = Form(...),
@@ -113,6 +189,27 @@ async def assign_task(
 ):
     if user.role not in ["team_lead", "manager", "employee"]:
         raise HTTPException(status_code=403)
+    my_team = db.query(Team).filter(Team.leader_id == user.id).first()
+    if not my_team:
+        raise HTTPException(status_code=403)
+    if not my_team.project_id or project_id != my_team.project_id:
+        raise HTTPException(status_code=403, detail="You can only assign tasks for your team's assigned project.")
+
+    projects = []
+    if my_team.project_id:
+        assigned_project = db.query(Project).filter(Project.id == my_team.project_id).first()
+        if assigned_project:
+            projects = [assigned_project]
+    available_members = (
+        db.query(User)
+        .filter(
+            User.is_active == True,
+            User.role != "admin",
+            User.id != user.id,
+        )
+        .order_by(User.name.asc())
+        .all()
+    )
 
     existing_task = db.query(ProjectTask).filter(
         ProjectTask.project_id == project_id,
@@ -122,11 +219,12 @@ async def assign_task(
         return templates.TemplateResponse(
             "employee/employee_leader_dashboard.html",
             {
-                "request": Request,
+                "request": request,
                 "user": user,
                 "error": "Task with this title already exists in the project.",
-                "team": db.query(Team).filter(Team.leader_id == user.id).first(),
-                "projects": db.query(Project).filter(Project.department == user.department).all(),
+                "team": my_team,
+                "projects": projects,
+                "available_members": available_members,
             },
         )
 

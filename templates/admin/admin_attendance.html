@@ -140,6 +140,16 @@ function loadDepartments() {
       const select = document.getElementById("departmentSelect");
       select.innerHTML = "";
 
+      if (!data.departments || data.departments.length === 0) {
+        const option = document.createElement("option");
+        option.value = "";
+        option.textContent = "No Departments";
+        select.appendChild(option);
+        const ul = document.getElementById("absenteeList");
+        ul.innerHTML = "<div class='py-12 text-center bg-white border border-dashed border-slate-200 text-slate-400 text-[10px] uppercase font-bold tracking-widest'>No Departments Available</div>";
+        return;
+      }
+
       data.departments.forEach(dep => {
         const option = document.createElement("option");
         option.value = dep;
@@ -156,7 +166,12 @@ function loadDepartments() {
   
 function loadAbsentees(){
   let dept = document.getElementById("departmentSelect").value;
-  fetch(`/api/absentees?department=${dept}`)
+  if (!dept) {
+    let ul = document.getElementById("absenteeList");
+    ul.innerHTML = "<div class='py-12 text-center bg-white border border-dashed border-slate-200 text-slate-400 text-[10px] uppercase font-bold tracking-widest'>Select A Department</div>";
+    return;
+  }
+  fetch(`/api/absentees?department=${encodeURIComponent(dept)}`)
   .then(r=>r.json())
   .then(data=>{
     let ul = document.getElementById("absenteeList");
@@ -181,7 +196,7 @@ function loadAbsentees(){
   });
 }
 document.getElementById("departmentSelect").addEventListener("change", loadAbsentees);
-loadAbsentees();
+loadDepartments();
 
 function showLogs(id, name){
   const modal = document.getElementById("logsModal");

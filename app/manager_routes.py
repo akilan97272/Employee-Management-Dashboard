@@ -584,6 +584,17 @@ def register_manager_routes(app):
         db.refresh(project_task)
 
         for emp_id in valid_assignees:
+            existing_assignment = db.query(ProjectAssignment).filter(
+                ProjectAssignment.project_id == team.project_id,
+                ProjectAssignment.employee_id == emp_id
+            ).first()
+            if not existing_assignment:
+                db.add(ProjectAssignment(
+                    project_id=team.project_id,
+                    employee_id=emp_id,
+                    employee_id_hash=hash_employee_id(emp_id)
+                ))
+
             db.add(ProjectTaskAssignee(
                 task_id=project_task.id,
                 employee_id=emp_id,
@@ -664,6 +675,16 @@ def register_manager_routes(app):
                 "/employee/team"
             )
             if project:
+                existing_assignment = db.query(ProjectAssignment).filter(
+                    ProjectAssignment.project_id == project.id,
+                    ProjectAssignment.employee_id == leader.employee_id
+                ).first()
+                if not existing_assignment:
+                    db.add(ProjectAssignment(
+                        project_id=project.id,
+                        employee_id=leader.employee_id,
+                        employee_id_hash=hash_employee_id(leader.employee_id)
+                    ))
                 create_notification(
                     db,
                     leader.id,
@@ -714,6 +735,27 @@ def register_manager_routes(app):
             team = db.query(Team).filter(Team.id == team_id).first()
             if team:
                 team.project_id = new_project.id
+                member_employee_ids = {
+                    row[0]
+                    for row in db.query(User.employee_id)
+                    .filter(User.current_team_id == team.id)
+                    .all()
+                    if row[0]
+                }
+                if team.leader and team.leader.employee_id:
+                    member_employee_ids.add(team.leader.employee_id)
+                for emp_id in member_employee_ids:
+                    existing_assignment = db.query(ProjectAssignment).filter(
+                        ProjectAssignment.project_id == new_project.id,
+                        ProjectAssignment.employee_id == emp_id
+                    ).first()
+                    if existing_assignment:
+                        continue
+                    db.add(ProjectAssignment(
+                        project_id=new_project.id,
+                        employee_id=emp_id,
+                        employee_id_hash=hash_employee_id(emp_id)
+                    ))
                 db.commit()
 
         return RedirectResponse("/manager/manage_teams", status_code=303)
@@ -938,24 +980,25 @@ def register_manager_routes(app):
 
     @app.get("/manager/participant_search")
     async def manager_participant_search(q: str, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-        if user.role != "manager":
+        if user.role not in ("manager", "admin"):
             raise HTTPException(status_code=403)
 
         term = (q or "").strip()
-        if not term:
-            return JSONResponse([])
 
-        employees = (
+        query = (
             db.query(User)
             .filter(
-                User.department == user.department,
-                User.role.in_(["employee", "manager"]),
+                User.is_active == True,
+                User.employee_id.isnot(None),
+            )
+        )
+
+        if term:
+            query = query.filter(
                 (User.name.ilike(f"%{term}%")) | (User.employee_id.ilike(f"%{term}%"))
             )
-            .order_by(User.name.asc())
-            .limit(25)
-            .all()
-        )
+
+        employees = query.order_by(User.name.asc()).limit(200).all()
 
         return JSONResponse([
             {"employee_id": emp.employee_id, "name": emp.name}

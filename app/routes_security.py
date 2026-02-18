@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 from Security.audit_trail import audit
 from Security.hash_history import read_hash_history
 from Security.metrics import get_feature_metrics_snapshot, set_feature_enabled
-from Security.security_config import _env_path, ensure_session_secret
+from Security.security_config import SECURITY_SETTINGS, _env_path, ensure_session_secret
 from app.app_context import get_current_user, templates
 from app.database import get_db
 from app.models import SecurityCertificate, SecurityEventRecord, SecurityManagedSetting, SecurityMitreRule, User
@@ -30,6 +30,20 @@ SECURITY_WATCH_FILES = (
     "logs/security.log",
     "logs/audit.log",
     "logs/hash_history.log",
+)
+DASHBOARD_FEATURE_IDS = (
+    "authentication",
+    "session-security",
+    "session-hijacking",
+    "login-attempt-limiting",
+    "sql-injection",
+    "headers-hardening",
+    "https-tls",
+    "waf-integration",
+    "data-encryption-at-rest",
+    "key-management",
+    "secrets-redaction",
+    "audit-trail",
 )
 
 
@@ -129,6 +143,26 @@ def _upsert_setting(db: Session, feature_id: str, key: str, value: str) -> None:
         db.add(SecurityManagedSetting(feature_id=feature_id, key=key, value=value))
 
 
+def _ensure_session_timeout_settings(db: Session) -> None:
+    defaults = {
+        "SESSION_IDLE_TIMEOUT": str(os.getenv("SESSION_IDLE_TIMEOUT", SECURITY_SETTINGS.get("SESSION_IDLE_TIMEOUT", 600))),
+        "SESSION_MAX_AGE": str(os.getenv("SESSION_MAX_AGE", SECURITY_SETTINGS.get("SESSION_MAX_AGE", 600))),
+    }
+    changed = False
+    for key, default_value in defaults.items():
+        row = (
+            db.query(SecurityManagedSetting)
+            .filter(SecurityManagedSetting.feature_id == "session-security", SecurityManagedSetting.key == key)
+            .first()
+        )
+        if row:
+            continue
+        db.add(SecurityManagedSetting(feature_id="session-security", key=key, value=default_value))
+        changed = True
+    if changed:
+        db.commit()
+
+
 def _normalize_input_value(raw_value: str, input_type: str) -> str:
     value = raw_value.strip()
     if input_type == "bool":
@@ -178,6 +212,11 @@ def _security_features(db: Session) -> list[dict]:
         }
         set_feature_enabled(f["id"], bool(enabled))
     return features
+
+
+def _dashboard_features(features: list[dict]) -> list[dict]:
+    feature_map = {f["id"]: f for f in features}
+    return [feature_map[feature_id] for feature_id in DASHBOARD_FEATURE_IDS if feature_id in feature_map]
 
 
 def _title_case_event(event_name: str) -> str:
@@ -1111,7 +1150,7 @@ def _configuration_rows(db: Session, features: list[dict]) -> tuple[list[dict], 
 
 
 def _security_live_payload(db: Session) -> dict:
-    features = _security_features(db)
+    features = _dashboard_features(_security_features(db))
     events = _recent_security_events(db, limit=None)
     summary = _security_summary(features, events)
     return {
@@ -1257,11 +1296,13 @@ def _sanitize_source_type(value: str | None) -> str:
 @router.get("/admin/security", response_class=HTMLResponse)
 async def admin_security_page(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
-    features = _security_features(db)
+    _ensure_session_timeout_settings(db)
+    all_features = _security_features(db)
+    features = _dashboard_features(all_features)
     events = _recent_security_events(db, limit=None)
     hash_history = read_hash_history(limit=None)
     hash_history = _enrich_hash_history(db, hash_history)
-    configurations, configuration_features = _configuration_rows(db, features)
+    configurations, configuration_features = _configuration_rows(db, all_features)
     mitre_rules = _mitre_rule_rows(db)
     summary = _security_summary(features, events)
     security_files = _security_files_state()
@@ -1374,13 +1415,15 @@ async def admin_security_live(user: User = Depends(get_current_user), db: Sessio
 
 
 @router.get("/admin/security/live/stream")
-async def admin_security_live_stream(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+async def admin_security_live_stream(request: Request, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     _admin_guard(user)
 
     async def event_stream():
         last_stream_signature = ""
         try:
             while True:
+                if await request.is_disconnected():
+                    break
                 payload = _security_dashboard_payload(db)
                 stream_signature = str(payload.get("stream_signature") or "")
                 if stream_signature != last_stream_signature:
@@ -1391,7 +1434,7 @@ async def admin_security_live_stream(user: User = Depends(get_current_user), db:
                     yield ": keepalive\n\n"
                 await asyncio.sleep(2)
         except asyncio.CancelledError:
-            return
+            pass
 
     return StreamingResponse(
         event_stream(),

@@ -36,6 +36,36 @@ SECURITY_FILE_NAMES = [
     "xss_protection.py",
 ]
 
+TRANSPORT_SECURITY_FEATURES = {"https-tls", "secure-connection", "waf-integration"}
+ENCRYPTION_SECURITY_FEATURES = {
+    "key-management",
+    "data-encryption-at-rest",
+    "field-level-encryption",
+    "encrypted-defaults",
+    "encrypted-type",
+    "security-bootstrap",
+}
+STRICT_POLICY_SECURITY_FEATURES = {
+    "csrf-protection",
+    "authentication",
+    "session-hijacking",
+    "login-attempt-limiting",
+    "password-cracking",
+    "rbac",
+}
+RULESET_SECURITY_FEATURES = {
+    "cors-security",
+    "headers-hardening",
+    "xss-protection",
+    "input-validation",
+    "input-length-limits",
+    "sql-injection",
+    "nosql-security",
+    "database-security",
+    "secrets-redaction",
+}
+TELEMETRY_SECURITY_FEATURES = {"activity-logging", "request-id", "metrics", "hash-history", "data-integrity", "error-handling"}
+
 
 def _feature_id_from_filename(filename: str) -> str:
     return filename.replace(".py", "").replace("_", "-")
@@ -66,45 +96,65 @@ def _list(name: str, label: str, description: str) -> dict:
 
 
 def _upload_enabled(feature_id: str) -> bool:
-    upload_features = {
-        "https-tls",
-        "secure-connection",
-        "waf-integration",
-        "key-management",
-        "data-encryption-at-rest",
-        "field-level-encryption",
-        "encrypted-defaults",
-        "encrypted-type",
-        "security-bootstrap",
-    }
+    upload_features = TRANSPORT_SECURITY_FEATURES | ENCRYPTION_SECURITY_FEATURES
     return feature_id in upload_features
+
+
+def _transport_security_inputs(prefix: str) -> list[dict]:
+    return [
+        _text(f"{prefix}_CERT_ALIAS", "Certificate Alias", "Alias to identify uploaded cert/key."),
+        _url(f"{prefix}_GATEWAY_URL", "Gateway URL", "Primary edge/gateway URL."),
+        _list(f"{prefix}_TRUSTED_HOSTS", "Trusted Hosts", "Comma-separated host allowlist."),
+    ]
+
+
+def _encryption_security_inputs(prefix: str) -> list[dict]:
+    return [
+        _text(f"{prefix}_KEY_ALIAS", "Key Alias", "Active key alias used for encryption."),
+        _int(f"{prefix}_ROTATE_DAYS", "Rotate (Days)", "Key rotation interval in days."),
+        _bool(f"{prefix}_ENCRYPTION_REQUIRED", "Require Encryption", "Reject plaintext writes."),
+    ]
+
+
+def _strict_policy_inputs(prefix: str) -> list[dict]:
+    return [
+        _bool(f"{prefix}_STRICT", "Strict Policy", "Enable strict access/session policy."),
+        _int(f"{prefix}_TIMEOUT_SECONDS", "Timeout (Sec)", "Session/token timeout in seconds."),
+    ]
+
+
+def _ruleset_inputs(prefix: str) -> list[dict]:
+    return [
+        _text(f"{prefix}_RULESET", "Rule Set", "Validation/header/policy profile text."),
+        _list(f"{prefix}_ALLOWLIST", "Allowlist", "Comma-separated allowed patterns/origins."),
+    ]
+
+
+def _telemetry_inputs(prefix: str) -> list[dict]:
+    return [
+        _text(f"{prefix}_LOG_LEVEL", "Log Level", "DEBUG/INFO/WARN/ERROR."),
+        _int(f"{prefix}_RETENTION_DAYS", "Retention (Days)", "Log/history retention duration."),
+        _url(f"{prefix}_WEBHOOK_URL", "Webhook URL", "Optional webhook endpoint for alerts."),
+    ]
 
 
 def _inputs_for_feature(feature_id: str) -> list[dict]:
     p = feature_id.upper().replace("-", "_")
 
-    if feature_id in {"https-tls", "secure-connection", "waf-integration"}:
-        return [
-            _text(f"{p}_CERT_ALIAS", "Certificate Alias", "Alias to identify uploaded cert/key."),
-            _url(f"{p}_GATEWAY_URL", "Gateway URL", "Primary edge/gateway URL."),
-            _list(f"{p}_TRUSTED_HOSTS", "Trusted Hosts", "Comma-separated host allowlist."),
-        ]
-    if feature_id in {"key-management", "data-encryption-at-rest", "field-level-encryption", "encrypted-defaults", "encrypted-type", "security-bootstrap"}:
-        return [
-            _text(f"{p}_KEY_ALIAS", "Key Alias", "Active key alias used for encryption."),
-            _int(f"{p}_ROTATE_DAYS", "Rotate (Days)", "Key rotation interval in days."),
-            _bool(f"{p}_ENCRYPTION_REQUIRED", "Require Encryption", "Reject plaintext writes."),
-        ]
-    if feature_id in {"csrf-protection", "authentication", "session-security", "session-hijacking", "login-attempt-limiting", "password-cracking", "rbac"}:
+    if feature_id in TRANSPORT_SECURITY_FEATURES:
+        return _transport_security_inputs(p)
+    if feature_id in ENCRYPTION_SECURITY_FEATURES:
+        return _encryption_security_inputs(p)
+    if feature_id == "session-security":
         return [
             _bool(f"{p}_STRICT", "Strict Policy", "Enable strict access/session policy."),
-            _int(f"{p}_TIMEOUT_SECONDS", "Timeout (Sec)", "Session/token timeout in seconds."),
+            _int("SESSION_IDLE_TIMEOUT", "Session Idle Timeout (Sec)", "Auto logout after inactivity."),
+            _int("SESSION_MAX_AGE", "Session Max Age (Sec)", "Absolute maximum session lifetime."),
         ]
-    if feature_id in {"cors-security", "headers-hardening", "xss-protection", "input-validation", "input-length-limits", "sql-injection", "nosql-security", "database-security", "secrets-redaction"}:
-        return [
-            _text(f"{p}_RULESET", "Rule Set", "Validation/header/policy profile text."),
-            _list(f"{p}_ALLOWLIST", "Allowlist", "Comma-separated allowed patterns/origins."),
-        ]
+    if feature_id in STRICT_POLICY_SECURITY_FEATURES:
+        return _strict_policy_inputs(p)
+    if feature_id in RULESET_SECURITY_FEATURES:
+        return _ruleset_inputs(p)
     if feature_id == "audit-trail":
         return [
             _text(f"{p}_LOG_LEVEL", "Log Level", "DEBUG/INFO/WARN/ERROR."),
@@ -112,12 +162,8 @@ def _inputs_for_feature(feature_id: str) -> list[dict]:
             _url(f"{p}_WEBHOOK_URL", "Webhook URL", "Optional webhook endpoint for alerts."),
             _bool("AUDIT_TRAIL_HIDE_AUTH_EVENTS", "Hide Auth Events", "Hide login/logout entries from Security Events."),
         ]
-    if feature_id in {"activity-logging", "request-id", "metrics", "hash-history", "data-integrity", "error-handling"}:
-        return [
-            _text(f"{p}_LOG_LEVEL", "Log Level", "DEBUG/INFO/WARN/ERROR."),
-            _int(f"{p}_RETENTION_DAYS", "Retention (Days)", "Log/history retention duration."),
-            _url(f"{p}_WEBHOOK_URL", "Webhook URL", "Optional webhook endpoint for alerts."),
-        ]
+    if feature_id in TELEMETRY_SECURITY_FEATURES:
+        return _telemetry_inputs(p)
     if feature_id in {"backfill-hashes"}:
         return [
             _bool(f"{p}_DRY_RUN", "Dry Run", "Preview only, no database writes."),
