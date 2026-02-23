@@ -1,0 +1,644 @@
+{% extends "common/layout_base.html" %}
+
+{% block title %}3D Block Settings | TeamSync{% endblock %}
+
+{% block content %}
+{% set total_areas = areas|length %}
+{% set total_models = models|length %}
+{% set total_bucket_models = bucket_models|length %}
+{% set stats = namespace(total_buildings=0) %}
+{% for area in areas %}
+  {% set stats.total_buildings = stats.total_buildings + (area.buildings|length) %}
+{% endfor %}
+
+<div id="settingsScrollHost" class="h-[calc(100vh-230px)] overflow-y-auto pr-2">
+  <div class="bg-slate-50 border border-slate-200 p-4 md:p-6 mb-6">
+    <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div class="space-y-3">
+        <div class="flex items-center gap-2">
+          <h1 class="text-2xl md:text-3xl font-black tracking-tight text-slate-900">3D Building Settings</h1>
+          <button
+            type="button"
+            id="storageConfigToggle"
+            class="inline-flex items-center justify-center w-9 h-9 border border-slate-200 bg-white text-slate-600 hover:text-blue-600 hover:border-blue-600 transition-all"
+            title="Configure Storage Credentials"
+          >
+            <i class="bi bi-gear"></i>
+          </button>
+        </div>
+        <p class="text-xs uppercase tracking-widest text-slate-500">Manage areas, buildings, models, and storage from one place.</p>
+      </div>
+      <a
+        href="/admin/3d-block"
+        class="inline-flex items-center justify-center gap-2 px-4 py-2 border border-slate-200 bg-white text-xs font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-600 transition-all"
+      >
+        <i class="bi bi-arrow-left"></i> Back To Visualization
+      </a>
+    </div>
+    <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div class="border border-slate-200 bg-white p-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Areas</div>
+        <div class="mt-1 text-2xl font-black text-slate-900">{{ total_areas }}</div>
+      </div>
+      <div class="border border-slate-200 bg-white p-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Buildings</div>
+        <div class="mt-1 text-2xl font-black text-slate-900">{{ stats.total_buildings }}</div>
+      </div>
+      <div class="border border-slate-200 bg-white p-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">DB Model Records</div>
+        <div class="mt-1 text-2xl font-black text-slate-900">{{ total_models }}</div>
+      </div>
+      <div class="border border-slate-200 bg-white p-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">S3 Uploaded Models</div>
+        <div class="mt-1 text-2xl font-black text-slate-900">{{ total_bucket_models }}</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="storageConfigModal" class="fixed inset-0 z-[500] {% if config_status not in ['invalid', 'saved', 'error', 'test_ok', 'test_error', 'test_invalid'] %}hidden{% endif %}">
+    <div id="storageConfigBackdrop" class="absolute inset-0 bg-slate-900/60"></div>
+    <div class="relative h-full w-full flex items-center justify-center p-4">
+      <div class="w-full max-w-2xl bg-white border border-slate-200 p-5 shadow-2xl">
+        <div class="flex items-center justify-between mb-4">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Storage Configuration</div>
+          <button type="button" id="storageConfigClose" class="w-9 h-9 inline-flex items-center justify-center border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-600 transition-all">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        {% if config_status == 'saved' %}
+        <div class="mb-3 text-xs font-bold text-emerald-600 uppercase tracking-widest">Configuration saved</div>
+        {% elif config_status == 'invalid' %}
+        <div class="mb-3 text-xs font-bold text-red-600 uppercase tracking-widest">Please fill all required values</div>
+        {% elif config_status == 'error' %}
+        <div class="mb-3 text-xs font-bold text-red-600 uppercase tracking-widest">Failed to save configuration</div>
+        {% elif config_status == 'test_ok' %}
+        <div class="mb-3 text-xs font-bold text-emerald-600 uppercase tracking-widest">Storage test passed (AWS + bucket reachable)</div>
+        {% elif config_status == 'test_invalid' %}
+        <div class="mb-3 text-xs font-bold text-red-600 uppercase tracking-widest">Fill all required values before testing</div>
+        {% elif config_status == 'test_error' %}
+        <div class="mb-3 text-xs font-bold text-red-600 uppercase tracking-widest">Storage test failed (check keys/region/bucket access)</div>
+        {% if config_message %}
+        <div class="mb-3 text-[11px] text-red-700 break-words">{{ config_message }}</div>
+        {% endif %}
+        {% endif %}
+        <form action="/admin/3d-block/settings/storage-config" method="post" class="grid gap-3 md:grid-cols-2">
+          <input type="text" name="aws_access_key_id" value="{{ storage_config.AWS_ACCESS_KEY_ID }}" placeholder="AWS_ACCESS_KEY_ID" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+          <input type="password" name="aws_secret_access_key" placeholder="AWS_SECRET_ACCESS_KEY (leave blank to keep current)" class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+          <input type="text" name="aws_region" value="{{ storage_config.AWS_REGION }}" placeholder="AWS_REGION" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+          <input type="text" name="s3_bucket" value="{{ storage_config.S3_BUCKET }}" placeholder="S3_BUCKET" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+          <input type="text" name="cloudfront_domain" value="{{ storage_config.CLOUDFRONT_DOMAIN }}" placeholder="CLOUDFRONT_DOMAIN" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600 md:col-span-2">
+          <div class="md:col-span-2 flex flex-wrap gap-2">
+            <button type="submit" formaction="/admin/3d-block/settings/test-storage-config" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-600 transition-all">
+              Test Storage Config
+            </button>
+            <button type="submit" class="px-4 py-2 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+              Save Storage Config
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  {% if upload_status == 'missing_gltf_transform' %}
+  <div class="mb-4 border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-xs font-bold uppercase tracking-widest">
+    gltf-transform CLI is missing. Install Node.js and run: npm install -g @gltf-transform/cli
+  </div>
+  {% elif upload_status == 'invalid_file' %}
+  <div class="mb-4 border border-amber-200 bg-amber-50 text-amber-700 px-4 py-3 text-xs font-bold uppercase tracking-widest">
+    Invalid GLB upload. Please select a valid .glb file.
+  </div>
+  {% elif upload_status == 'upload_error' %}
+  <div class="mb-4 border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-xs font-bold uppercase tracking-widest">
+    Upload failed. Check storage configuration and AWS access, then retry.
+  </div>
+  {% endif %}
+
+  {% if import_status == 'ok' %}
+  <div class="mb-4 border border-emerald-200 bg-emerald-50 text-emerald-700 px-4 py-3 text-xs font-bold uppercase tracking-widest">
+    {{ import_message or 'S3 models imported successfully.' }}
+  </div>
+  {% elif import_status in ['invalid', 'empty', 'none_created'] %}
+  <div class="mb-4 border border-amber-200 bg-amber-50 text-amber-700 px-4 py-3 text-xs font-bold uppercase tracking-widest">
+    {% if import_status == 'invalid' %}
+      Select a valid area before importing.
+    {% elif import_status == 'empty' %}
+      Select at least one S3 model to import.
+    {% else %}
+      No mappings were created. Check building names or duplicates.
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="grid gap-6 xl:grid-cols-12">
+    <div class="xl:col-span-4 space-y-6">
+      <form action="/admin/3d-block/settings/add-area" method="post" class="bg-white border border-slate-200 p-5 space-y-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Create Area</div>
+        <p class="text-xs text-slate-500">Define a new zone for building mapping and visualization filtering.</p>
+        <input type="text" id="areaName" name="area_name" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600" placeholder="Area name">
+        <button type="submit" class="w-full px-4 py-2 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+          Save Area
+        </button>
+      </form>
+
+      <form action="/admin/3d-block/settings/add-building" method="post" enctype="multipart/form-data" class="bg-white border border-slate-200 p-5 space-y-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Map Building</div>
+        <p class="text-xs text-slate-500">Link a building to an area, upload the GLB, and set maximum occupancy.</p>
+        <div class="grid gap-3">
+          <select id="areaSelect" name="area_id" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+            <option value="">Select area</option>
+            {% for area in areas %}
+            <option value="{{ area.id }}">{{ area.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" id="buildingName" name="building_name" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600" placeholder="Building name">
+          <input type="file" id="glbFile" name="glb_file" accept=".glb" required class="w-full text-sm border border-slate-200 px-3 py-2">
+          <input type="number" id="buildingMaxLimit" name="max_limit_people" min="1" step="1" value="20" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600" placeholder="Max people limit">
+        </div>
+        <button type="submit" class="w-full px-4 py-2 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+          Add Building
+        </button>
+      </form>
+    </div>
+
+    <div class="xl:col-span-8 space-y-6">
+      <div id="areasBuildingsSection" class="bg-white border border-slate-200 p-5 min-h-[260px]">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">S3 Bucket Models</div>
+            <p class="text-xs text-slate-500 mt-1">All uploaded GLB files from the configured S3 bucket with file names.</p>
+          </div>
+          <button
+            type="button"
+            id="openS3ImportModal"
+            class="px-3 py-2 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            {% if not bucket_models %}disabled{% endif %}
+          >
+            Add To Area/Building
+          </button>
+        </div>
+        {% if bucket_model_error %}
+          <div class="mb-4 border border-amber-200 bg-amber-50 text-amber-700 px-4 py-3 text-xs font-bold uppercase tracking-widest">
+            Unable to read S3 models: {{ bucket_model_error }}
+          </div>
+        {% endif %}
+        <div class="overflow-x-auto max-h-[36vh] overflow-y-auto border border-slate-100">
+          <table class="min-w-full text-xs" id="bucketModelTable">
+            <thead class="sticky top-0 bg-slate-100 z-10">
+              <tr>
+                <th class="px-2 py-2 text-left font-bold">File Name</th>
+                <th class="px-2 py-2 text-left font-bold">Object Key</th>
+                <th class="px-2 py-2 text-left font-bold">Size</th>
+                <th class="px-2 py-2 text-left font-bold">Last Modified</th>
+                <th class="px-2 py-2 text-left font-bold">URL</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for model in bucket_models %}
+              <tr class="border-t border-slate-100">
+                <td class="px-2 py-2 font-semibold text-slate-700">{{ model.filename }}</td>
+                <td class="px-2 py-2 text-slate-600">{{ model.key }}</td>
+                <td class="px-2 py-2">{{ model.size }}</td>
+                <td class="px-2 py-2">
+                  {% if model.last_modified %}
+                    {{ model.last_modified.strftime('%Y-%m-%d %H:%M') }}
+                  {% else %}
+                    -
+                  {% endif %}
+                </td>
+                <td class="px-2 py-2">
+                  <a href="{{ model.url }}" class="inline-flex items-center gap-1 text-blue-600 hover:underline" title="{{ model.url }}">
+                    <i class="bi bi-box-arrow-up-right"></i> View
+                  </a>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="px-2 py-3 text-slate-400">No GLB files found in S3 bucket.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white border border-slate-200 p-5 min-h-[260px]">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Uploaded 3D Models</div>
+            <p class="text-xs text-slate-500 mt-1">Quickly search and manage model records.</p>
+          </div>
+          <input id="modelSearchInput" type="text" placeholder="Search model name..." class="w-full sm:w-64 border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+        </div>
+        <div class="overflow-x-auto max-h-[42vh] overflow-y-auto border border-slate-100">
+          <table class="min-w-full text-xs" id="modelTable">
+            <thead class="sticky top-0 bg-slate-100 z-10">
+              <tr>
+                <th class="px-2 py-2 text-left font-bold">Name</th>
+                <th class="px-2 py-2 text-left font-bold">URL</th>
+                <th class="px-2 py-2 text-left font-bold">Size</th>
+                <th class="px-2 py-2 text-left font-bold">Uploaded</th>
+                <th class="px-2 py-2 text-left font-bold">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for model in models %}
+              <tr class="model-row border-t border-slate-100" data-model-name="{{ model.name|lower }}">
+                <td class="px-2 py-2 font-semibold text-slate-700">{{ model.name }}</td>
+                <td class="px-2 py-2">
+                  <a href="{{ model.url }}" class="inline-flex items-center gap-1 text-blue-600 hover:underline" title="{{ model.url }}">
+                    <i class="bi bi-box-arrow-up-right"></i> View
+                  </a>
+                </td>
+                <td class="px-2 py-2">{{ model.size }}</td>
+                <td class="px-2 py-2">{{ model.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                <td class="px-2 py-2">
+                  <div class="flex flex-wrap gap-3">
+                    <form action="/admin/3d-block/settings/update-model-name" method="post" onsubmit='return editModelName(this, {{ model.name|tojson }});'>
+                      <input type="hidden" name="id" value="{{ model.id }}">
+                      <input type="hidden" name="name" value="{{ model.name }}">
+                      <button type="submit" class="text-amber-600 hover:underline">Edit</button>
+                    </form>
+                    <form action="/admin/3d-block/settings/delete-model" method="post" onsubmit="return confirm('Delete this model?');">
+                      <input type="hidden" name="id" value="{{ model.id }}">
+                      <button type="submit" class="text-red-600 hover:underline">Delete</button>
+                    </form>
+                    <button type="button" class="text-blue-600 hover:underline" onclick='previewModel({{ model.url|tojson }})'>Preview</button>
+                  </div>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="px-2 py-3 text-slate-400">No models uploaded yet.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white border border-slate-200 p-5 min-h-[260px]">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
+          <div>
+            <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Areas And Buildings</div>
+            <p class="text-xs text-slate-500 mt-1">Search, edit, and maintain your area-building mappings.</p>
+          </div>
+          <input id="areaBuildingSearchInput" type="text" placeholder="Search area or building..." class="w-full sm:w-64 border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600">
+        </div>
+
+        {% if areas %}
+          <div id="areaBuildingGrid" class="grid gap-4 md:grid-cols-2 max-h-[42vh] overflow-y-auto pr-1">
+            {% for area in areas %}
+            <div class="area-card border border-slate-200 p-4 bg-slate-50/40" data-search="{{ (area.name ~ ' ' ~ (area.buildings|map(attribute='name')|join(' ')))|lower }}">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <h3 class="text-sm font-black text-slate-800">{{ area.name }}</h3>
+                  <div class="text-[10px] uppercase tracking-widest text-slate-500 mt-1">{{ area.buildings|length }} Building{{ '' if area.buildings|length == 1 else 's' }}</div>
+                </div>
+                <div class="flex gap-3 text-xs">
+                  <form action="/admin/3d-block/settings/update-area" method="post" onsubmit='return editAreaName(this, {{ area.name|tojson }});'>
+                    <input type="hidden" name="area_id" value="{{ area.id }}">
+                    <input type="hidden" name="area_name" value="{{ area.name }}">
+                    <button type="submit" class="text-amber-600 hover:underline">Edit</button>
+                  </form>
+                  <form action="/admin/3d-block/settings/delete-area" method="post" onsubmit="return confirm('Delete this area and all linked buildings?');">
+                    <input type="hidden" name="area_id" value="{{ area.id }}">
+                    <button type="submit" class="text-red-600 hover:underline">Delete</button>
+                  </form>
+                </div>
+              </div>
+              {% if area.buildings %}
+              <ul class="mt-3 space-y-2 text-sm text-slate-600">
+                {% for building in area.buildings %}
+                <li class="flex items-center justify-between gap-2 border border-slate-100 bg-white px-2 py-2">
+                  <div class="min-w-0">
+                    <span class="font-semibold text-slate-700 truncate block">{{ building.name }}</span>
+                    <span class="text-[10px] uppercase tracking-widest text-slate-400">Max limit: {{ building.max_limit_people or 20 }}</span>
+                  </div>
+                  <div class="flex gap-2 text-xs">
+                    {% if building.glb_path %}
+                    <a href="{{ building.glb_path }}" class="text-blue-600 hover:underline">View</a>
+                    {% endif %}
+                    <form action="/admin/3d-block/settings/update-building" method="post" onsubmit='return editBuilding(this, {{ building.name|tojson }}, {{ area.id|tojson }}, {{ (building.max_limit_people or 20)|tojson }});'>
+                      <input type="hidden" name="building_id" value="{{ building.id }}">
+                      <input type="hidden" name="building_name" value="{{ building.name }}">
+                      <input type="hidden" name="area_id" value="{{ area.id }}">
+                      <input type="hidden" name="max_limit_people" value="{{ building.max_limit_people or 20 }}">
+                      <button type="submit" class="text-amber-600 hover:underline">Edit</button>
+                    </form>
+                    <form action="/admin/3d-block/settings/delete-building" method="post" onsubmit="return confirm('Delete this building?');">
+                      <input type="hidden" name="building_id" value="{{ building.id }}">
+                      <button type="submit" class="text-red-600 hover:underline">Delete</button>
+                    </form>
+                  </div>
+                </li>
+                {% endfor %}
+              </ul>
+              {% else %}
+              <p class="mt-2 text-xs text-slate-400 uppercase tracking-widest">No buildings mapped yet</p>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-sm text-slate-500">No areas found. Add your first area from the left panel.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="s3ImportModal" class="fixed inset-0 hidden overflow-y-auto overscroll-contain" style="z-index: 2147483000;">
+  <div id="s3ImportBackdrop" class="fixed inset-0 bg-slate-900/60" style="z-index: 2147483001;"></div>
+  <div class="relative min-h-full w-full flex items-center justify-center p-4" style="z-index: 2147483002;">
+    <div class="w-full max-w-5xl bg-white border border-slate-200 p-5 shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Import S3 Models To Area/Building</div>
+        <button type="button" id="s3ImportClose" class="w-9 h-9 inline-flex items-center justify-center border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-600 transition-all">
+          <i class="bi bi-x-lg"></i>
+        </button>
+      </div>
+
+      <form id="s3ImportForm" action="/admin/3d-block/settings/import-bucket-models" method="post" class="space-y-4">
+        <div class="grid gap-3 md:grid-cols-3">
+          <select id="s3ImportAreaSelect" name="area_id" required class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600 md:col-span-2">
+            <option value="">Select area</option>
+            {% for area in areas %}
+            <option value="{{ area.id }}">{{ area.name }}</option>
+            {% endfor %}
+          </select>
+          <div class="grid grid-cols-2 gap-2">
+            <button type="button" id="s3ImportSelectAll" class="w-full px-3 py-2 border border-slate-300 text-slate-700 text-xs font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-600 transition-all">
+              Select All
+            </button>
+            <button type="button" id="s3ImportSaveAll" class="w-full px-3 py-2 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+              Save All
+            </button>
+          </div>
+        </div>
+
+        <div class="max-h-[54vh] overflow-y-auto border border-slate-100">
+          <table class="min-w-full text-xs">
+            <thead class="sticky top-0 bg-slate-100 z-10">
+              <tr>
+                <th class="px-2 py-2 text-left font-bold">Pick</th>
+                <th class="px-2 py-2 text-left font-bold">Model Link</th>
+                <th class="px-2 py-2 text-left font-bold">Building Name</th>
+                <th class="px-2 py-2 text-left font-bold">Max Limit</th>
+                <th class="px-2 py-2 text-left font-bold">Quick Save</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for model in bucket_models %}
+              {% set row_i = loop.index0 %}
+              {% set base_name = (model.filename.rsplit('.', 1)[0]) %}
+              <tr class="border-t border-slate-100">
+                <td class="px-2 py-2 align-top">
+                  <input type="checkbox" name="selected_index" value="{{ row_i }}" class="mt-1 s3-import-check">
+                </td>
+                <td class="px-2 py-2 align-top min-w-[320px]">
+                  <div class="font-semibold text-slate-700">{{ model.filename }}</div>
+                  <a href="{{ model.url }}" target="_blank" class="text-blue-600 hover:underline break-all">{{ model.url }}</a>
+                  <input type="hidden" name="model_url_{{ row_i }}" value="{{ model.url }}">
+                  <input type="hidden" name="model_size_{{ row_i }}" value="{{ model.size }}">
+                </td>
+                <td class="px-2 py-2 align-top min-w-[200px]">
+                  <input type="text" name="building_name_{{ row_i }}" value="{{ base_name }}" placeholder="Building name" class="w-full border border-slate-200 px-2 py-2 text-xs focus:outline-none focus:border-blue-600">
+                </td>
+                <td class="px-2 py-2 align-top w-[120px]">
+                  <input type="number" min="1" step="1" name="max_limit_people_{{ row_i }}" value="20" class="w-full border border-slate-200 px-2 py-2 text-xs focus:outline-none focus:border-blue-600">
+                </td>
+                <td class="px-2 py-2 align-top w-[140px]">
+                  <button type="button" class="w-full px-2 py-2 border border-slate-300 text-slate-700 text-[10px] font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-600 transition-all s3-save-one-btn" data-row-index="{{ row_i }}">
+                    Save This
+                  </button>
+                </td>
+              </tr>
+            {% else %}
+              <tr><td colspan="5" class="px-2 py-3 text-slate-400">No GLB files found in S3 bucket.</td></tr>
+            {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        <div class="flex justify-end gap-2">
+          <button type="button" id="s3ImportCancel" class="px-4 py-2 border border-slate-300 text-slate-700 text-xs font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-600 transition-all">
+            Cancel
+          </button>
+          <button type="submit" class="px-4 py-2 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+            Save To Area/Building
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  function previewModel(url) {
+    const win = window.open('', '_blank', 'width=900,height=640');
+    if (!win) return;
+    win.document.write(`
+      <html><head><title>3D Model Preview</title>
+      <style>
+        body{margin:0;overflow:hidden;background:#0f172a;}
+        canvas{display:block;}
+      </style>
+      </head><body>
+      <script type="module">
+        import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js';
+        import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/GLTFLoader.js';
+        import { DRACOLoader } from 'https://cdn.jsdelivr.net/npm/three@0.160.1/examples/jsm/loaders/DRACOLoader.js';
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+        scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 1.2));
+        const key = new THREE.DirectionalLight(0xffffff, 0.7);
+        key.position.set(4, 8, 4);
+        scene.add(key);
+        const dracoLoader = new DRACOLoader();
+        dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.7/');
+        const loader = new GLTFLoader();
+        loader.setDRACOLoader(dracoLoader);
+        loader.load(${JSON.stringify(url)}, function(gltf) {
+          scene.add(gltf.scene);
+          camera.position.set(0, 1.6, 3.4);
+          animate();
+        });
+        function animate() { requestAnimationFrame(animate); renderer.render(scene, camera); }
+        window.addEventListener('resize', () => {
+          camera.aspect = window.innerWidth / window.innerHeight;
+          camera.updateProjectionMatrix();
+          renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+      <\/script>
+      </body></html>
+    `);
+  }
+
+  function editModelName(form, currentName) {
+    const nextName = prompt('Edit model name:', currentName);
+    if (!nextName || !nextName.trim()) return false;
+    form.querySelector('input[name="name"]').value = nextName.trim();
+    return true;
+  }
+
+  function editAreaName(form, currentName) {
+    const nextName = prompt('Edit area name:', currentName);
+    if (!nextName || !nextName.trim()) return false;
+    form.querySelector('input[name="area_name"]').value = nextName.trim();
+    return true;
+  }
+
+  function editBuilding(form, currentName, currentAreaId, currentMaxLimit) {
+    const nextName = prompt('Edit building name:', currentName);
+    if (!nextName || !nextName.trim()) return false;
+    const nextAreaId = prompt('Move to area id (keep same to not move):', currentAreaId);
+    if (!nextAreaId || !nextAreaId.trim()) return false;
+    const nextMaxLimit = prompt('Max people limit:', currentMaxLimit);
+    if (!nextMaxLimit || !nextMaxLimit.trim()) return false;
+    const normalized = Number(nextMaxLimit);
+    if (!Number.isFinite(normalized) || normalized < 1) return false;
+    form.querySelector('input[name="building_name"]').value = nextName.trim();
+    form.querySelector('input[name="area_id"]').value = nextAreaId.trim();
+    form.querySelector('input[name="max_limit_people"]').value = String(Math.floor(normalized));
+    return true;
+  }
+
+  function wireListFilter(inputId, itemSelector, getter) {
+    const input = document.getElementById(inputId);
+    if (!input) return;
+    input.addEventListener('input', () => {
+      const keyword = String(input.value || '').trim().toLowerCase();
+      const items = Array.from(document.querySelectorAll(itemSelector));
+      items.forEach((item) => {
+        const haystack = String(getter(item) || '').toLowerCase();
+        item.style.display = !keyword || haystack.includes(keyword) ? '' : 'none';
+      });
+    });
+  }
+
+  (function () {
+    const modal = document.getElementById('storageConfigModal');
+    const toggle = document.getElementById('storageConfigToggle');
+    const close = document.getElementById('storageConfigClose');
+    const backdrop = document.getElementById('storageConfigBackdrop');
+    if (modal && toggle) {
+      const openModal = () => modal.classList.remove('hidden');
+      const closeModal = () => modal.classList.add('hidden');
+      toggle.addEventListener('click', openModal);
+      if (close) close.addEventListener('click', closeModal);
+      if (backdrop) backdrop.addEventListener('click', closeModal);
+    }
+
+    wireListFilter('modelSearchInput', '#modelTable .model-row', (row) => row.dataset.modelName || row.textContent);
+    wireListFilter('areaBuildingSearchInput', '#areaBuildingGrid .area-card', (card) => card.dataset.search || card.textContent);
+
+    const s3ImportModal = document.getElementById('s3ImportModal');
+    const s3ImportOpen = document.getElementById('openS3ImportModal');
+    const s3ImportClose = document.getElementById('s3ImportClose');
+    const s3ImportCancel = document.getElementById('s3ImportCancel');
+    const s3ImportBackdrop = document.getElementById('s3ImportBackdrop');
+    const s3ImportSelectAll = document.getElementById('s3ImportSelectAll');
+    const s3ImportSaveAll = document.getElementById('s3ImportSaveAll');
+    const s3ImportForm = document.getElementById('s3ImportForm');
+    const s3ImportAreaSelect = document.getElementById('s3ImportAreaSelect');
+    const importStatus = {{ (import_status or '')|tojson }};
+    const settingsScrollHost = document.getElementById('settingsScrollHost');
+
+    // Render modal at document root to avoid clipping/overlap from parent scroll containers.
+    if (s3ImportModal && s3ImportModal.parentElement !== document.body) {
+      document.body.appendChild(s3ImportModal);
+    }
+
+    const lockBackgroundScroll = () => {
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      if (settingsScrollHost) {
+        settingsScrollHost.dataset.prevOverflow = settingsScrollHost.style.overflowY || '';
+        settingsScrollHost.style.overflowY = 'hidden';
+      }
+    };
+    const unlockBackgroundScroll = () => {
+      document.documentElement.style.overflow = '';
+      document.body.style.overflow = '';
+      if (settingsScrollHost) {
+        settingsScrollHost.style.overflowY = settingsScrollHost.dataset.prevOverflow || '';
+      }
+    };
+
+    const openS3Modal = () => {
+      if (!s3ImportModal) return;
+      lockBackgroundScroll();
+      s3ImportModal.classList.remove('hidden');
+    };
+    const closeS3Modal = () => {
+      if (!s3ImportModal) return;
+      s3ImportModal.classList.add('hidden');
+      unlockBackgroundScroll();
+    };
+    if (s3ImportOpen) s3ImportOpen.addEventListener('click', openS3Modal);
+    if (s3ImportClose) s3ImportClose.addEventListener('click', closeS3Modal);
+    if (s3ImportCancel) s3ImportCancel.addEventListener('click', closeS3Modal);
+    if (s3ImportBackdrop) s3ImportBackdrop.addEventListener('click', closeS3Modal);
+    if (s3ImportSelectAll) {
+      s3ImportSelectAll.addEventListener('click', () => {
+        const checks = Array.from(document.querySelectorAll('.s3-import-check'));
+        const allChecked = checks.length > 0 && checks.every((x) => x.checked);
+        checks.forEach((x) => { x.checked = !allChecked; });
+        s3ImportSelectAll.textContent = allChecked ? 'Select All' : 'Unselect All';
+      });
+    }
+
+    if (s3ImportSaveAll) {
+      s3ImportSaveAll.addEventListener('click', () => {
+        if (!s3ImportAreaSelect || !s3ImportAreaSelect.value) {
+          alert('Select an area first.');
+          return;
+        }
+        const checks = Array.from(document.querySelectorAll('.s3-import-check'));
+        checks.forEach((x) => { x.checked = true; });
+        if (s3ImportForm) s3ImportForm.submit();
+      });
+    }
+
+    if (s3ImportForm) {
+      s3ImportForm.addEventListener('submit', (event) => {
+        if (!s3ImportAreaSelect || !s3ImportAreaSelect.value) {
+          event.preventDefault();
+          alert('Select an area first.');
+          return;
+        }
+        const checks = Array.from(document.querySelectorAll('.s3-import-check'));
+        const anyChecked = checks.some((x) => x.checked);
+        if (!anyChecked) {
+          // Default save action: if none selected, save all visible rows.
+          checks.forEach((x) => { x.checked = true; });
+        }
+      });
+    }
+
+    const saveOneButtons = Array.from(document.querySelectorAll('.s3-save-one-btn'));
+    saveOneButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!s3ImportAreaSelect || !s3ImportAreaSelect.value) {
+          alert('Select an area first.');
+          return;
+        }
+        const rowIndex = String(btn.getAttribute('data-row-index') || '').trim();
+        if (!rowIndex) return;
+        const checks = Array.from(document.querySelectorAll('.s3-import-check'));
+        checks.forEach((x) => { x.checked = false; });
+        const targetCheck = document.querySelector(`.s3-import-check[value="${rowIndex}"]`);
+        if (targetCheck) targetCheck.checked = true;
+        if (s3ImportForm) s3ImportForm.submit();
+      });
+    });
+
+    if (importStatus === 'ok') {
+      const section = document.getElementById('areasBuildingsSection');
+      if (section) {
+        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }
+  })();
+</script>
+{% endblock %}

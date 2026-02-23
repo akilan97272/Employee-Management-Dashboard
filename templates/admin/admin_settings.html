@@ -1,0 +1,593 @@
+{% extends "common/layout_base.html" %}
+
+{% block title %}Operations Management | TeamSync{% endblock %}
+
+{% block content %}
+{% set stats = namespace(rooms=rooms|length, departments=departments|length, mapped_buildings=0) %}
+{% for area in area_buildings %}
+  {% set stats.mapped_buildings = stats.mapped_buildings + (area.buildings|length) %}
+{% endfor %}
+
+<div class="min-h-screen bg-slate-50 p-4 md:p-8">
+  <div class="max-w-[1500px] mx-auto space-y-6">
+    <header class="bg-white border border-slate-200 p-5 md:p-7">
+      <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div>
+          <p class="text-[10px] font-black uppercase tracking-[0.3em] text-slate-500">Admin Settings</p>
+          <h1 class="mt-2 text-3xl md:text-5xl font-black tracking-tight text-slate-900 uppercase leading-none">
+            Operations <span class="text-blue-600">Control</span>
+          </h1>
+          <p class="mt-3 text-sm text-slate-500 max-w-3xl">
+            Manage departments and infrastructure mappings used for attendance and 3D building visualization.
+          </p>
+        </div>
+        <a href="/admin/email_settings" class="inline-flex items-center justify-center h-11 px-5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+          Email Settings
+        </a>
+      </div>
+      <div class="mt-6 grid gap-3 sm:grid-cols-3">
+        <div class="border border-slate-200 p-3">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Departments</div>
+          <div class="mt-1 text-2xl font-black text-slate-900">{{ stats.departments }}</div>
+        </div>
+        <div class="border border-slate-200 p-3">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Infrastructure Assets</div>
+          <div class="mt-1 text-2xl font-black text-slate-900">{{ stats.rooms }}</div>
+        </div>
+        <div class="border border-slate-200 p-3">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Mapped Buildings</div>
+          <div class="mt-1 text-2xl font-black text-slate-900">{{ stats.mapped_buildings }}</div>
+        </div>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-12 gap-6">
+      <section class="col-span-12 xl:col-span-4 bg-white border border-slate-200 p-5 md:p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <h2 class="text-xs font-black uppercase tracking-[0.25em] text-slate-700">Departments</h2>
+          <span class="h-px flex-1 bg-slate-200"></span>
+        </div>
+
+        <form id="addDepartmentForm" action="/admin/add_department" method="POST" class="space-y-3 mb-6">
+          <input type="text" name="name" required placeholder="Department Name" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-bold uppercase tracking-widest outline-none focus:border-blue-500 focus:bg-white transition-all">
+          <input type="text" name="description" placeholder="Operational Scope" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium outline-none focus:border-blue-500 focus:bg-white transition-all">
+          <input type="text" name="prefix" placeholder="Department Prefix (e.g. 2261)" class="w-full bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-medium outline-none focus:border-blue-500 focus:bg-white transition-all">
+          <button type="submit" class="w-full py-3 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
+            Add Department
+          </button>
+        </form>
+
+        <div class="border border-slate-200 bg-slate-50 p-3">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Saved Departments</div>
+          <div id="deptList" class="space-y-3 h-[50vh] overflow-y-auto pr-1">
+          {% for dept in departments %}
+          <form action="/admin/update_department" method="POST" class="border border-slate-200 p-3 space-y-2">
+            <input type="hidden" name="id" value="{{ dept.id }}">
+            <input type="text" name="name" value="{{ dept.name }}" required class="w-full text-sm font-black text-slate-900 uppercase tracking-tight bg-transparent border-b border-slate-200 focus:border-blue-600 outline-none">
+            <input type="text" name="description" value="{{ dept.description or '' }}" placeholder="Description" class="w-full text-xs text-slate-500 font-medium bg-transparent border-b border-slate-200 focus:border-blue-600 outline-none">
+            <div class="flex items-center gap-2">
+              <input type="text" name="prefix" value="{{ dept.prefix or '' }}" placeholder="Prefix" class="flex-1 text-xs text-slate-500 font-medium bg-transparent border-b border-slate-200 focus:border-blue-600 outline-none">
+              <button type="submit" class="text-[10px] font-black uppercase tracking-widest bg-blue-600 text-white px-3 py-1 hover:bg-blue-700 transition-all">Update</button>
+            </div>
+          </form>
+          {% else %}
+          <div class="border border-dashed border-slate-200 p-4 text-xs text-slate-500">No departments yet.</div>
+          {% endfor %}
+          </div>
+        </div>
+      </section>
+
+      <section class="col-span-12 xl:col-span-8 bg-white border border-slate-200 p-5 md:p-6">
+        <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-4">
+          <div class="flex items-center gap-3 flex-1">
+            <h2 class="text-xs font-black uppercase tracking-[0.25em] text-slate-700">Infrastructure</h2>
+            <span class="h-px flex-1 bg-slate-200"></span>
+          </div>
+          <input type="text" id="searchRoom" onkeyup="filterList('searchRoom', 'roomList')" placeholder="Search area / slot / building id..." class="w-full md:w-80 bg-slate-50 border border-slate-200 px-4 py-3 text-xs font-bold uppercase tracking-widest outline-none focus:border-blue-500 focus:bg-white transition-all">
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mb-4">
+          <span class="text-[10px] font-black uppercase tracking-widest text-slate-500">Sort by</span>
+          <button type="button" class="sort-chip px-3 py-1.5 border border-slate-300 bg-white text-[10px] font-black uppercase tracking-widest text-slate-700 hover:border-blue-500" data-sort="area">Area</button>
+          <button type="button" class="sort-chip px-3 py-1.5 border border-slate-300 bg-white text-[10px] font-black uppercase tracking-widest text-slate-700 hover:border-blue-500" data-sort="building_id">Building ID</button>
+          <button type="button" class="sort-chip px-3 py-1.5 border border-blue-600 bg-blue-600 text-[10px] font-black uppercase tracking-widest text-white" data-sort="recent">Recently Added</button>
+        </div>
+
+        <form id="addRoomForm" action="/admin/add_room" method="POST" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4 border border-slate-200 bg-slate-50 mb-6">
+          <select id="areaSelectInput" name="area_id" required class="bg-white border border-slate-200 p-3 text-xs font-bold outline-none focus:border-blue-500">
+            <option value="">Select Area</option>
+            {% for area in area_buildings %}
+            <option value="{{ area.id }}">{{ area.name }}</option>
+            {% endfor %}
+          </select>
+          <input type="text" id="slotNoInput" name="slot_no" required placeholder="Slot No / Building Name" class="bg-white border border-slate-200 p-3 text-xs font-bold outline-none focus:border-blue-500">
+          <button type="submit" class="bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all p-3">
+            Save Infrastructure Asset
+          </button>
+          <div class="md:col-span-2 lg:col-span-3 border border-slate-200 bg-white">
+            <button type="button" id="toggleAdvancedRoomFields" class="w-full flex items-center justify-between px-4 py-3 text-[10px] font-black uppercase tracking-widest text-slate-600 hover:text-blue-700">
+              <span>Advanced Fields (Optional)</span>
+              <span id="advancedChevron">+</span>
+            </button>
+            <div id="advancedRoomFields" class="hidden p-3 pt-0 grid grid-cols-1 md:grid-cols-2 gap-3 border-t border-slate-100">
+              <select id="buildingSelectInput" name="building_id" class="bg-white border border-slate-200 p-3 text-xs font-bold outline-none focus:border-blue-500">
+                <option value="">Select Building</option>
+              </select>
+              <input type="text" id="buildingIdManualInput" name="building_id_manual" placeholder="Manual Building ID" class="bg-white border border-slate-200 p-3 text-xs font-bold outline-none focus:border-blue-500">
+              <input type="text" id="descriptionInput" name="description" placeholder="Specification / Notes" class="bg-white border border-slate-200 p-3 text-xs font-medium outline-none focus:border-blue-500 md:col-span-2">
+            </div>
+          </div>
+        </form>
+
+        <div class="border border-slate-200 bg-slate-50 p-3">
+          <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Saved Infrastructure Assets</div>
+          <div id="roomList" class="grid grid-cols-1 md:grid-cols-2 gap-4 h-[50vh] overflow-y-auto pr-1">
+          {% for room in rooms %}
+          <div class="search-item border border-slate-200 p-5 bg-white hover:border-blue-200 hover:shadow-sm transition-all flex flex-col justify-between group cursor-pointer" data-room-pk="{{ room.id }}" data-room-id="{{ room.room_id }}" data-room-no="{{ room.room_no }}" data-location-name="{{ room.location_name }}" data-description="{{ room.description or '' }}">
+            <div class="flex justify-between items-start gap-3">
+              <div class="min-w-0 flex-1">
+                <div class="room-read-view">
+                  <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1 truncate">Slot No / Building Name. <span class="room-slot-text">{{ room.room_no }}</span></p>
+                  <h3 class="text-3xl font-black text-slate-900 uppercase tracking-tight leading-none break-words room-area-text">{{ room.location_name }}</h3>
+                  <p class="text-xs text-slate-500 mt-3 font-medium italic leading-relaxed room-description-text">{{ room.description or 'No specification logged' }}</p>
+                </div>
+                <div class="room-edit-view hidden space-y-2">
+                  <input type="text" class="room-edit-id w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500" value="{{ room.room_id }}" placeholder="Building ID">
+                  <input type="text" class="room-edit-slot w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500" value="{{ room.room_no }}" placeholder="Slot No / Building Name">
+                  <input type="text" class="room-edit-area w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500" value="{{ room.location_name }}" placeholder="Area / Location">
+                  <input type="text" class="room-edit-description w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-medium outline-none focus:border-blue-500" value="{{ room.description or '' }}" placeholder="Description">
+                  <div class="flex items-center gap-2">
+                    <button type="button" class="room-save-btn px-3 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700">Save</button>
+                    <button type="button" class="room-cancel-btn px-3 py-2 border border-slate-300 text-slate-700 text-[10px] font-black uppercase tracking-widest hover:border-slate-500">Cancel</button>
+                  </div>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button type="button" class="room-edit-btn text-[10px] font-black uppercase tracking-widest px-2 py-1 border border-slate-300 text-slate-600 hover:border-blue-500 hover:text-blue-700">Edit</button>
+                <form action="/admin/remove_room" method="POST" class="remove-room-form" data-confirm="Decommission asset?">
+                  <input type="hidden" name="room_id" value="{{ room.room_id }}">
+                  <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
+                </form>
+              </div>
+          </div>
+          <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
+            <span class="room-id-text text-[10px] font-black text-slate-700 tracking-widest uppercase">Building ID: {{ room.room_id }}</span>
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 bg-green-500"></span>
+              <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">Operational</span>
+            </div>
+          </div>
+          </div>
+          {% else %}
+          <div class="md:col-span-2 border border-dashed border-slate-200 p-5 text-xs text-slate-500">No infrastructure assets yet.</div>
+          {% endfor %}
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="infraDetailModal" class="fixed inset-0 z-[420] bg-slate-900/50 hidden items-center justify-center p-4">
+  <div class="w-full max-w-xl bg-white border border-slate-200 shadow-2xl">
+    <div class="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+      <div>
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Infrastructure Details</div>
+        <h3 id="infraDetailTitle" class="text-2xl font-black text-slate-900 mt-1">Asset</h3>
+      </div>
+      <button type="button" id="infraDetailClose" class="w-9 h-9 border border-slate-200 text-slate-500 hover:text-red-600 hover:border-red-500 transition-all">
+        <i class="bi bi-x-lg"></i>
+      </button>
+    </div>
+    <div class="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+      <div class="border border-slate-200 p-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Building ID</div>
+        <div id="infraDetailId" class="mt-1 text-slate-900 font-black">-</div>
+      </div>
+      <div class="border border-slate-200 p-3">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Slot / Building Name</div>
+        <div id="infraDetailRoomNo" class="mt-1 text-slate-900 font-black">-</div>
+      </div>
+      <div class="border border-slate-200 p-3 sm:col-span-2">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Area / Location</div>
+        <div id="infraDetailLocation" class="mt-1 text-slate-900 font-black">-</div>
+      </div>
+      <div class="border border-slate-200 p-3 sm:col-span-2">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Description</div>
+        <div id="infraDetailDescription" class="mt-1 text-slate-600 font-medium">No specification logged</div>
+      </div>
+      <div class="border border-slate-200 p-3 sm:col-span-2 flex items-center justify-between">
+        <div class="text-[10px] font-black uppercase tracking-widest text-slate-500">Status</div>
+        <div class="inline-flex items-center gap-2 text-emerald-600 text-[11px] font-black uppercase tracking-widest">
+          <span class="w-2 h-2 bg-emerald-500"></span> Operational
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  function filterList(inputId, listId) {
+    const input = document.getElementById(inputId);
+    const filter = (input?.value || '').toUpperCase();
+    const list = document.getElementById(listId);
+    const items = list ? list.getElementsByClassName('search-item') : [];
+    for (let i = 0; i < items.length; i++) {
+      const txtValue = items[i].textContent || items[i].innerText;
+      items[i].style.display = txtValue.toUpperCase().indexOf(filter) > -1 ? "" : "none";
+    }
+  }
+
+  async function submitSettingsForm(form, successMessage, options = {}) {
+    if (!form) return;
+    const reloadOnSuccess = options.reloadOnSuccess !== false;
+    const onSuccess = typeof options.onSuccess === 'function' ? options.onSuccess : null;
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalLabel = submitBtn ? submitBtn.textContent : '';
+    try {
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+      }
+      const res = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const detail = data.detail || 'Request failed';
+        window.showToast?.(String(detail), 'error');
+        return;
+      }
+      window.showToast?.(successMessage, 'success');
+      if (onSuccess) onSuccess(data);
+      if (reloadOnSuccess) {
+        form.reset();
+        setTimeout(() => window.location.reload(), 450);
+      }
+    } catch (_) {
+      window.showToast?.('Network error while saving.', 'error');
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalLabel;
+      }
+    }
+  }
+
+    document.addEventListener('DOMContentLoaded', () => {
+    const deptForm = document.getElementById('addDepartmentForm');
+    const roomForm = document.getElementById('addRoomForm');
+    const areaSelect = document.getElementById('areaSelectInput');
+    const buildingSelect = document.getElementById('buildingSelectInput');
+    const slotNoInput = document.getElementById('slotNoInput');
+    const roomList = document.getElementById('roomList');
+    const toggleAdvancedRoomFields = document.getElementById('toggleAdvancedRoomFields');
+    const advancedRoomFields = document.getElementById('advancedRoomFields');
+    const advancedChevron = document.getElementById('advancedChevron');
+    const sortChips = Array.from(document.querySelectorAll('.sort-chip'));
+    const infraDetailModal = document.getElementById('infraDetailModal');
+    const infraDetailClose = document.getElementById('infraDetailClose');
+    const infraDetailTitle = document.getElementById('infraDetailTitle');
+    const infraDetailId = document.getElementById('infraDetailId');
+    const infraDetailRoomNo = document.getElementById('infraDetailRoomNo');
+    const infraDetailLocation = document.getElementById('infraDetailLocation');
+    const infraDetailDescription = document.getElementById('infraDetailDescription');
+    const areaBuildings = {{ area_buildings|tojson }};
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function roomCardHtml(room) {
+      const roomPk = escapeHtml(room.room_pk || '');
+      const roomId = escapeHtml(room.room_id || '');
+      const roomNo = escapeHtml(room.room_no || '');
+      const locationName = escapeHtml(room.location_name || '');
+      const description = escapeHtml(room.description || 'No specification logged');
+      return `
+        <div class="search-item border border-slate-200 p-5 bg-white hover:border-blue-200 hover:shadow-sm transition-all flex flex-col justify-between group cursor-pointer" data-room-pk="${roomPk}" data-room-id="${roomId}" data-room-no="${roomNo}" data-location-name="${locationName}" data-description="${description}">
+          <div class="flex justify-between items-start gap-3">
+            <div class="min-w-0 flex-1">
+              <div class="room-read-view">
+                <p class="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mb-1 truncate">Slot No / Building Name. <span class="room-slot-text">${roomNo}</span></p>
+                <h3 class="text-3xl font-black text-slate-900 uppercase tracking-tight leading-none break-words room-area-text">${locationName}</h3>
+                <p class="text-xs text-slate-500 mt-3 font-medium italic leading-relaxed room-description-text">${description}</p>
+              </div>
+              <div class="room-edit-view hidden space-y-2">
+                <input type="text" class="room-edit-id w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500" value="${roomId}" placeholder="Building ID">
+                <input type="text" class="room-edit-slot w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500" value="${roomNo}" placeholder="Slot No / Building Name">
+                <input type="text" class="room-edit-area w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold outline-none focus:border-blue-500" value="${locationName}" placeholder="Area / Location">
+                <input type="text" class="room-edit-description w-full bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-medium outline-none focus:border-blue-500" value="${description === 'No specification logged' ? '' : description}" placeholder="Description">
+                <div class="flex items-center gap-2">
+                  <button type="button" class="room-save-btn px-3 py-2 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-blue-700">Save</button>
+                  <button type="button" class="room-cancel-btn px-3 py-2 border border-slate-300 text-slate-700 text-[10px] font-black uppercase tracking-widest hover:border-slate-500">Cancel</button>
+                </div>
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <button type="button" class="room-edit-btn text-[10px] font-black uppercase tracking-widest px-2 py-1 border border-slate-300 text-slate-600 hover:border-blue-500 hover:text-blue-700">Edit</button>
+              <form action="/admin/remove_room" method="POST" class="remove-room-form" data-confirm="Decommission asset?">
+                <input type="hidden" name="room_id" value="${roomId}">
+                <button type="submit" class="text-slate-300 hover:text-red-500 transition-colors">
+                  <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="square" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </form>
+            </div>
+          </div>
+          <div class="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
+            <span class="room-id-text text-[10px] font-black text-slate-700 tracking-widest uppercase">Building ID: ${roomId}</span>
+            <div class="flex items-center gap-2">
+              <span class="w-1.5 h-1.5 bg-green-500"></span>
+              <span class="text-[10px] font-black text-slate-400 tracking-widest uppercase">Operational</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function upsertRoomCard(room) {
+      if (!roomList || !room?.room_id) return;
+      const roomId = String(room.room_id);
+      const roomPk = room.room_pk ? String(room.room_pk) : '';
+      const existing = roomPk
+        ? roomList.querySelector(`[data-room-pk="${CSS.escape(roomPk)}"]`)
+        : roomList.querySelector(`[data-room-id="${CSS.escape(roomId)}"]`);
+      if (existing) {
+        existing.outerHTML = roomCardHtml(room);
+        const activeSort = document.querySelector('.sort-chip.bg-blue-600')?.dataset?.sort || 'recent';
+        applySort(activeSort);
+        return;
+      }
+      roomList.insertAdjacentHTML('afterbegin', roomCardHtml(room));
+      const activeSort = document.querySelector('.sort-chip.bg-blue-600')?.dataset?.sort || 'recent';
+      applySort(activeSort);
+    }
+
+    function toggleRoomEdit(card, isEditing) {
+      const readView = card.querySelector('.room-read-view');
+      const editView = card.querySelector('.room-edit-view');
+      const editBtn = card.querySelector('.room-edit-btn');
+      if (readView) readView.classList.toggle('hidden', isEditing);
+      if (editView) editView.classList.toggle('hidden', !isEditing);
+      if (editBtn) editBtn.classList.toggle('hidden', isEditing);
+    }
+
+    function applySort(sortKey) {
+      if (!roomList) return;
+      const cards = Array.from(roomList.querySelectorAll('.search-item'));
+      const comparer = (a, b) => {
+        if (sortKey === 'area') {
+          return String(a.dataset.locationName || '').localeCompare(String(b.dataset.locationName || ''));
+        }
+        if (sortKey === 'building_id') {
+          return String(a.dataset.roomId || '').localeCompare(String(b.dataset.roomId || ''));
+        }
+        const aPk = Number(a.dataset.roomPk || 0);
+        const bPk = Number(b.dataset.roomPk || 0);
+        return bPk - aPk;
+      };
+      cards.sort(comparer);
+      cards.forEach((card) => roomList.appendChild(card));
+    }
+
+    function syncBuildingOptions() {
+      if (!areaSelect || !buildingSelect) return;
+      const selectedAreaId = Number(areaSelect.value);
+      const area = areaBuildings.find((a) => Number(a.id) === selectedAreaId);
+      const buildings = Array.isArray(area?.buildings) ? area.buildings : [];
+      buildingSelect.innerHTML = '<option value="">Select Building (Optional)</option>';
+      buildings.forEach((building) => {
+        const opt = document.createElement('option');
+        opt.value = String(building.id);
+        opt.textContent = building.name || `Building ${building.id}`;
+        opt.dataset.name = building.name || '';
+        buildingSelect.appendChild(opt);
+      });
+    }
+
+    if (areaSelect) {
+      areaSelect.addEventListener('change', syncBuildingOptions);
+      syncBuildingOptions();
+    }
+    if (buildingSelect && slotNoInput) {
+      buildingSelect.addEventListener('change', () => {
+        const selected = buildingSelect.options[buildingSelect.selectedIndex];
+        const buildingName = selected?.dataset?.name || '';
+        if (buildingName && !slotNoInput.value.trim()) {
+          slotNoInput.value = buildingName;
+        }
+      });
+    }
+    if (toggleAdvancedRoomFields && advancedRoomFields) {
+      toggleAdvancedRoomFields.addEventListener('click', () => {
+        const hidden = advancedRoomFields.classList.contains('hidden');
+        advancedRoomFields.classList.toggle('hidden', !hidden);
+        if (advancedChevron) advancedChevron.textContent = hidden ? '-' : '+';
+      });
+    }
+    if (sortChips.length) {
+      sortChips.forEach((chip) => {
+        chip.addEventListener('click', () => {
+          sortChips.forEach((c) => {
+            c.classList.remove('bg-blue-600', 'border-blue-600', 'text-white');
+            c.classList.add('bg-white', 'border-slate-300', 'text-slate-700');
+          });
+          chip.classList.remove('bg-white', 'border-slate-300', 'text-slate-700');
+          chip.classList.add('bg-blue-600', 'border-blue-600', 'text-white');
+          applySort(chip.dataset.sort || 'recent');
+        });
+      });
+      applySort('recent');
+    }
+
+    if (deptForm) {
+      deptForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitSettingsForm(deptForm, 'Department added successfully.', { reloadOnSuccess: true });
+      });
+    }
+    if (roomForm) {
+      roomForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        await submitSettingsForm(roomForm, 'Infrastructure asset saved successfully.', {
+          reloadOnSuccess: false,
+          onSuccess: (data) => {
+            upsertRoomCard(data || {});
+            roomForm.reset();
+            syncBuildingOptions();
+          }
+        });
+      });
+    }
+
+    if (roomList) {
+      roomList.addEventListener('click', (e) => {
+        const editBtn = e.target.closest('.room-edit-btn');
+        if (editBtn) {
+          const card = editBtn.closest('.search-item');
+          if (card) toggleRoomEdit(card, true);
+          return;
+        }
+        const cancelBtn = e.target.closest('.room-cancel-btn');
+        if (cancelBtn) {
+          const card = cancelBtn.closest('.search-item');
+          if (card) {
+            const roomIdInput = card.querySelector('.room-edit-id');
+            const roomNoInput = card.querySelector('.room-edit-slot');
+            const areaInput = card.querySelector('.room-edit-area');
+            const descInput = card.querySelector('.room-edit-description');
+            if (roomIdInput) roomIdInput.value = card.dataset.roomId || '';
+            if (roomNoInput) roomNoInput.value = card.dataset.roomNo || '';
+            if (areaInput) areaInput.value = card.dataset.locationName || '';
+            if (descInput) descInput.value = card.dataset.description || '';
+            toggleRoomEdit(card, false);
+          }
+          return;
+        }
+        if (e.target.closest('.remove-room-form')) return;
+        if (e.target.closest('.room-save-btn')) return;
+        if (e.target.closest('.room-edit-view')) return;
+        const card = e.target.closest('.search-item');
+        if (!card) return;
+        const roomId = card.dataset.roomId || '-';
+        const roomNo = card.dataset.roomNo || '-';
+        const locationName = card.dataset.locationName || '-';
+        const description = card.dataset.description || 'No specification logged';
+        if (infraDetailTitle) infraDetailTitle.textContent = String(locationName || 'Asset');
+        if (infraDetailId) infraDetailId.textContent = roomId;
+        if (infraDetailRoomNo) infraDetailRoomNo.textContent = roomNo;
+        if (infraDetailLocation) infraDetailLocation.textContent = locationName;
+        if (infraDetailDescription) infraDetailDescription.textContent = description || 'No specification logged';
+        if (infraDetailModal) {
+          infraDetailModal.classList.remove('hidden');
+          infraDetailModal.classList.add('flex');
+        }
+      });
+
+      roomList.addEventListener('submit', async (e) => {
+        const form = e.target.closest('.remove-room-form');
+        if (!form) return;
+        e.preventDefault();
+        const message = form.getAttribute('data-confirm') || 'Are you sure?';
+        if (!window.confirm(message)) return;
+
+        const card = form.closest('.search-item');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        try {
+          if (submitBtn) submitBtn.disabled = true;
+          const res = await fetch(form.action, { method: 'POST', body: new FormData(form) });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            window.showToast?.(String(data.detail || 'Failed to remove asset.'), 'error');
+            return;
+          }
+          if (card) card.remove();
+          window.showToast?.(String(data.message || 'Asset removed successfully.'), 'success');
+        } catch (_) {
+          window.showToast?.('Network error while removing asset.', 'error');
+        } finally {
+          if (submitBtn) submitBtn.disabled = false;
+        }
+      });
+
+      roomList.addEventListener('click', async (e) => {
+        const saveBtn = e.target.closest('.room-save-btn');
+        if (!saveBtn) return;
+        const card = saveBtn.closest('.search-item');
+        if (!card) return;
+        const roomIdCurrent = card.dataset.roomId || '';
+        const roomIdInput = card.querySelector('.room-edit-id');
+        const roomNoInput = card.querySelector('.room-edit-slot');
+        const areaInput = card.querySelector('.room-edit-area');
+        const descInput = card.querySelector('.room-edit-description');
+        const roomIdValue = (roomIdInput?.value || '').trim();
+        const roomNoValue = (roomNoInput?.value || '').trim();
+        const areaValue = (areaInput?.value || '').trim();
+        const descriptionValue = (descInput?.value || '').trim();
+        if (!roomIdValue || !roomNoValue || !areaValue) {
+          window.showToast?.('Building ID, slot/building name and area are required.', 'error');
+          return;
+        }
+
+        try {
+          saveBtn.disabled = true;
+          const payload = new FormData();
+          payload.append('room_id_current', roomIdCurrent);
+          payload.append('room_id', roomIdValue);
+          payload.append('slot_no', roomNoValue);
+          payload.append('area_name', areaValue);
+          payload.append('description', descriptionValue);
+
+          const res = await fetch('/admin/update_room', { method: 'POST', body: payload });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            window.showToast?.(String(data.detail || 'Failed to update asset.'), 'error');
+            return;
+          }
+
+          card.dataset.roomId = data.room_id || roomIdValue;
+          card.dataset.roomNo = data.room_no || roomNoValue;
+          card.dataset.locationName = data.location_name || areaValue;
+          card.dataset.description = data.description || '';
+          if (data.room_pk) card.dataset.roomPk = String(data.room_pk);
+
+          const formRoomId = card.querySelector('.remove-room-form input[name="room_id"]');
+          if (formRoomId) formRoomId.value = card.dataset.roomId;
+          const slotText = card.querySelector('.room-slot-text');
+          if (slotText) slotText.textContent = card.dataset.roomNo;
+          const areaText = card.querySelector('.room-area-text');
+          if (areaText) areaText.textContent = card.dataset.locationName;
+          const descText = card.querySelector('.room-description-text');
+          if (descText) descText.textContent = card.dataset.description || 'No specification logged';
+          const footerText = card.querySelector('.room-id-text');
+          if (footerText) footerText.textContent = `Building ID: ${card.dataset.roomId}`;
+
+          toggleRoomEdit(card, false);
+          window.showToast?.(String(data.message || 'Infrastructure asset updated successfully.'), 'success');
+        } catch (_) {
+          window.showToast?.('Network error while updating asset.', 'error');
+        } finally {
+          saveBtn.disabled = false;
+        }
+      });
+    }
+
+    if (infraDetailClose && infraDetailModal) {
+      infraDetailClose.addEventListener('click', () => {
+        infraDetailModal.classList.add('hidden');
+        infraDetailModal.classList.remove('flex');
+      });
+      infraDetailModal.addEventListener('click', (e) => {
+        if (e.target === infraDetailModal) {
+          infraDetailModal.classList.add('hidden');
+          infraDetailModal.classList.remove('flex');
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

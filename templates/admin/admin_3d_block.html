@@ -1,0 +1,2826 @@
+{% extends "common/layout_base.html" %}
+
+{% block title %}3D Building Visualization | TeamSync{% endblock %}
+
+{% block content %}
+<div class="mb-8 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+  <div>
+    <h1 class="text-2xl font-black tracking-tight text-slate-900">3D Building Visualization</h1>
+    <p class="text-xs uppercase tracking-widest text-slate-400 mt-1">Search people and filter building zones</p>
+  </div>
+  <a
+    href="/admin/3d-block/settings"
+    class="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-widest hover:border-blue-600 hover:text-blue-600 transition-all"
+  >
+    <i class="bi bi-sliders"></i> Configure 3D Blocks
+  </a>
+</div>
+
+<div class="bg-white border border-slate-200 p-5 mb-6 grid gap-4 md:grid-cols-2">
+  <div>
+    <label for="employeeSearch" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Find Employee</label>
+    <div class="flex gap-2">
+      <input
+        type="text"
+        id="employeeSearch"
+        list="employeeSearchSuggestions"
+        autocomplete="off"
+        placeholder="Employee name..."
+        class="flex-1 border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600"
+      >
+      <datalist id="employeeSearchSuggestions"></datalist>
+      <button
+        type="button"
+        onclick="searchEmployee()"
+        class="px-4 py-2 bg-slate-900 text-white text-xs font-black uppercase tracking-widest hover:bg-blue-600 transition-all"
+      >
+        Search
+      </button>
+    </div>
+  </div>
+
+  <div>
+    <label for="areaFilter" class="block text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">Filter Area</label>
+    <select
+      id="areaFilter"
+      onchange="filterArea()"
+      class="w-full border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:border-blue-600"
+    >
+      <option value="">All Areas</option>
+      {% for area in areas %}
+      <option value="{{ area.id }}">{{ area.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+</div>
+
+<div class="bg-white border border-slate-200 p-6 min-h-[420px]">
+  <div class="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-3">Visualization Canvas</div>
+  <div id="block-visualization" class="w-full h-[62vh] min-h-[340px] bg-slate-50 border border-dashed border-slate-200"></div>
+</div>
+
+<script>
+window.__THREE_READY__ = new Promise((resolve, reject) => {
+  window.__resolveThreeReady__ = resolve;
+  window.__rejectThreeReady__ = reject;
+});
+</script>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.1/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.1/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+try {
+  const threeMod = await import('three');
+  const gltfMod = await import('three/addons/loaders/GLTFLoader.js');
+  const dracoMod = await import('three/addons/loaders/DRACOLoader.js');
+  const controlsMod = await import('three/addons/controls/OrbitControls.js');
+
+  // Module namespace objects are immutable; copy exports into a plain object before extending.
+  window.THREE = Object.assign({}, threeMod, {
+    GLTFLoader: gltfMod.GLTFLoader,
+    DRACOLoader: dracoMod.DRACOLoader,
+    OrbitControls: controlsMod.OrbitControls,
+  });
+  if (window.__resolveThreeReady__) window.__resolveThreeReady__();
+} catch (err) {
+  window.__THREE_IMPORT_ERROR__ = err;
+  if (window.__rejectThreeReady__) window.__rejectThreeReady__(err);
+}
+</script>
+<script src="/static/admin_3d_block_controls.js"></script>
+<script id="area-data" type="application/json">{{ area_data|tojson }}</script>
+<script>
+const AREA_DATA = JSON.parse(document.getElementById('area-data').textContent || '[]');
+let BUILDING_POSITIONS = {};
+const modelLoadFailures = [];
+const DEFAULT_CAMERA_POS_VALUES = { x: 180, y: 260, z: 360 };
+const DEFAULT_CAMERA_TARGET_VALUES = { x: 0, y: 10, z: 0 };
+
+function makeDefaultCameraPos() {
+  return new THREE.Vector3(
+    DEFAULT_CAMERA_POS_VALUES.x,
+    DEFAULT_CAMERA_POS_VALUES.y,
+    DEFAULT_CAMERA_POS_VALUES.z
+  );
+}
+
+function makeDefaultCameraTarget() {
+  return new THREE.Vector3(
+    DEFAULT_CAMERA_TARGET_VALUES.x,
+    DEFAULT_CAMERA_TARGET_VALUES.y,
+    DEFAULT_CAMERA_TARGET_VALUES.z
+  );
+}
+
+async function ensureThreeDependencies() {
+  if (window.__THREE_READY__) {
+    try {
+      await window.__THREE_READY__;
+    } catch (_) {}
+  }
+
+  if (!window.THREE) {
+    const importErr = window.__THREE_IMPORT_ERROR__;
+    const detail = importErr && importErr.message ? ` (import error: ${importErr.message})` : '';
+    throw new Error(`Three.js core library is not available${detail}`);
+  }
+
+  if (!THREE.GLTFLoader) {
+    throw new Error('Three.js GLTFLoader is not available');
+  }
+
+  if (!THREE.DRACOLoader) {
+    throw new Error('Three.js DRACOLoader is not available');
+  }
+
+  if (!THREE.OrbitControls && !THREE.MapControls) {
+    throw new Error('Three.js OrbitControls is not available');
+  }
+}
+
+async function boot3DScene() {
+  try {
+    const r = await fetch('/static/admin_3d_block_building_positions.json');
+    if (r.ok) {
+      try {
+        BUILDING_POSITIONS = await r.json();
+      } catch (_) {
+        BUILDING_POSITIONS = {};
+      }
+    }
+  } catch (_) {
+    BUILDING_POSITIONS = {};
+  }
+  init3DScene();
+}
+
+let scene, camera, renderer, orbitControls;
+const areaCenters = {};
+const loadedBuildings = [];
+const placedBuildingFootprints = [];
+const fixedBuildingSlots = new Map();
+let focusTarget = null;
+let focusDistance = null;
+let resetCameraPos = null;
+let resetCameraTarget = null;
+let autoFrameTimer = null;
+const CAMERA_PREF_KEY = 'admin3d_camera_pref_v1';
+let hasSavedCameraPreference = false;
+let hasAutoFramedFromModelLoads = false;
+let pendingAreaFocusId = null;
+let liveDataPollTimer = null;
+let liveClockTimer = null;
+let searchHighlightedBuilding = null;
+const LIVE_DATA_POLL_MS = 60000;
+const LIVE_REFRESH_PREF_KEY = 'admin3d_live_refresh_enabled_v1';
+let liveAutoRefreshEnabled = true;
+const HW_THREADS = Number(window.navigator?.hardwareConcurrency || 4);
+const LOW_POWER_MODE = HW_THREADS <= 4;
+
+function asPositiveNumber(value, fallback = 0) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed < 0) return fallback;
+  return parsed;
+}
+
+function getBuildingMetrics(building) {
+  const currentPeople = Math.round(asPositiveNumber(building?.current_people, 0));
+  const providedMax = Math.round(asPositiveNumber(building?.max_limit_people, 0));
+  const maxPeople = Math.max(currentPeople, providedMax || 20);
+  const trendValuesRaw = Array.isArray(building?.occupancy_trend) ? building.occupancy_trend : [];
+  const trendValues = trendValuesRaw
+    .map((v) => Math.max(0, Math.round(asPositiveNumber(v, 0))))
+    .slice(-7);
+  const trendLabelsRaw = Array.isArray(building?.occupancy_trend_labels) ? building.occupancy_trend_labels : [];
+  const trendLabels = trendLabelsRaw.slice(-7).map((v) => String(v || ''));
+  return {
+    currentPeople,
+    maxPeople,
+    utilizationPercent: Math.round((currentPeople / Math.max(1, maxPeople)) * 100),
+    trendValues,
+    trendLabels,
+  };
+}
+
+function ensureLiveDataStatusBar(container) {
+  if (!container || !container.parentElement) return null;
+  let row = document.getElementById('liveControlsRow');
+  if (!row) {
+    row = document.createElement('div');
+    row.id = 'liveControlsRow';
+    row.style.position = 'absolute';
+    row.style.top = '16px';
+    row.style.right = '16px';
+    row.style.zIndex = '1220';
+    row.style.display = 'flex';
+    row.style.alignItems = 'center';
+    row.style.gap = '8px';
+    row.style.flexWrap = 'nowrap';
+    container.parentElement.style.position = 'relative';
+    container.parentElement.appendChild(row);
+  }
+  let bar = document.getElementById('liveDataStatusBar');
+  if (bar) return bar;
+  bar = document.createElement('div');
+  bar.id = 'liveDataStatusBar';
+  bar.style.padding = '6px 10px';
+  bar.style.fontSize = '11px';
+  bar.style.fontWeight = '800';
+  bar.style.letterSpacing = '0.04em';
+  bar.style.textTransform = 'uppercase';
+  bar.style.borderRadius = '8px';
+  bar.style.border = '1px solid rgba(148,163,184,.35)';
+  bar.style.background = 'rgba(15,23,42,.92)';
+  bar.style.color = '#e2e8f0';
+  bar.textContent = 'Live Data: Initializing...';
+  row.appendChild(bar);
+  return bar;
+}
+
+function setLiveDataStatus(container, message, tone = 'neutral') {
+  const bar = ensureLiveDataStatusBar(container);
+  if (!bar) return;
+  const palette = {
+    neutral: { bg: 'rgba(15,23,42,.92)', fg: '#e2e8f0', border: 'rgba(148,163,184,.35)' },
+    success: { bg: 'rgba(6,78,59,.9)', fg: '#ccfbf1', border: 'rgba(20,184,166,.35)' },
+    warning: { bg: 'rgba(120,53,15,.9)', fg: '#fef3c7', border: 'rgba(251,191,36,.35)' },
+    error: { bg: 'rgba(127,29,29,.92)', fg: '#fee2e2', border: 'rgba(248,113,113,.4)' },
+  };
+  const p = palette[tone] || palette.neutral;
+  bar.textContent = message;
+  bar.style.background = p.bg;
+  bar.style.color = p.fg;
+  bar.style.borderColor = p.border;
+}
+
+function loadLiveRefreshPreference() {
+  try {
+    const raw = localStorage.getItem(LIVE_REFRESH_PREF_KEY);
+    if (raw === '0' || raw === 'false') return false;
+    if (raw === '1' || raw === 'true') return true;
+  } catch (_) {}
+  return true;
+}
+
+function persistLiveRefreshPreference(enabled) {
+  try {
+    localStorage.setItem(LIVE_REFRESH_PREF_KEY, enabled ? '1' : '0');
+  } catch (_) {}
+}
+
+function ensureLiveRefreshToggleButton(container) {
+  if (!container || !container.parentElement) return null;
+  const row = document.getElementById('liveControlsRow') || ensureLiveDataStatusBar(container)?.parentElement;
+  let btn = document.getElementById('liveRefreshToggleBtn');
+  if (btn) return btn;
+  btn = document.createElement('button');
+  btn.id = 'liveRefreshToggleBtn';
+  btn.type = 'button';
+  btn.style.padding = '6px 10px';
+  btn.style.fontSize = '11px';
+  btn.style.fontWeight = '800';
+  btn.style.letterSpacing = '0.04em';
+  btn.style.textTransform = 'uppercase';
+  btn.style.borderRadius = '8px';
+  btn.style.border = '1px solid rgba(148,163,184,.35)';
+  btn.style.background = 'rgba(15,23,42,.92)';
+  btn.style.color = '#e2e8f0';
+  btn.style.cursor = 'pointer';
+  if (row) row.appendChild(btn);
+  return btn;
+}
+
+function ensureManualRefreshButton(container) {
+  if (!container || !container.parentElement) return null;
+  const row = document.getElementById('liveControlsRow') || ensureLiveDataStatusBar(container)?.parentElement;
+  let btn = document.getElementById('liveRefreshNowBtn');
+  if (btn) return btn;
+  btn = document.createElement('button');
+  btn.id = 'liveRefreshNowBtn';
+  btn.type = 'button';
+  btn.textContent = 'Refresh Now';
+  btn.style.padding = '6px 10px';
+  btn.style.fontSize = '11px';
+  btn.style.fontWeight = '800';
+  btn.style.letterSpacing = '0.04em';
+  btn.style.textTransform = 'uppercase';
+  btn.style.borderRadius = '8px';
+  btn.style.border = '1px solid rgba(96,165,250,.45)';
+  btn.style.background = 'rgba(30,64,175,.92)';
+  btn.style.color = '#dbeafe';
+  btn.style.cursor = 'pointer';
+  if (row) row.appendChild(btn);
+  return btn;
+}
+
+function paintLiveRefreshToggleButton(container) {
+  const btn = ensureLiveRefreshToggleButton(container);
+  if (!btn) return;
+  if (liveAutoRefreshEnabled) {
+    btn.textContent = 'Auto Refresh: ON';
+    btn.style.background = 'rgba(6,78,59,.9)';
+    btn.style.color = '#ccfbf1';
+    btn.style.borderColor = 'rgba(20,184,166,.35)';
+  } else {
+    btn.textContent = 'Auto Refresh: OFF';
+    btn.style.background = 'rgba(15,23,42,.92)';
+    btn.style.color = '#e2e8f0';
+    btn.style.borderColor = 'rgba(148,163,184,.35)';
+  }
+}
+
+const AREA_ANCHORS = [
+  { x: 0, z: 0 },        // center campus
+  { x: -290, z: -120 },  // upper-left blocks
+  { x: 290, z: -120 },   // upper-right blocks
+  { x: -300, z: 130 },   // lower-left blocks
+  { x: 300, z: 130 },    // lower-right blocks
+  { x: 0, z: -255 },     // far-top strip
+  { x: 0, z: 255 },      // far-bottom strip
+  { x: -420, z: 0 },     // far-left strip
+  { x: 420, z: 0 },      // far-right strip
+];
+
+const AREA_SLOTS = [
+  { x: -52, z: -34, rot: 0 },
+  { x: 0, z: -34, rot: 0 },
+  { x: 52, z: -34, rot: 0 },
+  { x: -52, z: 12, rot: 0 },
+  { x: 0, z: 12, rot: 0 },
+  { x: 52, z: 12, rot: 0 },
+  { x: 0, z: 56, rot: 0 },
+];
+
+function anchorForArea(index) {
+  // Compact clustered layout so newly created areas stay near each other.
+  const spacingX = 170;
+  const spacingZ = 140;
+  const cols = 4;
+  const row = Math.floor(index / cols);
+  const col = index % cols;
+  const x = (col - ((cols - 1) / 2)) * spacingX + ((row % 2) * (spacingX * 0.15));
+  const z = (row - 1) * spacingZ;
+  return { x, z };
+}
+
+function normalizeModelToSlot(model, targetSize = 34) {
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  const maxDim = Math.max(size.x, size.y, size.z) || 1;
+  const scale = targetSize / maxDim;
+  model.scale.setScalar(scale);
+  const box2 = new THREE.Box3().setFromObject(model);
+  const center = new THREE.Vector3();
+  box2.getCenter(center);
+  model.position.sub(center);
+  model.position.y -= box2.min.y;
+}
+
+function shiftPointOffRoad(x, z, clearance = 10) {
+  return shiftFootprintOffRoad(x, z, 0, 0, clearance, 54);
+}
+
+function isFootprintOnRoad(x, z, halfW, halfD, clearance = 0) {
+  const rects = window.__roadRects;
+  if (Array.isArray(rects) && rects.length) {
+    const left = x - halfW;
+    const right = x + halfW;
+    const top = z - halfD;
+    const bottom = z + halfD;
+    for (let i = 0; i < rects.length; i += 1) {
+      const r = rects[i];
+      const rx = Number(r && r.x);
+      const rz = Number(r && r.z);
+      const rw = Number(r && r.width);
+      const rd = Number(r && r.depth);
+      if (![rx, rz, rw, rd].every(Number.isFinite)) continue;
+      const rHalfW = (rw / 2) + clearance;
+      const rHalfD = (rd / 2) + clearance;
+      const rLeft = rx - rHalfW;
+      const rRight = rx + rHalfW;
+      const rTop = rz - rHalfD;
+      const rBottom = rz + rHalfD;
+      const separated = right < rLeft || left > rRight || bottom < rTop || top > rBottom;
+      if (!separated) return true;
+    }
+    return false;
+  }
+
+  const checker = window.__roadNoBuildChecker;
+  if (typeof checker !== "function") return false;
+  const points = [
+    [x, z],
+    [x - halfW, z],
+    [x + halfW, z],
+    [x, z - halfD],
+    [x, z + halfD],
+    [x - halfW, z - halfD],
+    [x + halfW, z - halfD],
+    [x - halfW, z + halfD],
+    [x + halfW, z + halfD],
+  ];
+  return points.some((p) => checker(p[0], p[1], clearance));
+}
+
+function shiftFootprintOffRoad(x, z, halfW, halfD, clearance = 10, maxRadius = 54) {
+  const checker = window.__roadNoBuildChecker;
+  if (typeof checker !== "function") return { x, z };
+  if (!isFootprintOnRoad(x, z, halfW, halfD, clearance)) return { x, z };
+
+  const base = Math.max(2, Math.floor(clearance * 0.55));
+  const hardLimit = Math.max(maxRadius, 40) * 3;
+  for (let radius = base; radius <= hardLimit; radius += base) {
+    for (let i = 0; i < 64; i += 1) {
+      const a = (Math.PI * 2 * i) / 64;
+      const nx = x + Math.cos(a) * radius;
+      const nz = z + Math.sin(a) * radius;
+      if (!isFootprintOnRoad(nx, nz, halfW, halfD, clearance)) return { x: nx, z: nz };
+    }
+  }
+  return { x, z };
+}
+
+function clampValue(v, lo, hi) {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+function pullFootprintNearRoad(x, z, halfW, halfD, desiredGap = 3) {
+  const rects = window.__roadRects;
+  if (!Array.isArray(rects) || !rects.length) return { x, z };
+
+  let best = null;
+  rects.forEach((r) => {
+    const rx = Number(r && r.x);
+    const rz = Number(r && r.z);
+    const rw = Number(r && r.width);
+    const rd = Number(r && r.depth);
+    if (![rx, rz, rw, rd].every(Number.isFinite)) return;
+
+    const halfRw = rw / 2;
+    const halfRd = rd / 2;
+    const ex = halfRw + halfW + desiredGap;
+    const ez = halfRd + halfD + desiredGap;
+
+    const candidates = [
+      { x: rx - ex, z: clampValue(z, rz - halfRd, rz + halfRd) },
+      { x: rx + ex, z: clampValue(z, rz - halfRd, rz + halfRd) },
+      { x: clampValue(x, rx - halfRw, rx + halfRw), z: rz - ez },
+      { x: clampValue(x, rx - halfRw, rx + halfRw), z: rz + ez },
+    ];
+
+    candidates.forEach((c) => {
+      const dx = c.x - x;
+      const dz = c.z - z;
+      const d2 = (dx * dx) + (dz * dz);
+      if (!best || d2 < best.d2) best = { x: c.x, z: c.z, d2 };
+    });
+  });
+
+  if (!best) return { x, z };
+  const safe = shiftFootprintOffRoad(best.x, best.z, halfW, halfD, Math.max(2, desiredGap - 1), 36);
+  return safe;
+}
+
+function forceFootprintOffRoad(x, z, halfW, halfD, baseClearance = 10) {
+  if (!isFootprintOnRoad(x, z, halfW, halfD, baseClearance)) {
+    const near = pullFootprintNearRoad(x, z, halfW, halfD, 4);
+    if (!isFootprintOnRoad(near.x, near.z, halfW, halfD, baseClearance)) return near;
+    return { x, z };
+  }
+  for (let c = baseClearance; c <= baseClearance + 14; c += 2) {
+    const moved = shiftFootprintOffRoad(x, z, halfW, halfD, c, 120);
+    if (!isFootprintOnRoad(moved.x, moved.z, halfW, halfD, c)) return moved;
+  }
+  const far = shiftFootprintOffRoad(x, z, halfW, halfD, baseClearance + 16, 180);
+  const near = pullFootprintNearRoad(far.x, far.z, halfW, halfD, 4);
+  if (!isFootprintOnRoad(near.x, near.z, halfW, halfD, baseClearance)) return near;
+  return far;
+}
+
+function overlapsPlacedBuildings(areaKey, x, z, halfW, halfD, minGap = 10) {
+  const a = String(areaKey);
+  return placedBuildingFootprints.some((p) => {
+    if (String(p.areaKey) !== a) return false;
+    return (
+      Math.abs(x - p.x) < (halfW + p.halfW + minGap)
+      && Math.abs(z - p.z) < (halfD + p.halfD + minGap)
+    );
+  });
+}
+
+function shiftFootprintAwayFromBuildings(areaKey, x, z, halfW, halfD, minGap = 10) {
+  if (!overlapsPlacedBuildings(areaKey, x, z, halfW, halfD, minGap)) return { x, z };
+  const base = Math.max(3, Math.floor(Math.max(halfW, halfD) * 0.25));
+  for (let radius = base; radius <= 180; radius += base) {
+    for (let i = 0; i < 64; i += 1) {
+      const a = (Math.PI * 2 * i) / 64;
+      const nx = x + Math.cos(a) * radius;
+      const nz = z + Math.sin(a) * radius;
+      if (!overlapsPlacedBuildings(areaKey, nx, nz, halfW, halfD, minGap)) return { x: nx, z: nz };
+    }
+  }
+  return { x, z };
+}
+
+function isPlacementValid(areaKey, x, z, halfW, halfD, clearance, minGap) {
+  return (
+    !isFootprintOnRoad(x, z, halfW, halfD, clearance)
+    && !overlapsPlacedBuildings(areaKey, x, z, halfW, halfD, minGap)
+  );
+}
+
+function findNearestValidPlacement(areaKey, x, z, halfW, halfD, clearance = 8, minGap = 12) {
+  if (isPlacementValid(areaKey, x, z, halfW, halfD, clearance, minGap)) return { x, z };
+  for (let radius = 4; radius <= 260; radius += 4) {
+    for (let i = 0; i < 96; i += 1) {
+      const a = (Math.PI * 2 * i) / 96;
+      const nx = x + Math.cos(a) * radius;
+      const nz = z + Math.sin(a) * radius;
+      if (isPlacementValid(areaKey, nx, nz, halfW, halfD, clearance, minGap)) return { x: nx, z: nz };
+    }
+  }
+  return { x, z };
+}
+
+function finalizeBuildingPlacement(areaKey, x, z, halfW, halfD, baseClearance = 6, minGap = 12) {
+  let pos = forceFootprintOffRoad(x, z, halfW, halfD, baseClearance);
+  for (let i = 0; i < 4; i += 1) {
+    const moved = shiftFootprintAwayFromBuildings(areaKey, pos.x, pos.z, halfW, halfD, minGap);
+    if (moved.x === pos.x && moved.z === pos.z) break;
+    pos = forceFootprintOffRoad(moved.x, moved.z, halfW, halfD, baseClearance);
+  }
+  if (!isPlacementValid(areaKey, pos.x, pos.z, halfW, halfD, baseClearance, minGap)) {
+    pos = findNearestValidPlacement(areaKey, pos.x, pos.z, halfW, halfD, baseClearance + 2, minGap);
+  }
+  const near = pullFootprintNearRoad(pos.x, pos.z, halfW, halfD, 4);
+  if (isPlacementValid(areaKey, near.x, near.z, halfW, halfD, baseClearance, minGap)) {
+    pos = near;
+  }
+  if (!isPlacementValid(areaKey, pos.x, pos.z, halfW, halfD, baseClearance, minGap)) {
+    pos = findNearestValidPlacement(areaKey, x, z, halfW, halfD, baseClearance + 4, minGap);
+  }
+  placedBuildingFootprints.push({ areaKey, x: pos.x, z: pos.z, halfW, halfD });
+  return pos;
+}
+
+function getFixedBuildingSlot(areaKey, buildingKey, x, z, halfW, halfD, baseClearance = 6, minGap = 12) {
+  const key = `${String(areaKey)}:${String(buildingKey)}`;
+  const existing = fixedBuildingSlots.get(key);
+  if (existing) return { x: existing.x, z: existing.z };
+  const safe = finalizeBuildingPlacement(areaKey, x, z, halfW, halfD, baseClearance, minGap);
+  fixedBuildingSlots.set(key, { x: safe.x, z: safe.z });
+  return safe;
+}
+
+function applyModelMaterialFidelity(model) {
+  model.traverse((c) => {
+    if (!c.isMesh) return;
+    c.castShadow = true;
+    c.receiveShadow = true;
+    c.frustumCulled = false;
+    c.userData.root = model;
+
+    const mats = Array.isArray(c.material) ? c.material : [c.material];
+    mats.forEach((mat) => {
+      if (!mat) return;
+      // Avoid overriding GLB-authored color pipeline; keep source material intact.
+      if (mat.side !== undefined && THREE.FrontSide !== undefined) mat.side = THREE.FrontSide;
+      if (mat.vertexColors !== undefined) mat.vertexColors = !!mat.vertexColors;
+      mat.needsUpdate = true;
+    });
+  });
+}
+
+function addEditorLighting(scene) {
+  if (!scene || !window.THREE) return;
+  const existing = scene.getObjectByName('editor-light-rig');
+  if (existing) return;
+
+  const rig = new THREE.Group();
+  rig.name = 'editor-light-rig';
+
+  const ambient = new THREE.AmbientLight(0xffffff, 1.0);
+  rig.add(ambient);
+
+  const key = new THREE.DirectionalLight(0xffffff, 1.25);
+  key.position.set(190, 260, 140);
+  key.castShadow = true;
+  key.shadow.mapSize.set(2048, 2048);
+  key.shadow.camera.near = 0.5;
+  key.shadow.camera.far = 900;
+  // Reduce shadow acne/flicker on flat ground surfaces.
+  key.shadow.bias = 0.00045;
+  key.shadow.normalBias = 0.03;
+  rig.add(key);
+
+  const fill = new THREE.DirectionalLight(0xffffff, 0.9);
+  fill.position.set(-170, 180, -120);
+  rig.add(fill);
+
+  const rim = new THREE.DirectionalLight(0xffffff, 0.55);
+  rim.position.set(40, 130, -220);
+  rig.add(rim);
+
+  scene.add(rig);
+}
+
+function addBuildingVicinityDecor(areaKey, buildingKey, bx, bz, halfW, halfD) {
+  if (!scene || !window.THREE) return;
+
+  let decorRoot = scene.getObjectByName("building-vicinity-decor");
+  if (!decorRoot) {
+    decorRoot = new THREE.Group();
+    decorRoot.name = "building-vicinity-decor";
+    scene.add(decorRoot);
+  }
+
+  const decorId = `decor-${String(areaKey)}-${String(buildingKey)}`;
+  if (decorRoot.getObjectByName(decorId)) return;
+
+  function seeded01(label) {
+    const s = `${areaKey}|${buildingKey}|${label}`;
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i += 1) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 10000) / 10000;
+  }
+
+  function safePoint(dx, dz, hw = 1, hd = 1) {
+    const px = bx + dx + ((seeded01(`jx-${dx}-${dz}`) - 0.5) * 1.8);
+    const pz = bz + dz + ((seeded01(`jz-${dx}-${dz}`) - 0.5) * 1.8);
+    const safe = shiftFootprintOffRoad(px, pz, hw, hd, 4, 56);
+    if (isFootprintOnRoad(safe.x, safe.z, hw, hd, 3)) return null;
+    return safe;
+  }
+
+  const cluster = new THREE.Group();
+  cluster.name = decorId;
+
+  const slots = [
+    { dx: halfW + 6, dz: 0 },
+    { dx: -halfW - 6, dz: 0 },
+    { dx: 0, dz: halfD + 6 },
+    { dx: 0, dz: -halfD - 6 },
+    { dx: halfW + 5, dz: halfD + 5 },
+    { dx: -halfW - 5, dz: -halfD - 5 },
+  ];
+
+  // Car
+  {
+    const p = safePoint(slots[0].dx, slots[0].dz, 1.8, 1.2);
+    if (p) {
+      const car = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(3.6, 0.9, 1.8),
+        new THREE.MeshStandardMaterial({ color: 0x2f4858, roughness: 0.5, metalness: 0.35 })
+      );
+      body.position.y = 0.55;
+      const top = new THREE.Mesh(
+        new THREE.BoxGeometry(2.0, 0.65, 1.5),
+        new THREE.MeshStandardMaterial({ color: 0x90a4ae, roughness: 0.45, metalness: 0.25 })
+      );
+      top.position.y = 1.08;
+      car.add(body, top);
+      car.position.set(p.x, 0.03, p.z);
+      cluster.add(car);
+    }
+  }
+
+  // Tree
+  {
+    const p = safePoint(slots[1].dx, slots[1].dz, 1.2, 1.2);
+    if (p) {
+      const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.28, 0.32, 2.1, 8),
+        new THREE.MeshStandardMaterial({ color: 0x8b5a2b, roughness: 0.9 })
+      );
+      trunk.position.set(p.x, 1.05, p.z);
+      const crown = new THREE.Mesh(
+        new THREE.SphereGeometry(1.0, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2f8f5b, roughness: 0.9 })
+      );
+      crown.position.set(p.x, 2.35, p.z);
+      cluster.add(trunk, crown);
+    }
+  }
+
+  // Plant cluster
+  {
+    const p = safePoint(slots[2].dx, slots[2].dz, 1.4, 1.2);
+    if (p) {
+      for (let i = 0; i < 4; i += 1) {
+        const ox = (seeded01(`plant-x-${i}`) - 0.5) * 1.5;
+        const oz = (seeded01(`plant-z-${i}`) - 0.5) * 1.5;
+        const shrub = new THREE.Mesh(
+          new THREE.SphereGeometry(0.45, 8, 8),
+          new THREE.MeshStandardMaterial({ color: 0x5a8f3d, roughness: 0.95 })
+        );
+        shrub.position.set(p.x + ox, 0.45, p.z + oz);
+        cluster.add(shrub);
+      }
+    }
+  }
+
+  // Pond
+  {
+    const p = safePoint(slots[3].dx, slots[3].dz, 2.0, 2.0);
+    if (p) {
+      const pond = new THREE.Mesh(
+        new THREE.CylinderGeometry(2.3, 2.5, 0.2, 20),
+        new THREE.MeshStandardMaterial({ color: 0x58a7d8, transparent: true, opacity: 0.85, roughness: 0.2 })
+      );
+      pond.position.set(p.x, 0.1, p.z);
+      cluster.add(pond);
+    }
+  }
+
+  // Animal (simple low-poly)
+  {
+    const p = safePoint(slots[4].dx, slots[4].dz, 0.9, 0.9);
+    if (p) {
+      const animal = new THREE.Group();
+      const body = new THREE.Mesh(
+        new THREE.BoxGeometry(1.1, 0.55, 0.45),
+        new THREE.MeshStandardMaterial({ color: 0xd2b48c, roughness: 0.85 })
+      );
+      body.position.y = 0.35;
+      const head = new THREE.Mesh(
+        new THREE.SphereGeometry(0.22, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0xd8c0a1, roughness: 0.9 })
+      );
+      head.position.set(0.62, 0.48, 0);
+      animal.add(body, head);
+      animal.position.set(p.x, 0.02, p.z);
+      cluster.add(animal);
+    }
+  }
+
+  // Extra urban prop (lamp)
+  {
+    const p = safePoint(slots[5].dx, slots[5].dz, 0.6, 0.6);
+    if (p) {
+      const pole = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.08, 0.08, 2.6, 8),
+        new THREE.MeshStandardMaterial({ color: 0x7b8794, roughness: 0.6, metalness: 0.5 })
+      );
+      pole.position.set(p.x, 1.3, p.z);
+      const lamp = new THREE.Mesh(
+        new THREE.SphereGeometry(0.16, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0xfff4c2, emissive: 0x221a00, emissiveIntensity: 0.2 })
+      );
+      lamp.position.set(p.x, 2.55, p.z);
+      cluster.add(pole, lamp);
+    }
+  }
+
+  decorRoot.add(cluster);
+}
+
+function attachBuildingObjectWithDecor(obj, areaKey, buildingKey, x, z, halfW, halfD) {
+  if (!obj || !scene) return;
+  scene.add(obj);
+  addBuildingVicinityDecor(areaKey, buildingKey, x, z, halfW, halfD);
+  loadedBuildings.push(obj);
+}
+
+function createDummyBuilding(area, slotPos, slotIndex) {
+  const tone = 195 + ((area.id + slotIndex) % 25);
+  const w = 20 + (slotIndex % 3) * 5;
+  const h = 12 + (slotIndex % 2) * 4;
+  const d = 16 + ((slotIndex + 1) % 3) * 5;
+  const m = new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d),
+    new THREE.MeshStandardMaterial({
+      color: new THREE.Color(`rgb(${tone},${tone + 8},245)`),
+      roughness: 0.72,
+      metalness: 0.04,
+    })
+  );
+  const buildingKey = `dummy-${area.id}-${slotIndex}`;
+  const safe = getFixedBuildingSlot(area.id, buildingKey, slotPos.x, slotPos.z, w / 2, d / 2, 6, 22);
+  m.position.set(safe.x, h / 2, safe.z);
+  const footprintAreaSqM = Math.round(w * d);
+  m.userData = {
+    areaId: area.id,
+    buildingId: buildingKey,
+    name: `Dummy ${slotIndex + 1}`,
+    areaName: area.name,
+    currentPeople: 0,
+    maxPeople: 20,
+    utilizationPercent: 0,
+    footprintAreaSqM,
+    trendValues: [0, 0, 0, 0, 0, 0, 0],
+    trendLabels: ['D1', 'D2', 'D3', 'D4', 'D5', 'D6', 'D7'],
+  };
+  attachBuildingObjectWithDecor(m, area.id, m.userData.buildingId, safe.x, safe.z, w / 2, d / 2);
+  requestAutoFrame();
+}
+
+function createBuildingPlaceholder(area, building, posX, posZ) {
+  const colorSeed = ((area.id * 53) + (building.id * 17)) % 255;
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(`rgb(${120 + (colorSeed % 80)}, ${140 + (colorSeed % 50)}, 220)`),
+    roughness: 0.7,
+    metalness: 0.05,
+  });
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(14, 10, 10), mat);
+  const safe = getFixedBuildingSlot(area.id, building.id, posX, posZ, 7, 5, 6, 22);
+  mesh.position.set(safe.x, 5, safe.z);
+  const metrics = getBuildingMetrics(building);
+  mesh.userData = {
+    areaId: area.id,
+    buildingId: building.id,
+    name: building.name,
+    areaName: area.name,
+    floor_label: building.floor_label || 'Unknown',
+    currentPeople: metrics.currentPeople,
+    maxPeople: metrics.maxPeople,
+    utilizationPercent: metrics.utilizationPercent,
+    footprintAreaSqM: Math.round(14 * 10),
+    trendValues: metrics.trendValues,
+    trendLabels: metrics.trendLabels,
+  };
+  attachBuildingObjectWithDecor(mesh, area.id, building.id, safe.x, safe.z, 7, 5);
+  requestAutoFrame();
+}
+
+function setModelStatus(container, message) {
+  if (!container) return;
+  let status = document.getElementById('modelLoadStatus');
+  if (!status) {
+    status = document.createElement('div');
+    status.id = 'modelLoadStatus';
+    status.style.position = 'absolute';
+    status.style.left = '16px';
+    status.style.top = '16px';
+    status.style.zIndex = '1200';
+    status.style.padding = '8px 10px';
+    status.style.fontSize = '11px';
+    status.style.fontWeight = '700';
+    status.style.background = 'rgba(127, 29, 29, 0.92)';
+    status.style.color = '#fff';
+    status.style.border = '1px solid rgba(255,255,255,.2)';
+    status.style.borderRadius = '8px';
+    container.parentElement.style.position = 'relative';
+    container.parentElement.appendChild(status);
+  }
+  status.textContent = message;
+}
+
+function ensureModelProgressUi(container) {
+  if (!container) return null;
+  let panel = document.getElementById('modelLoadProgress');
+  if (panel) return panel;
+
+  panel = document.createElement('div');
+  panel.id = 'modelLoadProgress';
+  panel.style.position = 'absolute';
+  panel.style.left = '16px';
+  panel.style.bottom = '16px';
+  panel.style.zIndex = '1200';
+  panel.style.width = '280px';
+  panel.style.background = 'rgba(15, 23, 42, 0.88)';
+  panel.style.border = '1px solid rgba(255,255,255,0.2)';
+  panel.style.borderRadius = '10px';
+  panel.style.padding = '10px 12px';
+  panel.style.color = '#e2e8f0';
+  panel.style.fontSize = '11px';
+  panel.style.fontWeight = '700';
+  panel.style.backdropFilter = 'blur(4px)';
+
+  panel.innerHTML = `
+    <div id="modelLoadProgressText" style="margin-bottom:8px;">Loading models...</div>
+    <div style="height:8px;background:rgba(255,255,255,0.14);border-radius:999px;overflow:hidden;">
+      <div id="modelLoadProgressBar" style="height:100%;width:0%;background:#38bdf8;transition:width .25s ease;"></div>
+    </div>
+    <div id="modelLoadVisibleText" style="margin-top:8px;opacity:.92;">Visible area: pending...</div>
+  `;
+
+  container.parentElement.style.position = 'relative';
+  container.parentElement.appendChild(panel);
+  return panel;
+}
+
+function ensureModelCounterUi(container) {
+  if (!container) return null;
+  let badge = document.getElementById('modelLoadCounter');
+  if (badge) return badge;
+
+  badge = document.createElement('div');
+  badge.id = 'modelLoadCounter';
+  badge.style.position = 'absolute';
+  badge.style.right = '16px';
+  badge.style.bottom = '16px';
+  badge.style.zIndex = '1200';
+  badge.style.padding = '8px 10px';
+  badge.style.fontSize = '11px';
+  badge.style.fontWeight = '800';
+  badge.style.letterSpacing = '0.04em';
+  badge.style.textTransform = 'uppercase';
+  badge.style.color = '#0f172a';
+  badge.style.background = 'rgba(255, 255, 255, 0.95)';
+  badge.style.border = '1px solid rgba(15, 23, 42, 0.18)';
+  badge.style.borderRadius = '8px';
+  badge.textContent = 'Loaded 0 / 0';
+
+  container.parentElement.style.position = 'relative';
+  container.parentElement.appendChild(badge);
+  return badge;
+}
+
+function updateModelProgressUi(container, stats) {
+  const panel = ensureModelProgressUi(container);
+  const counter = ensureModelCounterUi(container);
+  if (!panel) return;
+  const progressText = document.getElementById('modelLoadProgressText');
+  const progressBar = document.getElementById('modelLoadProgressBar');
+  const visibleText = document.getElementById('modelLoadVisibleText');
+  if (!progressText || !progressBar || !visibleText) return;
+
+  const total = Math.max(0, stats.total || 0);
+  const loaded = Math.max(0, stats.loaded || 0);
+  const failed = Math.max(0, stats.failed || 0);
+  const done = Math.min(total, loaded + failed);
+  const pct = total > 0 ? Math.round((done / total) * 100) : 100;
+
+  progressText.textContent = `Models loaded: ${loaded}/${total}${failed ? ` (failed: ${failed})` : ''}`;
+  if (counter) {
+    counter.textContent = `Loaded ${loaded} / ${total}`;
+  }
+  progressBar.style.width = `${pct}%`;
+
+  const vTotal = Math.max(0, stats.visibleTotal || 0);
+  const vLoaded = Math.max(0, stats.visibleLoaded || 0);
+  if (vTotal > 0) {
+    const vDone = Math.min(vTotal, vLoaded);
+    visibleText.textContent = vDone >= vTotal
+      ? `Visible area loaded (${vDone}/${vTotal})`
+      : `Visible area loading: ${vDone}/${vTotal}`;
+  } else {
+    visibleText.textContent = 'Visible area loaded';
+  }
+
+  if (total === 0 || done >= total) {
+    setTimeout(() => {
+      const node = document.getElementById('modelLoadProgress');
+      if (node) node.style.display = 'none';
+    }, 900);
+  } else {
+    panel.style.display = 'block';
+  }
+}
+
+function setResetViewFromCurrent() {
+  if (!camera || !orbitControls || !orbitControls.target || !orbitControls.target.clone) return;
+  resetCameraPos = camera.position.clone();
+  resetCameraTarget = orbitControls.target.clone();
+}
+
+function saveCameraPreference() {
+  if (!camera || !orbitControls || !orbitControls.target) return;
+  try {
+    const payload = {
+      pos: { x: camera.position.x, y: camera.position.y, z: camera.position.z },
+      target: { x: orbitControls.target.x, y: orbitControls.target.y, z: orbitControls.target.z },
+      ts: Date.now(),
+    };
+    localStorage.setItem(CAMERA_PREF_KEY, JSON.stringify(payload));
+    hasSavedCameraPreference = true;
+  } catch (_) {
+    // Ignore localStorage failures.
+  }
+}
+
+function loadCameraPreference() {
+  if (!window.THREE || !camera || !orbitControls) return false;
+  try {
+    const raw = localStorage.getItem(CAMERA_PREF_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (!data || !data.pos || !data.target) return false;
+    const pos = data.pos;
+    const target = data.target;
+    if (![pos.x, pos.y, pos.z, target.x, target.y, target.z].every(Number.isFinite)) return false;
+    camera.position.set(pos.x, pos.y, pos.z);
+    orbitControls.target.set(target.x, target.y, target.z);
+    orbitControls.update();
+    setResetViewFromCurrent();
+    hasSavedCameraPreference = true;
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+function frameSceneToBuildings() {
+  if (hasSavedCameraPreference) return;
+  if (!scene || !camera || !orbitControls || !window.THREE || !loadedBuildings.length) return;
+  const box = new THREE.Box3();
+  box.makeEmpty();
+  loadedBuildings.forEach((obj) => box.expandByObject(obj));
+  if (box.isEmpty()) return;
+
+  const size = new THREE.Vector3();
+  const center = new THREE.Vector3();
+  box.getSize(size);
+  box.getCenter(center);
+
+  const maxDim = Math.max(size.x, size.y, size.z, 30);
+  const fitHeightDist = (maxDim * 0.5) / Math.tan(THREE.MathUtils.degToRad(camera.fov * 0.5));
+  const fitWidthDist = fitHeightDist / Math.max(camera.aspect || 1, 0.5);
+  const distance = Math.max(fitHeightDist, fitWidthDist) * 1.55;
+  const direction = new THREE.Vector3(0.9, 1.25, 1.15).normalize();
+  const nextPos = center.clone().add(direction.multiplyScalar(distance));
+
+  camera.position.copy(nextPos);
+  orbitControls.target.copy(center);
+  orbitControls.update();
+  setResetViewFromCurrent();
+}
+
+function requestAutoFrame() {
+  if (hasSavedCameraPreference) return;
+  if (autoFrameTimer) {
+    clearTimeout(autoFrameTimer);
+  }
+  autoFrameTimer = setTimeout(() => {
+    autoFrameTimer = null;
+    frameSceneToBuildings();
+  }, 80);
+}
+
+function getBuildingPlacement(area, building) {
+  // Use JSON positions if available.
+  const areaPos = BUILDING_POSITIONS[String(area.id)] || BUILDING_POSITIONS[area.id];
+  if (areaPos) {
+    const buildingPos = areaPos[String(building.id)] || areaPos[building.id];
+    if (buildingPos) return buildingPos;
+  }
+  const ai = AREA_DATA.findIndex(a => a.id === area.id);
+  const anchor = anchorForArea(Math.max(0, ai));
+  const areaBuildings = Array.isArray(area.buildings) ? area.buildings : [];
+  const total = Math.max(1, areaBuildings.length);
+  const idx = Math.max(0, areaBuildings.findIndex(b => b.id === building.id));
+
+  function estimateLengthHint(b) {
+    const keys = [
+      "length",
+      "building_length",
+      "footprint_length",
+      "plot_length",
+      "dimension_length",
+    ];
+    for (let i = 0; i < keys.length; i += 1) {
+      const v = Number(b && b[keys[i]]);
+      if (Number.isFinite(v) && v > 0) return Math.max(18, Math.min(90, v));
+    }
+    const name = String((b && b.name) || "").toLowerCase();
+    if (name.includes("tower") || name.includes("high")) return 44;
+    if (name.includes("block") || name.includes("complex")) return 36;
+    return 30;
+  }
+
+  // Length-weighted perimeter distribution: larger buildings get more spacing.
+  const halfW = 72;
+  const halfD = 54;
+  const inset = 7;
+  const minX = -halfW + inset;
+  const maxX = halfW - inset;
+  const minZ = -halfD + inset;
+  const maxZ = halfD - inset;
+  const spanX = maxX - minX;
+  const spanZ = maxZ - minZ;
+  const perimeter = (2 * spanX) + (2 * spanZ);
+
+  const lengths = areaBuildings.map((b) => estimateLengthHint(b));
+  const baseGap = 18;
+  const weights = lengths.map((len) => len + baseGap);
+  const totalWeight = Math.max(1, weights.reduce((sum, w) => sum + w, 0));
+  const before = weights.slice(0, idx).reduce((sum, w) => sum + w, 0);
+  const dist = ((before + (weights[idx] / 2)) / totalWeight) * perimeter;
+
+  let x = minX;
+  let z = minZ;
+  if (dist < spanX) {
+    x = minX + dist;
+    z = minZ;
+  } else if (dist < spanX + spanZ) {
+    x = maxX;
+    z = minZ + (dist - spanX);
+  } else if (dist < (2 * spanX) + spanZ) {
+    x = maxX - (dist - (spanX + spanZ));
+    z = maxZ;
+  } else {
+    x = minX;
+    z = maxZ - (dist - ((2 * spanX) + spanZ));
+  }
+  return {
+    x: anchor.x + x,
+    z: anchor.z + z,
+  };
+}
+
+function addGroundRect(group, width, depth, x, z, y, material) {
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(width, depth), material);
+  mesh.rotation.x = -Math.PI / 2;
+  mesh.position.set(x, y, z);
+  mesh.receiveShadow = true;
+  group.add(mesh);
+  return mesh;
+}
+
+function addOrthogonalStrip(group, startX, startZ, endX, endZ, width, y, material) {
+  const midX = endX;
+  const w1 = Math.max(width, Math.abs(midX - startX) + width);
+  const d2 = Math.max(width, Math.abs(endZ - startZ) + width);
+  addGroundRect(group, w1, width, (startX + midX) / 2, startZ, y, material);
+  addGroundRect(group, width, d2, endX, (startZ + endZ) / 2, y, material);
+}
+
+function addAreaRoadAndGrassLayout(scene) {
+  if (!scene || !window.THREE) return;
+  if (!Array.isArray(AREA_DATA) || !AREA_DATA.length) return;
+
+  const layoutGroup = new THREE.Group();
+  layoutGroup.name = 'area-road-grass-layout';
+
+  const SURFACE_Y = {
+    grass: 0.03,
+    sidewalk: 0.053,
+    path: 0.046,
+    road: 0.068,
+  };
+
+  const roadMaterial = new THREE.MeshStandardMaterial({
+    color: 0x5e6673,
+    roughness: 0.92,
+    metalness: 0.03,
+    polygonOffset: true,
+    polygonOffsetFactor: -2,
+    polygonOffsetUnits: -2,
+  });
+  const grassMaterial = new THREE.MeshStandardMaterial({
+    color: 0x7dbb6f,
+    roughness: 0.97,
+    metalness: 0.0,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -1,
+  });
+  const pathMaterial = new THREE.MeshStandardMaterial({
+    color: 0xc9d6a8,
+    roughness: 0.88,
+    metalness: 0.0,
+  });
+  const sidewalkMaterial = new THREE.MeshStandardMaterial({
+    color: 0xc7d0d8,
+    roughness: 0.95,
+    metalness: 0.02,
+  });
+  const laneMarkMaterial = new THREE.MeshStandardMaterial({
+    color: 0xf8fafc,
+    roughness: 0.55,
+    metalness: 0.0,
+    polygonOffset: true,
+    polygonOffsetFactor: -5,
+    polygonOffsetUnits: -5,
+  });
+  const zebraMaterial = new THREE.MeshStandardMaterial({
+    color: 0xffffff,
+    roughness: 0.5,
+    metalness: 0.0,
+    polygonOffset: true,
+    polygonOffsetFactor: -6,
+    polygonOffsetUnits: -6,
+  });
+  const ROAD_MARKING_STYLE = "US"; // "US" | "INDIA"
+  const MARKING_PROFILE = ROAD_MARKING_STYLE === "INDIA"
+    ? {
+        laneDashLength: 6,
+        laneGap: 3,
+        laneWidthScale: 0.085,
+        zebraStripeThickness: 1.05,
+        zebraStripeGap: 0.65,
+        zebraStripeCount: 8,
+        zebraSpanMax: 13,
+      }
+    : {
+        laneDashLength: 10,
+        laneGap: 8,
+        laneWidthScale: 0.075,
+        zebraStripeThickness: 0.9,
+        zebraStripeGap: 0.8,
+        zebraStripeCount: 6,
+        zebraSpanMax: 11,
+      };
+
+  // Landscaping: tree mesh
+  function addTree(x, z, y = 0.05) {
+    const trunk = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.7, 0.7, 4, 8),
+      new THREE.MeshStandardMaterial({ color: 0x8b5a2b })
+    );
+    trunk.position.set(x, y + 2, z);
+    layoutGroup.add(trunk);
+    const leaves = new THREE.Mesh(
+      new THREE.SphereGeometry(2.2, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0x2e8b57 })
+    );
+    leaves.position.set(x, y + 5, z);
+    layoutGroup.add(leaves);
+  }
+
+  function addCustomTree(x, z, y = 0.05) {
+    addTree(x, z, y);
+  }
+
+  function addWaterFeature(x, z) {
+    const pond = new THREE.Mesh(
+      new THREE.CylinderGeometry(4.2, 4.8, 0.6, 24),
+      new THREE.MeshStandardMaterial({
+        color: 0x4ca4d8,
+        transparent: true,
+        opacity: 0.82,
+        roughness: 0.18,
+        metalness: 0.08,
+      })
+    );
+    pond.position.set(x, 0.07, z);
+    layoutGroup.add(pond);
+
+    const rim = new THREE.Mesh(
+      new THREE.TorusGeometry(4.7, 0.25, 10, 30),
+      new THREE.MeshStandardMaterial({ color: 0xb7c4cf, roughness: 0.5, metalness: 0.25 })
+    );
+    rim.rotation.x = Math.PI / 2;
+    rim.position.set(x, 0.14, z);
+    layoutGroup.add(rim);
+  }
+
+  function addBench(x, z) {
+    const wood = new THREE.MeshStandardMaterial({ color: 0x8b6a44, roughness: 0.85, metalness: 0.02 });
+    const metal = new THREE.MeshStandardMaterial({ color: 0x5f6d78, roughness: 0.45, metalness: 0.5 });
+
+    const seat = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.25, 0.9), wood);
+    seat.position.set(x, 0.45, z);
+    layoutGroup.add(seat);
+
+    const back = new THREE.Mesh(new THREE.BoxGeometry(3.2, 1.0, 0.2), wood);
+    back.position.set(x, 0.95, z - 0.35);
+    layoutGroup.add(back);
+
+    const leg1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.2), metal);
+    leg1.position.set(x - 1.2, 0.22, z);
+    layoutGroup.add(leg1);
+
+    const leg2 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.6, 0.2), metal);
+    leg2.position.set(x + 1.2, 0.22, z);
+    layoutGroup.add(leg2);
+  }
+
+  function addLampPost(x, z) {
+    const pole = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.08, 2.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x7b8794, roughness: 0.6, metalness: 0.45 })
+    );
+    pole.position.set(x, 1.25, z);
+    const lamp = new THREE.Mesh(
+      new THREE.SphereGeometry(0.14, 8, 8),
+      new THREE.MeshStandardMaterial({ color: 0xfff4c2, emissive: 0x2a2208, emissiveIntensity: 0.18, roughness: 0.4 })
+    );
+    lamp.position.set(x, 2.45, z);
+    layoutGroup.add(pole, lamp);
+  }
+
+  function addShrubCluster(x, z, size = 1) {
+    const c = Math.max(3, Math.min(6, Math.round(size * 4)));
+    for (let i = 0; i < c; i += 1) {
+      const ox = (stableUnit(`shrub-x-${x}-${z}-${i}`) - 0.5) * (1.6 * size);
+      const oz = (stableUnit(`shrub-z-${x}-${z}-${i}`) - 0.5) * (1.6 * size);
+      const s = new THREE.Mesh(
+        new THREE.SphereGeometry(0.32 + (stableUnit(`shrub-s-${x}-${z}-${i}`) * 0.22), 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x5a8f3d, roughness: 0.95 })
+      );
+      s.position.set(x + ox, 0.28, z + oz);
+      layoutGroup.add(s);
+    }
+  }
+
+  function addRock(x, z) {
+    const r = new THREE.Mesh(
+      new THREE.DodecahedronGeometry(0.45, 0),
+      new THREE.MeshStandardMaterial({ color: 0x8f9ba7, roughness: 0.9, metalness: 0.05 })
+    );
+    r.position.set(x, 0.35, z);
+    layoutGroup.add(r);
+  }
+
+  const lotPadding = 8;
+  const MIN_AREA_WIDTH = 128;
+  const MIN_AREA_DEPTH = 108;
+  const roadWidth = 14;
+  const localRoadWidth = 9;
+  const sidewalkWidth = 7;
+  const pathWidth = 6;
+  const areaLayouts = [];
+  const roadRects = [];
+
+  function addFootpathRect(width, depth, x, z) {
+    const mesh = addGroundRect(layoutGroup, width, depth, x, z, SURFACE_Y.sidewalk, sidewalkMaterial);
+    mesh.receiveShadow = false;
+    return mesh;
+  }
+
+  function addRoadWithFootpaths(x, z, width, depth, opts = {}) {
+    const gap = Number.isFinite(opts.gap) ? opts.gap : 1.2;
+    const pad = Number.isFinite(opts.pad) ? opts.pad : 2.0;
+    const horizontal = width >= depth;
+    const fpSpan = horizontal ? (width + (pad * 2)) : (depth + (pad * 2));
+    const halfW = width / 2;
+    const halfD = depth / 2;
+    if (horizontal) {
+      addFootpathRect(fpSpan, sidewalkWidth, x, z - halfD - (sidewalkWidth / 2) - gap);
+      addFootpathRect(fpSpan, sidewalkWidth, x, z + halfD + (sidewalkWidth / 2) + gap);
+    } else {
+      addFootpathRect(sidewalkWidth, fpSpan, x - halfW - (sidewalkWidth / 2) - gap, z);
+      addFootpathRect(sidewalkWidth, fpSpan, x + halfW + (sidewalkWidth / 2) + gap, z);
+    }
+    addGroundRect(layoutGroup, width, depth, x, z, SURFACE_Y.road, roadMaterial);
+    roadRects.push({ x, z, width, depth });
+  }
+
+  function addLaneMarkingsForRoad(r) {
+    const horizontal = r.width >= r.depth;
+    const roadThickness = horizontal ? r.depth : r.width;
+    const roadLength = horizontal ? r.width : r.depth;
+    if (roadLength < 42 || roadThickness < 10) return;
+
+    const dashLength = MARKING_PROFILE.laneDashLength;
+    const gap = MARKING_PROFILE.laneGap;
+    const markWidth = Math.max(0.62, Math.min(1.05, roadThickness * MARKING_PROFILE.laneWidthScale));
+    const y = SURFACE_Y.road + 0.006;
+
+    if (horizontal) {
+      const startX = r.x - (r.width / 2) + 6;
+      const endX = r.x + (r.width / 2) - 6;
+      for (let x = startX; x <= endX; x += (dashLength + gap)) {
+        const remaining = endX - x;
+        const w = Math.max(0, Math.min(dashLength, remaining));
+        if (w < 2) break;
+        addGroundRect(layoutGroup, w, markWidth, x + (w / 2), r.z, y, laneMarkMaterial);
+      }
+    } else {
+      const startZ = r.z - (r.depth / 2) + 6;
+      const endZ = r.z + (r.depth / 2) - 6;
+      for (let z = startZ; z <= endZ; z += (dashLength + gap)) {
+        const remaining = endZ - z;
+        const d = Math.max(0, Math.min(dashLength, remaining));
+        if (d < 2) break;
+        addGroundRect(layoutGroup, markWidth, d, r.x, z + (d / 2), y, laneMarkMaterial);
+      }
+    }
+  }
+
+  function addZebraBand(cx, cz, alongX, roadSpan) {
+    const span = Math.max(5, Math.min(roadSpan - 2, MARKING_PROFILE.zebraSpanMax));
+    const stripeThickness = MARKING_PROFILE.zebraStripeThickness;
+    const stripeGap = MARKING_PROFILE.zebraStripeGap;
+    const stripeCount = MARKING_PROFILE.zebraStripeCount;
+    const y = SURFACE_Y.road + 0.008;
+    const total = (stripeCount * stripeThickness) + ((stripeCount - 1) * stripeGap);
+    const start = -total / 2;
+
+    for (let i = 0; i < stripeCount; i += 1) {
+      const p = start + (i * (stripeThickness + stripeGap)) + (stripeThickness / 2);
+      if (alongX) {
+        addGroundRect(layoutGroup, stripeThickness, span, cx + p, cz, y, zebraMaterial);
+      } else {
+        addGroundRect(layoutGroup, span, stripeThickness, cx, cz + p, y, zebraMaterial);
+      }
+    }
+  }
+
+  function stableUnit(seed) {
+    const s = String(seed || '');
+    let h = 2166136261;
+    for (let i = 0; i < s.length; i += 1) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return ((h >>> 0) % 10000) / 10000;
+  }
+
+  AREA_DATA.forEach((area, areaIndex) => {
+    const areaBuildings = Array.isArray(area.buildings) ? area.buildings : [];
+    const placements = areaBuildings.map((b) => getBuildingPlacement(area, b));
+    const anchor = anchorForArea(Math.max(0, areaIndex));
+    const centerX = placements.length
+      ? placements.reduce((sum, p) => sum + p.x, 0) / placements.length
+      : anchor.x;
+    const centerZ = placements.length
+      ? placements.reduce((sum, p) => sum + p.z, 0) / placements.length
+      : anchor.z;
+    const minX = placements.length ? Math.min(...placements.map((p) => p.x)) : centerX - 28;
+    const maxX = placements.length ? Math.max(...placements.map((p) => p.x)) : centerX + 28;
+    const minZ = placements.length ? Math.min(...placements.map((p) => p.z)) : centerZ - 24;
+    const maxZ = placements.length ? Math.max(...placements.map((p) => p.z)) : centerZ + 24;
+    const lotWidth = Math.max(MIN_AREA_WIDTH, (maxX - minX) + (lotPadding * 2));
+    const lotDepth = Math.max(MIN_AREA_DEPTH, (maxZ - minZ) + (lotPadding * 2));
+
+    areaLayouts.push({
+      areaId: String(area.id),
+      x: centerX,
+      z: centerZ,
+      lotWidth,
+      lotDepth,
+      placements,
+      areaIndex,
+    });
+  });
+
+  if (!areaLayouts.length) {
+    scene.add(layoutGroup);
+    return;
+  }
+
+  // Downtown variant: denser inner blocks, slightly larger outer plots.
+  const rawCenterX = areaLayouts.reduce((sum, n) => sum + n.x, 0) / areaLayouts.length;
+  const rawCenterZ = areaLayouts.reduce((sum, n) => sum + n.z, 0) / areaLayouts.length;
+  const maxRawDist = Math.max(
+    1,
+    ...areaLayouts.map((n) => Math.hypot(n.x - rawCenterX, n.z - rawCenterZ))
+  );
+  areaLayouts.forEach((layout) => {
+    const dist = Math.hypot(layout.x - rawCenterX, layout.z - rawCenterZ);
+    const t = Math.min(1, dist / maxRawDist);
+    const lotScale = 0.84 + (0.24 * t);
+    layout.lotWidth = Math.max(MIN_AREA_WIDTH, layout.lotWidth * lotScale);
+    layout.lotDepth = Math.max(MIN_AREA_DEPTH, layout.lotDepth * lotScale);
+  });
+
+  const campusPad = 140;
+  const campusMinX = Math.min(...areaLayouts.map((n) => n.x - (n.lotWidth / 2) - roadWidth)) - campusPad;
+  const campusMaxX = Math.max(...areaLayouts.map((n) => n.x + (n.lotWidth / 2) + roadWidth)) + campusPad;
+  const campusMinZ = Math.min(...areaLayouts.map((n) => n.z - (n.lotDepth / 2) - roadWidth)) - campusPad;
+  const campusMaxZ = Math.max(...areaLayouts.map((n) => n.z + (n.lotDepth / 2) + roadWidth)) + campusPad;
+  const campusWidth = Math.max(200, campusMaxX - campusMinX);
+  const campusDepth = Math.max(200, campusMaxZ - campusMinZ);
+  const campusCenterX = (campusMinX + campusMaxX) / 2;
+  const campusCenterZ = (campusMinZ + campusMaxZ) / 2;
+
+  const uniqueX = Array.from(new Set(areaLayouts.map((n) => Math.round(n.x / 10) * 10))).sort((a, b) => a - b);
+  const uniqueZ = Array.from(new Set(areaLayouts.map((n) => Math.round(n.z / 10) * 10))).sort((a, b) => a - b);
+  const collectorX = [];
+  const collectorZ = [];
+  for (let i = 0; i < uniqueX.length - 1; i += 1) {
+    collectorX.push((uniqueX[i] + uniqueX[i + 1]) / 2);
+  }
+  for (let i = 0; i < uniqueZ.length - 1; i += 1) {
+    collectorZ.push((uniqueZ[i] + uniqueZ[i + 1]) / 2);
+  }
+  const boulevardWidth = roadWidth + 10;
+  const collectorRoadsX = collectorX.map((x) => {
+    const edgeRatio = Math.min(1, Math.abs(x - campusCenterX) / Math.max(1, campusWidth / 2));
+    return { x, width: roadWidth + 3 + (edgeRatio * 7) };
+  });
+  const collectorRoadsZ = collectorZ.map((z) => {
+    const edgeRatio = Math.min(1, Math.abs(z - campusCenterZ) / Math.max(1, campusDepth / 2));
+    return { z, width: roadWidth + 3 + (edgeRatio * 7) };
+  });
+  function isNearRoad(x, z, extra = 4) {
+    return roadRects.some((r) => (
+      Math.abs(x - r.x) <= ((r.width / 2) + extra)
+      && Math.abs(z - r.z) <= ((r.depth / 2) + extra)
+    ));
+  }
+
+  addGroundRect(
+    layoutGroup,
+    campusWidth,
+    campusDepth,
+    (campusMinX + campusMaxX) / 2,
+    (campusMinZ + campusMaxZ) / 2,
+    SURFACE_Y.grass - 0.004,
+    grassMaterial
+  );
+
+  // Road pass 1: main perimeter boulevards.
+  const ringOffset = 34;
+  addRoadWithFootpaths(campusCenterX, campusMinZ - ringOffset, campusWidth + (ringOffset * 2), boulevardWidth, { gap: 1.8, pad: 3.0 });
+  addRoadWithFootpaths(campusCenterX, campusMaxZ + ringOffset, campusWidth + (ringOffset * 2), boulevardWidth, { gap: 1.8, pad: 3.0 });
+  addRoadWithFootpaths(campusMinX - ringOffset, campusCenterZ, boulevardWidth, campusDepth + (ringOffset * 2), { gap: 1.8, pad: 3.0 });
+  addRoadWithFootpaths(campusMaxX + ringOffset, campusCenterZ, boulevardWidth, campusDepth + (ringOffset * 2), { gap: 1.8, pad: 3.0 });
+
+  // Road pass 2: collectors.
+  collectorRoadsX.forEach((r) => {
+    addRoadWithFootpaths(r.x, campusCenterZ, r.width, campusDepth, { gap: 1.2, pad: 2.0 });
+  });
+  collectorRoadsZ.forEach((r) => {
+    addRoadWithFootpaths(campusCenterX, r.z, campusWidth, r.width, { gap: 1.2, pad: 2.0 });
+  });
+
+  // Road pass 3: block-level roads.
+  areaLayouts.forEach((layout) => {
+    const centerX = layout.x;
+    const centerZ = layout.z;
+    const lotWidth = layout.lotWidth;
+    const lotDepth = layout.lotDepth;
+
+    addGroundRect(layoutGroup, lotWidth, lotDepth, centerX, centerZ, SURFACE_Y.grass, grassMaterial);
+
+    addRoadWithFootpaths(centerX, centerZ - (lotDepth / 2) - (roadWidth / 2), lotWidth + (roadWidth * 2), roadWidth);
+    addRoadWithFootpaths(centerX, centerZ + (lotDepth / 2) + (roadWidth / 2), lotWidth + (roadWidth * 2), roadWidth);
+    addRoadWithFootpaths(centerX - (lotWidth / 2) - (roadWidth / 2), centerZ, roadWidth, lotDepth);
+    addRoadWithFootpaths(centerX + (lotWidth / 2) + (roadWidth / 2), centerZ, roadWidth, lotDepth);
+    addRoadWithFootpaths(centerX, centerZ, lotWidth * 0.88, localRoadWidth, { gap: 0.8, pad: 1.2 });
+    addRoadWithFootpaths(centerX, centerZ, localRoadWidth, lotDepth * 0.88, { gap: 0.8, pad: 1.2 });
+
+    // Always create cross path + walking loop for every area (including newly created empty areas).
+    addGroundRect(layoutGroup, lotWidth * 0.58, 2.2, centerX, centerZ, SURFACE_Y.path, pathMaterial);
+    addGroundRect(layoutGroup, 2.2, lotDepth * 0.58, centerX, centerZ, SURFACE_Y.path, pathMaterial);
+    addGroundRect(layoutGroup, lotWidth * 0.72, 1.8, centerX, centerZ - (lotDepth * 0.22), SURFACE_Y.path, pathMaterial);
+    addGroundRect(layoutGroup, lotWidth * 0.72, 1.8, centerX, centerZ + (lotDepth * 0.22), SURFACE_Y.path, pathMaterial);
+    addGroundRect(layoutGroup, 1.8, lotDepth * 0.72, centerX - (lotWidth * 0.22), centerZ, SURFACE_Y.path, pathMaterial);
+    addGroundRect(layoutGroup, 1.8, lotDepth * 0.72, centerX + (lotWidth * 0.22), centerZ, SURFACE_Y.path, pathMaterial);
+  });
+
+  // Road markings pass: dashed center lines and zebra crossings at intersections.
+  roadRects.forEach((r) => addLaneMarkingsForRoad(r));
+
+  const intersections = new Set();
+  for (let i = 0; i < roadRects.length; i += 1) {
+    for (let j = i + 1; j < roadRects.length; j += 1) {
+      const a = roadRects[i];
+      const b = roadRects[j];
+      const aH = a.width >= a.depth;
+      const bH = b.width >= b.depth;
+      if (aH === bH) continue;
+
+      const h = aH ? a : b;
+      const v = aH ? b : a;
+      const intersects =
+        Math.abs(v.x - h.x) <= (h.width / 2)
+        && Math.abs(h.z - v.z) <= (v.depth / 2);
+      if (!intersects) continue;
+
+      const ix = v.x;
+      const iz = h.z;
+      const key = `${Math.round(ix)}:${Math.round(iz)}`;
+      if (intersections.has(key)) continue;
+      intersections.add(key);
+
+      const hxOff = (v.width / 2) + 3;
+      const vzOff = (h.depth / 2) + 3;
+
+      addZebraBand(ix - hxOff, iz, true, h.depth);
+      addZebraBand(ix + hxOff, iz, true, h.depth);
+      addZebraBand(ix, iz - vzOff, false, v.width);
+      addZebraBand(ix, iz + vzOff, false, v.width);
+    }
+  }
+
+  window.__roadRects = roadRects.slice();
+  window.__roadNoBuildChecker = isNearRoad;
+
+  // Decoration and pedestrian pass.
+  areaLayouts.forEach((layout) => {
+    const centerX = layout.x;
+    const centerZ = layout.z;
+    const lotWidth = layout.lotWidth;
+    const lotDepth = layout.lotDepth;
+    const placements = layout.placements;
+
+    // Tree rows near sidewalks (ordered, not random scatter).
+    const laneCountX = Math.max(2, Math.floor(lotWidth / (LOW_POWER_MODE ? 38 : 30)));
+    const laneCountZ = Math.max(2, Math.floor(lotDepth / (LOW_POWER_MODE ? 40 : 32)));
+    for (let i = 0; i <= laneCountX; i += 1) {
+      const tx = centerX - (lotWidth / 2) + (i * (lotWidth / Math.max(1, laneCountX)));
+      const topZ = centerZ - (lotDepth / 2) - (sidewalkWidth + 3);
+      const bottomZ = centerZ + (lotDepth / 2) + (sidewalkWidth + 3);
+      if (!isNearRoad(tx, topZ, 4)) addCustomTree(tx, topZ);
+      if (!isNearRoad(tx, bottomZ, 4)) addCustomTree(tx, bottomZ);
+    }
+    for (let i = 0; i <= laneCountZ; i += 1) {
+      const tz = centerZ - (lotDepth / 2) + (i * (lotDepth / Math.max(1, laneCountZ)));
+      const leftX = centerX - (lotWidth / 2) - (sidewalkWidth + 3);
+      const rightX = centerX + (lotWidth / 2) + (sidewalkWidth + 3);
+      if (!isNearRoad(leftX, tz, 4)) addCustomTree(leftX, tz);
+      if (!isNearRoad(rightX, tz, 4)) addCustomTree(rightX, tz);
+    }
+
+    placements.forEach((p, pi) => {
+      const safePlacement = shiftPointOffRoad(p.x, p.z, 14);
+      addOrthogonalStrip(layoutGroup, centerX, centerZ, safePlacement.x, safePlacement.z, pathWidth, SURFACE_Y.path, pathMaterial);
+      if (pi % 2 === 0) {
+        const b1x = safePlacement.x + 3;
+        const b1z = safePlacement.z + 2;
+        if (!isNearRoad(b1x, b1z, 5)) addBench(b1x, b1z);
+      }
+    });
+
+    // Fill empty interior zones with mixed details.
+    const nearPlannedBuilding = (x, z, pad = 22) => {
+      return placements.some((p) => Math.abs(x - p.x) <= pad && Math.abs(z - p.z) <= pad);
+    };
+    const fillCount = LOW_POWER_MODE
+      ? Math.max(8, Math.floor((lotWidth * lotDepth) / 900))
+      : Math.max(12, Math.floor((lotWidth * lotDepth) / 620));
+    for (let i = 0; i < fillCount; i += 1) {
+      const rx = centerX - (lotWidth / 2) + (stableUnit(`fill-x-${layout.areaId}-${i}`) * lotWidth);
+      const rz = centerZ - (lotDepth / 2) + (stableUnit(`fill-z-${layout.areaId}-${i}`) * lotDepth);
+      if (isNearRoad(rx, rz, 6)) continue;
+      if (nearPlannedBuilding(rx, rz, 20)) continue;
+
+      const kind = i % 8;
+      if (kind === 0 || kind === 7) {
+        addCustomTree(rx, rz, 0.04);
+      } else if (kind === 1 || kind === 2 || kind === 6) {
+        addShrubCluster(rx, rz, 1.15 + (stableUnit(`fill-s-${layout.areaId}-${i}`) * 0.8));
+      } else if (kind === 3) {
+        addLampPost(rx, rz);
+      } else if (kind === 4) {
+        addBench(rx, rz);
+      } else if (kind === 5) {
+        addRock(rx, rz);
+      } else if (stableUnit(`fill-pond-${layout.areaId}-${i}`) > 0.7) {
+        addWaterFeature(rx, rz);
+      } else {
+        addShrubCluster(rx, rz, 1.0);
+      }
+    }
+  });
+
+  scene.add(layoutGroup);
+}
+
+function resolveModelUrl(rawUrl) {
+  if (!rawUrl) return '';
+  const u = String(rawUrl).trim();
+  if (!u) return '';
+  if (u.startsWith('/')) return u;
+  return u;
+}
+
+function proxyModelUrl(rawUrl) {
+  const u = String(rawUrl || '').trim();
+  if (!u) return '';
+  if (u.startsWith('http://') || u.startsWith('https://')) {
+    return `/admin/3d-block/model-proxy?url=${encodeURIComponent(u)}`;
+  }
+  return '';
+}
+
+function swapModelVariantPreserveQuery(rawUrl, fromSuffix, toSuffix) {
+  const u = String(rawUrl || '').trim();
+  if (!u || !u.includes(fromSuffix)) return '';
+  return u.replace(fromSuffix, toSuffix);
+}
+
+function simpleHash(input) {
+  const s = String(input || '');
+  let h = 0;
+  for (let i = 0; i < s.length; i += 1) {
+    h = ((h << 5) - h) + s.charCodeAt(i);
+    h |= 0;
+  }
+  return Math.abs(h).toString(36);
+}
+
+function withModelVersion(url, seed) {
+  const u = String(url || '').trim();
+  if (!u) return '';
+  // Do not alter pre-signed URLs or any URL that already carries query parameters.
+  if (u.includes('?') || /x-amz-|signature|policy|expires/i.test(u)) return u;
+  const v = simpleHash(seed || u);
+  return `${u}?v=${v}`;
+}
+
+function ensurePreconnectForUrl(rawUrl) {
+  try {
+    const u = new URL(String(rawUrl || ''), window.location.origin);
+    if (!u || !u.origin || u.origin === window.location.origin) return;
+    const id = `preconnect-${simpleHash(u.origin)}`;
+    if (document.getElementById(id)) return;
+    const link = document.createElement('link');
+    link.id = id;
+    link.rel = 'preconnect';
+    link.href = u.origin;
+    link.crossOrigin = 'anonymous';
+    document.head.appendChild(link);
+  } catch (_) {
+    // Ignore invalid URL parse errors.
+  }
+}
+
+function uniqueUrls(urls) {
+  const seen = new Set();
+  const out = [];
+  urls.forEach((u) => {
+    const v = String(u || '').trim();
+    if (!v || seen.has(v)) return;
+    seen.add(v);
+    out.push(v);
+  });
+  return out;
+}
+
+function getModelUrlCandidates(rawUrl) {
+  const base = String(rawUrl || '').trim();
+  if (!base) return [];
+  const sourceVariant = swapModelVariantPreserveQuery(base, '_draco.glb', '_source.glb');
+  const dracoVariant = swapModelVariantPreserveQuery(base, '_source.glb', '_draco.glb');
+  const isRemote = base.startsWith('http://') || base.startsWith('https://');
+  const proxyFirst = [
+    proxyModelUrl(sourceVariant),
+    proxyModelUrl(base),
+    proxyModelUrl(dracoVariant),
+  ];
+  if (isRemote) {
+    return uniqueUrls([
+      ...proxyFirst,
+      withModelVersion(sourceVariant, `${sourceVariant}|source`),
+      withModelVersion(resolveModelUrl(sourceVariant), `${sourceVariant}|resolved`),
+      withModelVersion(base, `${base}|base`),
+      withModelVersion(resolveModelUrl(base), `${base}|resolved`),
+      withModelVersion(dracoVariant, `${dracoVariant}|draco`),
+      withModelVersion(resolveModelUrl(dracoVariant), `${dracoVariant}|resolved-draco`),
+    ]);
+  }
+  return uniqueUrls([
+    ...proxyFirst,
+    withModelVersion(sourceVariant, `${sourceVariant}|source`),
+    withModelVersion(resolveModelUrl(sourceVariant), `${sourceVariant}|resolved`),
+    withModelVersion(base, `${base}|base`),
+    withModelVersion(resolveModelUrl(base), `${base}|resolved`),
+    withModelVersion(dracoVariant, `${dracoVariant}|draco`),
+    withModelVersion(resolveModelUrl(dracoVariant), `${dracoVariant}|resolved-draco`),
+  ]);
+}
+
+function getFastModelUrlCandidates(rawUrl) {
+  const base = String(rawUrl || '').trim();
+  if (!base) return [];
+  const sourceVariant = swapModelVariantPreserveQuery(base, '_draco.glb', '_source.glb');
+  const dracoVariant = swapModelVariantPreserveQuery(base, '_source.glb', '_draco.glb');
+  const isRemote = base.startsWith('http://') || base.startsWith('https://');
+  if (isRemote) {
+    // Prefer the URL variant already stored in DB first to reduce failed retries.
+    if (base.includes('_draco.glb')) {
+      return uniqueUrls([
+        proxyModelUrl(base),
+        proxyModelUrl(sourceVariant),
+      ]);
+    }
+    if (base.includes('_source.glb')) {
+      return uniqueUrls([
+        proxyModelUrl(base),
+        proxyModelUrl(dracoVariant),
+      ]);
+    }
+    return uniqueUrls([
+      proxyModelUrl(base),
+      proxyModelUrl(dracoVariant),
+      proxyModelUrl(sourceVariant),
+    ]);
+  }
+  return uniqueUrls([
+    withModelVersion(base, `${base}|fast-base`),
+    withModelVersion(sourceVariant, `${sourceVariant}|fast-source`),
+    proxyModelUrl(sourceVariant),
+    proxyModelUrl(base),
+  ]);
+}
+
+function init3DScene() {
+  const container = document.getElementById('block-visualization');
+  if (!container) return;
+  container.innerHTML = '';
+  placedBuildingFootprints.length = 0;
+  fixedBuildingSlots.clear();
+  if (!window.THREE || !window.THREE.Vector3) {
+    container.innerHTML = '<div style="padding:16px;color:#b91c1c;font-weight:700;">Three.js failed to load.</div>';
+    return;
+  }
+
+  const DEFAULT_CAMERA_POS = makeDefaultCameraPos();
+  const DEFAULT_CAMERA_TARGET = makeDefaultCameraTarget();
+
+  scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xe8edf5);
+
+  camera = new THREE.PerspectiveCamera(60, container.offsetWidth / container.offsetHeight, 0.1, 1000);
+  camera.position.copy(DEFAULT_CAMERA_POS);
+
+  renderer = new THREE.WebGLRenderer({ antialias: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  renderer.setSize(container.clientWidth || 1200, container.clientHeight || 500);
+  renderer.shadowMap.enabled = true;
+  if (THREE.PCFSoftShadowMap !== undefined) {
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  }
+  if (renderer.outputColorSpace !== undefined && THREE.SRGBColorSpace !== undefined) {
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+  } else if (renderer.outputEncoding !== undefined && THREE.sRGBEncoding !== undefined) {
+    renderer.outputEncoding = THREE.sRGBEncoding;
+  }
+  if (renderer.toneMapping !== undefined && THREE.NoToneMapping !== undefined) {
+    renderer.toneMapping = THREE.NoToneMapping;
+    renderer.toneMappingExposure = 1.0;
+  }
+  container.appendChild(renderer.domElement);
+
+  const sceneControls = window.Admin3DBlockControls || {};
+  function hideBuildingPeopleFallback() {
+    const panel = document.getElementById('building-people-sidebar-fallback');
+    if (panel) panel.style.display = 'none';
+  }
+
+  function positionFallbackInfoPanels() {
+    const host = container.parentElement || document.body;
+    const infoPanel = document.getElementById('building-info-sidebar-fallback');
+    const peoplePanel = document.getElementById('building-people-sidebar-fallback');
+    if (!host || (!infoPanel && !peoplePanel)) return;
+
+    const pad = 16;
+    const gap = 12;
+    const top = 72;
+    const hostWidth = Math.max(320, host.clientWidth || window.innerWidth || 320);
+    const maxPanelWidth = Math.max(240, hostWidth - (pad * 2));
+
+    if (infoPanel) {
+      const infoWidth = Math.min(300, maxPanelWidth);
+      infoPanel.style.width = `${infoWidth}px`;
+      infoPanel.style.left = `${pad}px`;
+      infoPanel.style.top = `${top}px`;
+    }
+
+    if (peoplePanel) {
+      const peopleWidth = Math.min(340, maxPanelWidth);
+      peoplePanel.style.width = `${peopleWidth}px`;
+      const infoWidth = infoPanel ? Math.min(300, maxPanelWidth) : 0;
+      const sideBySideFits = !!infoPanel && (pad + infoWidth + gap + peopleWidth + pad) <= hostWidth;
+      if (sideBySideFits) {
+        peoplePanel.style.left = `${pad + infoWidth + gap}px`;
+        peoplePanel.style.top = `${top}px`;
+      } else {
+        const infoHeight = infoPanel ? Math.max(180, infoPanel.offsetHeight || 0) : 0;
+        const stackedTop = infoPanel ? (top + infoHeight + gap) : top;
+        peoplePanel.style.left = `${pad}px`;
+        peoplePanel.style.top = `${stackedTop}px`;
+      }
+    }
+  }
+
+  function ensureBuildingPeopleFallbackPanel() {
+    let panel = document.getElementById('building-people-sidebar-fallback');
+    if (panel) return panel;
+    panel = document.createElement('div');
+    panel.id = 'building-people-sidebar-fallback';
+    panel.style.position = 'absolute';
+    panel.style.top = '16px';
+    panel.style.left = '330px';
+    panel.style.width = '340px';
+    panel.style.maxHeight = '70vh';
+    panel.style.overflow = 'hidden';
+    panel.style.zIndex = '1211';
+    panel.style.background = 'rgba(15, 23, 42, 0.96)';
+    panel.style.color = '#e2e8f0';
+    panel.style.border = '1px solid rgba(148, 163, 184, .35)';
+    panel.style.borderRadius = '10px';
+    panel.style.fontSize = '12px';
+    panel.style.fontWeight = '700';
+    panel.style.backdropFilter = 'blur(4px)';
+    panel.style.boxShadow = '0 12px 24px rgba(2, 6, 23, 0.35)';
+    panel.style.display = 'none';
+    container.parentElement.style.position = 'relative';
+    container.parentElement.appendChild(panel);
+    if (!window.__fallbackBuildingSidebarResizeBound) {
+      window.__fallbackBuildingSidebarResizeBound = true;
+      window.addEventListener('resize', positionFallbackInfoPanels);
+    }
+    positionFallbackInfoPanels();
+    return panel;
+  }
+
+  function floorBadgeHtmlFallback(rawFloor) {
+    const label = String(rawFloor || 'Unknown').trim() || 'Unknown';
+    const low = label.toLowerCase();
+    let bg = 'rgba(71,85,105,.35)';
+    let border = 'rgba(148,163,184,.45)';
+    let fg = '#cbd5e1';
+    if (low.includes('ground')) {
+      bg = 'rgba(6,95,70,.35)';
+      border = 'rgba(16,185,129,.45)';
+      fg = '#a7f3d0';
+    } else if (low.includes('basement')) {
+      bg = 'rgba(91,33,182,.35)';
+      border = 'rgba(167,139,250,.45)';
+      fg = '#ddd6fe';
+    } else {
+      const m = low.match(/(\d+)/);
+      if (m) {
+        const n = Number(m[1]);
+        if (Number.isFinite(n)) {
+          const hue = (n * 37) % 360;
+          bg = `hsla(${hue}, 78%, 42%, .35)`;
+          border = `hsla(${hue}, 86%, 64%, .50)`;
+          fg = `hsl(${hue}, 95%, 86%)`;
+        }
+      }
+    }
+    return `<span style="display:inline-flex;align-items:center;border:1px solid ${border};background:${bg};color:${fg};border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800;line-height:1.3;letter-spacing:.02em;">${label}</span>`;
+  }
+
+  function floorBadgesHtmlFallback(rawFloors) {
+    const labels = String(rawFloors || '').split(',').map((item) => item.trim()).filter(Boolean);
+    if (!labels.length) return floorBadgeHtmlFallback('Unknown');
+    return labels.map((label) => floorBadgeHtmlFallback(label)).join(' ');
+  }
+
+  async function openBuildingPeopleFallback(payload) {
+    const areaId = payload?.areaId ?? payload?.area_id;
+    const buildingId = payload?.buildingId ?? payload?.building_id;
+    const panel = ensureBuildingPeopleFallbackPanel();
+    panel.innerHTML = `<div style="padding:14px;">Loading people...</div>`;
+    panel.style.display = 'block';
+    try {
+      const qs = new URLSearchParams({ area_id: String(areaId), building_id: String(buildingId) });
+      const res = await fetch(`/admin/3d-block/building-people?${qs.toString()}`, {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        cache: 'no-store',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        panel.innerHTML = `<div style="padding:14px;color:#fecaca;">${data?.detail || 'Unable to load people list'}</div>`;
+        return;
+      }
+      const people = Array.isArray(data?.people) ? data.people : [];
+      const floorLabel = String(data?.floor_label || payload?.floor_label || payload?.floor || 'Unknown');
+      const cards = people.length ? people.map((p) => {
+        const initials = String((p?.name || '?')).trim().split(/\s+/).map(s => s.slice(0, 1)).join('').slice(0, 2).toUpperCase() || '?';
+        const avatar = p?.photo_url
+          ? `<img src="${p.photo_url}" alt="${p?.name || ''}" style="width:40px;height:40px;border-radius:999px;object-fit:cover;border:1px solid rgba(148,163,184,.35);" onerror="this.style.display='none'; this.nextElementSibling.style.display='grid';"><div style="display:none;width:40px;height:40px;border-radius:999px;place-items:center;background:rgba(30,64,175,.4);color:#bfdbfe;border:1px solid rgba(96,165,250,.35);font-size:12px;font-weight:800;">${initials}</div>`
+          : `<div style="width:40px;height:40px;border-radius:999px;display:grid;place-items:center;background:rgba(30,64,175,.4);color:#bfdbfe;border:1px solid rgba(96,165,250,.35);font-size:12px;font-weight:800;">${initials}</div>`;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.16);">
+          ${avatar}
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:12px;color:#f8fafc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p?.name || '-'}</div>
+            <div style="font-size:10px;color:#93c5fd;letter-spacing:.02em;margin-top:2px;">${p?.employee_id || '-'}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:3px;">${floorBadgeHtmlFallback(p?.floor || floorLabel)}</div>
+            <div style="font-size:10px;color:#94a3b8;margin-top:2px;">In: ${p?.in_time || '-'}</div>
+          </div>
+        </div>`;
+      }).join('') : `<div style="padding:14px;color:#cbd5e1;">No people currently inside this building.</div>`;
+      panel.innerHTML = `
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid rgba(148,163,184,.22);">
+          <div style="font-size:13px;color:#f8fafc;">${data?.building_name || 'Building'} - People ${floorBadgesHtmlFallback(floorLabel)}</div>
+          <button type="button" id="buildingPeopleFallbackCloseBtn" style="border:1px solid rgba(148,163,184,.35);background:transparent;color:#cbd5e1;border-radius:6px;padding:2px 8px;cursor:pointer;">Close</button>
+        </div>
+        <div style="max-height:calc(70vh - 48px);overflow-y:auto;">${cards}</div>
+      `;
+      const close = panel.querySelector('#buildingPeopleFallbackCloseBtn');
+      if (close) close.addEventListener('click', hideBuildingPeopleFallback);
+      positionFallbackInfoPanels();
+    } catch (_) {
+      panel.innerHTML = `<div style="padding:14px;color:#fecaca;">Unable to load people list</div>`;
+      positionFallbackInfoPanels();
+    }
+  }
+
+  function showBuildingInfoFallback(info) {
+    const payload = info || {};
+    const currentPeople = Math.max(0, Math.round(asPositiveNumber(payload.currentPeople ?? payload.current_people, 0)));
+    const requestedMax = Math.round(asPositiveNumber(payload.maxPeople ?? payload.max_limit_people, 20));
+    const maxPeople = Math.max(currentPeople, requestedMax || 20);
+    const utilization = Math.max(0, Math.min(100, Math.round((currentPeople / Math.max(1, maxPeople)) * 100)));
+    const areaSqM = Math.round(asPositiveNumber(payload.footprintAreaSqM ?? payload.areaSqM ?? payload.area_sqm, 0));
+    const floorLabel = String(payload.floor_label || payload.floor || payload.employee?.floor || 'Unknown');
+    const meterColor = utilization >= 90 ? '#ef4444' : utilization >= 75 ? '#f59e0b' : '#22d3ee';
+    const trendValuesRaw = Array.isArray(payload.trendValues) && payload.trendValues.length
+      ? payload.trendValues
+      : [Math.max(0, Math.round(currentPeople * 0.6)), Math.max(0, Math.round(currentPeople * 0.75)), Math.max(0, Math.round(currentPeople * 0.9)), currentPeople];
+    const trendValues = trendValuesRaw.map((v) => Math.min(maxPeople, Math.max(0, Math.round(asPositiveNumber(v, 0)))));
+    const trendLabelsRaw = Array.isArray(payload.trendLabels) && payload.trendLabels.length
+      ? payload.trendLabels
+      : ['D1', 'D2', 'D3', 'D4'];
+    const trendBars = trendValues.map((v, idx) => {
+      const h = Math.max(8, Math.round((v / Math.max(1, maxPeople)) * 44));
+      const label = String(trendLabelsRaw[idx] || '').slice(0, 3);
+      return `<div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <div style="width:14px;height:${h}px;background:rgba(34,211,238,.8);border:1px solid rgba(125,211,252,.55);border-radius:4px 4px 2px 2px;"></div>
+        <div style="font-size:9px;line-height:1;color:#94a3b8;">${label}</div>
+      </div>`;
+    }).join('');
+    const employee = payload.employee && typeof payload.employee === 'object' ? payload.employee : null;
+    const employeeDetailHtml = employee ? `
+      <div style="margin-top:12px;border-top:1px solid rgba(148,163,184,.22);padding-top:10px;">
+        <div style="font-size:10px;opacity:.84;margin-bottom:6px;">Employee Details</div>
+        <div style="display:grid;grid-template-columns:1fr auto;gap:6px 8px;font-size:11px;">
+          <div style="opacity:.78;">Name</div><div>${employee.name || '-'}</div>
+          <div style="opacity:.78;">Employee ID</div><div>${employee.employee_id || '-'}</div>
+          <div style="opacity:.78;">Floor</div><div>${floorBadgeHtmlFallback(employee.floor || floorLabel)}</div>
+          <div style="opacity:.78;">In Time</div><div>${employee.in_time || '-'}</div>
+          <div style="opacity:.78;">Out Time</div><div>${employee.out_time || '-'}</div>
+          <div style="opacity:.78;">Duration</div><div>${employee.duration ?? '-'}</div>
+        </div>
+      </div>
+    ` : '';
+
+    let panel = document.getElementById('building-info-sidebar-fallback');
+    if (!panel) {
+      panel = document.createElement('div');
+      panel.id = 'building-info-sidebar-fallback';
+      panel.style.position = 'absolute';
+      panel.style.top = '16px';
+      panel.style.left = '16px';
+      panel.style.width = '300px';
+      panel.style.zIndex = '1210';
+      panel.style.background = 'rgba(15, 23, 42, 0.96)';
+      panel.style.color = '#e2e8f0';
+      panel.style.padding = '12px';
+      panel.style.border = '1px solid rgba(148, 163, 184, .35)';
+      panel.style.borderRadius = '10px';
+      panel.style.fontSize = '12px';
+      panel.style.fontWeight = '700';
+      panel.style.backdropFilter = 'blur(4px)';
+      panel.style.boxShadow = '0 12px 24px rgba(2, 6, 23, 0.35)';
+      panel.style.display = 'none';
+      container.parentElement.style.position = 'relative';
+      container.parentElement.appendChild(panel);
+    }
+
+    panel.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
+        <div style="font-size:13px;color:#f8fafc;letter-spacing:.02em;">${payload.name || 'Building'}</div>
+        <button type="button" id="buildingInfoFallbackCloseBtn" style="border:1px solid rgba(148,163,184,.35);background:transparent;color:#cbd5e1;border-radius:6px;padding:2px 8px;cursor:pointer;">Close</button>
+      </div>
+      <div style="margin-top:8px;opacity:.86;font-size:11px;">Area: ${payload.areaName || '-'}</div>
+      <div style="margin-top:10px;display:grid;grid-template-columns:1fr auto;gap:6px 8px;font-size:11px;">
+        <div style="opacity:.78;">Building Area</div><div>${areaSqM > 0 ? `${areaSqM} sq m` : 'Not available'}</div>
+        <div style="opacity:.78;">Floors Occupied</div><div>${floorBadgesHtmlFallback(floorLabel)}</div>
+        <div style="opacity:.78;">People Inside</div><button type="button" id="buildingPeopleFallbackBtn" style="justify-self:end;border:1px solid rgba(59,130,246,.35);background:rgba(30,64,175,.25);color:#bfdbfe;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:800;cursor:pointer;">${currentPeople}</button>
+        <div style="opacity:.78;">Max Limit</div><div>${maxPeople}</div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;font-size:10px;opacity:.84;">
+          <span>Occupancy Meter</span><span>${utilization}%</span>
+        </div>
+        <div style="margin-top:6px;height:10px;background:rgba(148,163,184,.2);border-radius:999px;overflow:hidden;">
+          <div style="height:100%;width:${utilization}%;background:${meterColor};transition:width .25s ease;"></div>
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <div style="font-size:10px;opacity:.84;">Occupancy Trend (recent)</div>
+        <div style="margin-top:6px;height:54px;display:flex;align-items:flex-end;gap:6px;padding:4px 6px;background:rgba(15,23,42,.45);border:1px solid rgba(148,163,184,.28);border-radius:8px;">
+          ${trendBars}
+        </div>
+      </div>
+      ${employeeDetailHtml}
+    `;
+    const close = panel.querySelector('#buildingInfoFallbackCloseBtn');
+    if (close) {
+      close.addEventListener('click', () => {
+        panel.style.display = 'none';
+        hideBuildingPeopleFallback();
+      });
+    }
+    const peopleBtn = panel.querySelector('#buildingPeopleFallbackBtn');
+    if (peopleBtn) {
+      peopleBtn.addEventListener('click', () => openBuildingPeopleFallback(payload));
+    }
+    panel.style.display = 'block';
+    if (!window.__fallbackBuildingSidebarResizeBound) {
+      window.__fallbackBuildingSidebarResizeBound = true;
+      window.addEventListener('resize', positionFallbackInfoPanels);
+    }
+    positionFallbackInfoPanels();
+  }
+
+  function hideBuildingInfoFallback() {
+    const panel = document.getElementById('building-info-sidebar-fallback');
+    if (panel) panel.style.display = 'none';
+    hideBuildingPeopleFallback();
+  }
+
+  function showBuildingInfoSafe(obj) {
+    const payload = obj?.userData || {};
+    try {
+      if (typeof sceneControls.showBuildingInfo === 'function') {
+        sceneControls.showBuildingInfo(obj, payload);
+        const mainPanel = document.getElementById('building-info-sidebar');
+        if (mainPanel && mainPanel.style.display !== 'none') return;
+      }
+    } catch (_) {}
+    showBuildingInfoFallback(payload);
+  }
+
+  function hideBuildingInfoSafe() {
+    let hidden = false;
+    try {
+      if (typeof sceneControls.hideBuildingInfo === 'function') {
+        sceneControls.hideBuildingInfo();
+        hidden = true;
+      }
+    } catch (_) {}
+    hideBuildingInfoFallback();
+    return hidden;
+  }
+
+  if (typeof sceneControls.addSceneDetails === 'function') {
+    sceneControls.addSceneDetails(scene);
+  } else {
+    scene.add(new THREE.HemisphereLight(0xffffff, 0x666677, 0.7));
+    const simpleGround = new THREE.Mesh(
+      new THREE.PlaneGeometry(900, 900),
+      new THREE.MeshStandardMaterial({ color: 0x5b6472, roughness: 1.0 })
+    );
+    simpleGround.rotation.x = -Math.PI / 2;
+    scene.add(simpleGround);
+  }
+  addEditorLighting(scene);
+  const baseGrid = new THREE.GridHelper(700, 40, 0x2f3c55, 0x1f2737);
+  baseGrid.position.y = -0.04;
+  scene.add(baseGrid);
+  if (typeof sceneControls.enableOrbitControls === 'function') {
+    orbitControls = sceneControls.enableOrbitControls(camera, renderer);
+    orbitControls.target.copy(DEFAULT_CAMERA_TARGET);
+    orbitControls.update();
+  } else {
+    orbitControls = {
+      target: new THREE.Vector3(0, 0, 0),
+      update: function () {},
+    };
+  }
+
+  setResetViewFromCurrent();
+  loadCameraPreference();
+  if (orbitControls && typeof orbitControls.addEventListener === 'function') {
+    orbitControls.addEventListener('end', () => {
+      setResetViewFromCurrent();
+      saveCameraPreference();
+    });
+  }
+
+  const hasLoader = !!THREE.GLTFLoader;
+  let loader = null;
+  const dracoDecoderPaths = [
+    'https://www.gstatic.com/draco/versioned/decoders/1.5.7/',
+  ];
+
+  function createGltfLoader(dracoPathIndex = 0) {
+    const l = new THREE.GLTFLoader();
+    if (THREE.DRACOLoader) {
+      const draco = new THREE.DRACOLoader();
+      const decoderPath = dracoDecoderPaths[Math.max(0, Math.min(dracoPathIndex, dracoDecoderPaths.length - 1))];
+      draco.setDecoderPath(decoderPath);
+      const hw = Number(window.navigator?.hardwareConcurrency || 4);
+      draco.setWorkerLimit(Math.max(2, Math.min(8, hw)));
+      if (typeof draco.preload === 'function') draco.preload();
+      l.setDRACOLoader(draco);
+    }
+    return l;
+  }
+  const hasAssignedGlb = AREA_DATA.some((area) => {
+    const areaBuildings = Array.isArray(area.buildings) ? area.buildings : [];
+    return areaBuildings.some((building) => !!building.glb_path);
+  });
+  if (hasLoader) {
+    if (THREE.Cache) THREE.Cache.enabled = true;
+    loader = createGltfLoader(0);
+  } else if (hasAssignedGlb) {
+    setModelStatus(container, 'GLTFLoader unavailable. Assigned building models cannot be rendered.');
+  }
+
+  const modelJobs = [];
+  addAreaRoadAndGrassLayout(scene);
+  AREA_DATA.forEach((area) => {
+    const areaBuildings = Array.isArray(area.buildings) ? area.buildings : [];
+    areaBuildings.forEach((building) => {
+      const { x: posX, z: posZ } = getBuildingPlacement(area, building);
+      const reserved = getFixedBuildingSlot(area.id, building.id, posX, posZ, 7, 5, 6, 22);
+      if (!building.glb_path || !loader) {
+        return;
+      }
+      ensurePreconnectForUrl(building.glb_path);
+      modelJobs.push({
+        areaId: String(area.id),
+        areaName: area.name,
+        buildingId: building.id,
+        buildingName: building.name,
+        floorLabel: building.floor_label || 'Unknown',
+        currentPeople: asPositiveNumber(building.current_people, 0),
+        maxPeople: asPositiveNumber(building.max_limit_people, 20),
+        trendValues: Array.isArray(building.occupancy_trend) ? building.occupancy_trend : [],
+        trendLabels: Array.isArray(building.occupancy_trend_labels) ? building.occupancy_trend_labels : [],
+        glbPath: building.glb_path,
+        posX: reserved.x,
+        posZ: reserved.z,
+      });
+    });
+
+    const placements = areaBuildings.map((b) => getBuildingPlacement(area, b));
+    const anchor = anchorForArea(AREA_DATA.findIndex(a => a.id === area.id));
+    if (placements.length) areaCenters[String(area.id)] = new THREE.Vector3(anchor.x, 0, anchor.z);
+    else areaCenters[String(area.id)] = new THREE.Vector3(anchor.x, 0, anchor.z);
+  });
+  function loadModelJob(job) {
+    return new Promise((resolve) => {
+      let settled = false;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        resolve(true);
+      };
+
+    const urlsToTry = getFastModelUrlCandidates(job.glbPath);
+
+    function onLoadSuccess(gltf) {
+      const model = gltf.scene;
+      normalizeModelToSlot(model, 34);
+      const box = new THREE.Box3().setFromObject(model);
+      const size = new THREE.Vector3();
+      box.getSize(size);
+      const halfW = Math.max(4, size.x / 2) + 1.5;
+      const halfD = Math.max(4, size.z / 2) + 1.5;
+      model.position.set(job.posX, 0, job.posZ);
+      const normalizedCurrent = Math.round(asPositiveNumber(job.currentPeople, 0));
+      const normalizedMax = Math.max(normalizedCurrent, Math.round(asPositiveNumber(job.maxPeople, 20)));
+      const normalizedTrendValues = (Array.isArray(job.trendValues) ? job.trendValues : [])
+        .map((v) => Math.max(0, Math.round(asPositiveNumber(v, 0))))
+        .slice(-7);
+      const normalizedTrendLabels = (Array.isArray(job.trendLabels) ? job.trendLabels : [])
+        .map((v) => String(v || ''))
+        .slice(-7);
+      model.userData = {
+        areaId: Number.isFinite(Number(job.areaId)) ? Number(job.areaId) : job.areaId,
+        buildingId: job.buildingId,
+        name: job.buildingName,
+        areaName: job.areaName,
+        floor_label: job.floorLabel || 'Unknown',
+        currentPeople: normalizedCurrent,
+        maxPeople: normalizedMax,
+        utilizationPercent: Math.round((normalizedCurrent / Math.max(1, normalizedMax)) * 100),
+        footprintAreaSqM: Math.round((halfW * 2) * (halfD * 2)),
+        trendValues: normalizedTrendValues,
+        trendLabels: normalizedTrendLabels,
+      };
+      applyModelMaterialFidelity(model);
+      attachBuildingObjectWithDecor(model, job.areaId, job.buildingId, job.posX, job.posZ, halfW, halfD);
+      progressStats.loaded += 1;
+      const key = `${job.areaId}:${job.buildingId}`;
+      if (visibleSet.has(key)) progressStats.visibleLoaded += 1;
+      updateModelProgressUi(container, progressStats);
+      requestAutoFrameWhenStable();
+      done();
+    }
+
+    function failJob() {
+      modelLoadFailures.push(job.buildingName || String(job.buildingId || 'Unknown'));
+      progressStats.failed += 1;
+      updateModelProgressUi(container, progressStats);
+      requestAutoFrameWhenStable();
+      setModelStatus(
+        container,
+        `Some assigned GLB models failed to load (${modelLoadFailures.length}). Check model URL/CORS/decoder.`
+      );
+      done();
+    }
+
+    function tryLoadModel(urlIndex) {
+      const activeLoader = loader || createGltfLoader(0);
+      activeLoader.load(
+        urlsToTry[urlIndex],
+        onLoadSuccess,
+        undefined,
+        function() {
+          if (urlIndex < urlsToTry.length - 1) {
+            tryLoadModel(urlIndex + 1);
+            return;
+          }
+          const fullFallbackUrls = getModelUrlCandidates(job.glbPath);
+          const remaining = fullFallbackUrls.filter((u) => !urlsToTry.includes(u));
+          if (remaining.length) {
+            activeLoader.load(remaining[0], onLoadSuccess, undefined, failJob);
+            return;
+          }
+          failJob();
+        }
+      );
+    }
+
+    if (urlsToTry.length) {
+      tryLoadModel(0);
+    } else {
+      failJob();
+    }
+    });
+  }
+
+  function scheduleLazyLoad(queue) {
+    const q = queue.slice();
+    const hw = Number(window.navigator?.hardwareConcurrency || 6);
+    const maxConcurrent = Math.max(4, Math.min(12, hw + 2));
+    let active = 0;
+
+    const pump = () => {
+      while (active < maxConcurrent && q.length) {
+        const job = q.shift();
+        active += 1;
+        loadModelJob(job).finally(() => {
+          active -= 1;
+          if (q.length) {
+            setTimeout(pump, 0);
+          }
+        });
+      }
+    };
+
+    pump();
+  }
+
+  const areaFilterEl = document.getElementById('areaFilter');
+  const selectedAreaKey = String(areaFilterEl?.value || '').trim();
+  modelJobs.sort((a, b) => {
+    const ap = selectedAreaKey && a.areaId === selectedAreaKey ? 0 : 1;
+    const bp = selectedAreaKey && b.areaId === selectedAreaKey ? 0 : 1;
+    return ap - bp;
+  });
+  const immediateCount = selectedAreaKey
+    ? Math.max(1, modelJobs.filter((j) => j.areaId === selectedAreaKey).length)
+    : Math.min(LOW_POWER_MODE ? 4 : 6, modelJobs.length);
+  const immediateJobs = modelJobs.slice(0, immediateCount);
+  const deferredJobs = modelJobs.slice(immediateCount);
+  const visibleJobs = selectedAreaKey ? modelJobs.filter((j) => j.areaId === selectedAreaKey) : immediateJobs;
+  const progressStats = {
+    total: modelJobs.length,
+    loaded: 0,
+    failed: 0,
+    visibleTotal: visibleJobs.length,
+    visibleLoaded: 0,
+  };
+  const visibleSet = new Set(visibleJobs.map((j) => `${j.areaId}:${j.buildingId}`));
+  function requestAutoFrameWhenStable() {
+    if (hasSavedCameraPreference || hasAutoFramedFromModelLoads) return;
+    const visibleReady = progressStats.visibleTotal === 0 || progressStats.visibleLoaded >= progressStats.visibleTotal;
+    const totalResolved = progressStats.total > 0 && (progressStats.loaded + progressStats.failed) >= progressStats.total;
+    if (!visibleReady && !totalResolved) return;
+    hasAutoFramedFromModelLoads = true;
+    requestAutoFrame();
+  }
+  updateModelProgressUi(container, progressStats);
+  const startImmediateLoads = () => immediateJobs.forEach(loadModelJob);
+  if (typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(startImmediateLoads, { timeout: 350 });
+  } else {
+    setTimeout(startImmediateLoads, 0);
+  }
+  if (deferredJobs.length) {
+    scheduleLazyLoad(deferredJobs);
+  }
+
+  if (!AREA_DATA.length) {
+    const demoMat = new THREE.MeshStandardMaterial({ color: 0xaec4ef });
+    for (let i = -2; i <= 2; i += 1) {
+      const demo = new THREE.Mesh(new THREE.BoxGeometry(22, 12, 14), demoMat);
+      demo.position.set(i * 28, 6, 0);
+      scene.add(demo);
+    }
+    requestAutoFrame();
+  }
+
+  // Camera reset button for exact calibrated default view.
+  if (!document.getElementById('cameraResetBtn')) {
+    const btn = document.createElement('button');
+    btn.id = 'cameraResetBtn';
+    btn.textContent = 'Reset View';
+    btn.style.position = 'absolute';
+    btn.style.right = '22px';
+    btn.style.top = '72px';
+    btn.style.zIndex = '1200';
+    btn.style.padding = '7px 10px';
+    btn.style.fontSize = '11px';
+    btn.style.fontWeight = '800';
+    btn.style.letterSpacing = '0.08em';
+    btn.style.textTransform = 'uppercase';
+    btn.style.border = '1px solid #cbd5e1';
+    btn.style.background = '#ffffff';
+    btn.style.color = '#0f172a';
+    btn.style.cursor = 'pointer';
+    btn.addEventListener('click', () => {
+      if (resetCameraPos && resetCameraTarget) {
+        camera.position.copy(resetCameraPos);
+        orbitControls.target.copy(resetCameraTarget);
+      } else {
+        camera.position.copy(DEFAULT_CAMERA_POS);
+        orbitControls.target.copy(DEFAULT_CAMERA_TARGET);
+      }
+      focusTarget = null;
+      orbitControls.update();
+    });
+    container.parentElement.style.position = 'relative';
+    container.parentElement.appendChild(btn);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.id = 'cameraClearSavedBtn';
+    clearBtn.textContent = 'Clear Saved View';
+    clearBtn.style.position = 'absolute';
+    clearBtn.style.right = '22px';
+    clearBtn.style.top = '108px';
+    clearBtn.style.zIndex = '1200';
+    clearBtn.style.padding = '7px 10px';
+    clearBtn.style.fontSize = '11px';
+    clearBtn.style.fontWeight = '800';
+    clearBtn.style.letterSpacing = '0.08em';
+    clearBtn.style.textTransform = 'uppercase';
+    clearBtn.style.border = '1px solid #cbd5e1';
+    clearBtn.style.background = '#ffffff';
+    clearBtn.style.color = '#0f172a';
+    clearBtn.style.cursor = 'pointer';
+    clearBtn.addEventListener('click', () => {
+      try {
+        localStorage.removeItem(CAMERA_PREF_KEY);
+      } catch (_) {}
+      hasSavedCameraPreference = false;
+      frameSceneToBuildings();
+    });
+    container.parentElement.appendChild(clearBtn);
+  }
+
+  const raycaster = new THREE.Raycaster();
+  const mouse = new THREE.Vector2();
+  let selectedBuilding = null;
+
+  function getRootModelFromIntersection(hit) {
+    let obj = hit.object;
+    while (obj && !obj.userData.areaId) obj = obj.parent;
+    return obj;
+  }
+
+  function onPointerMove(event) {
+    if (onPointerMove._busy) return;
+    onPointerMove._busy = true;
+    requestAnimationFrame(() => {
+      onPointerMove._busy = false;
+      const rect = renderer.domElement.getBoundingClientRect();
+      mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+      mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(loadedBuildings, true).filter(i => i.object && i.object.isMesh);
+      renderer.domElement.style.cursor = intersects.length > 0 ? 'pointer' : 'default';
+    });
+  }
+  renderer.domElement.addEventListener('pointermove', onPointerMove);
+  renderer.domElement.addEventListener('pointerleave', () => {
+    renderer.domElement.style.cursor = 'default';
+  });
+
+  renderer.domElement.addEventListener('click', function(event) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+    raycaster.setFromCamera(mouse, camera);
+    const intersects = raycaster.intersectObjects(loadedBuildings, true).filter(i => i.object && i.object.isMesh);
+    if (intersects.length > 0) {
+      const obj = getRootModelFromIntersection(intersects[0]);
+      if (!obj) return;
+      if (selectedBuilding && selectedBuilding !== obj && sceneControls.highlightBuilding) {
+        sceneControls.highlightBuilding(selectedBuilding, false);
+      }
+      selectedBuilding = obj;
+      if (sceneControls.highlightBuilding) sceneControls.highlightBuilding(obj, true);
+      focusTarget = new THREE.Vector3(obj.position.x, 0, obj.position.z);
+      focusDistance = 130;
+      showBuildingInfoSafe(obj);
+    } else {
+      if (selectedBuilding && sceneControls.highlightBuilding) {
+        sceneControls.highlightBuilding(selectedBuilding, false);
+      }
+      selectedBuilding = null;
+      hideBuildingInfoSafe();
+    }
+  });
+
+  function applyLiveDataSnapshot(nextAreas) {
+    const byBuilding = new Map();
+    const areas = Array.isArray(nextAreas) ? nextAreas : [];
+    areas.forEach((area) => {
+      const areaId = String(area?.id ?? '');
+      const buildings = Array.isArray(area?.buildings) ? area.buildings : [];
+      buildings.forEach((b) => {
+        byBuilding.set(`${areaId}:${String(b?.id ?? '')}`, {
+          areaName: area?.name || '',
+          floor_label: String(b?.floor_label || 'Unknown'),
+          currentPeople: Math.round(asPositiveNumber(b?.current_people, 0)),
+          maxPeople: Math.round(asPositiveNumber(b?.max_limit_people, 20)),
+          trendValues: Array.isArray(b?.occupancy_trend) ? b.occupancy_trend.map((v) => Math.round(asPositiveNumber(v, 0))).slice(-7) : [],
+          trendLabels: Array.isArray(b?.occupancy_trend_labels) ? b.occupancy_trend_labels.map((v) => String(v || '')).slice(-7) : [],
+        });
+      });
+    });
+
+    loadedBuildings.forEach((obj) => {
+      const areaId = String(obj?.userData?.areaId ?? '');
+      const buildingId = String(obj?.userData?.buildingId ?? '');
+      const incoming = byBuilding.get(`${areaId}:${buildingId}`);
+      if (!incoming) return;
+      const maxPeople = Math.max(incoming.currentPeople, incoming.maxPeople || 20);
+      obj.userData.currentPeople = incoming.currentPeople;
+      obj.userData.maxPeople = maxPeople;
+      obj.userData.utilizationPercent = Math.round((incoming.currentPeople / Math.max(1, maxPeople)) * 100);
+      obj.userData.trendValues = incoming.trendValues;
+      obj.userData.trendLabels = incoming.trendLabels;
+      if (incoming.areaName) obj.userData.areaName = incoming.areaName;
+      if (incoming.floor_label) obj.userData.floor_label = incoming.floor_label;
+    });
+
+    if (selectedBuilding) {
+      showBuildingInfoSafe(selectedBuilding);
+    }
+  }
+
+  async function refreshLiveData() {
+    if (document.hidden) return;
+    setLiveDataStatus(container, 'Live Data: Refreshing...', 'warning');
+    try {
+      const response = await fetch('/admin/3d-block/data', {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      applyLiveDataSnapshot(payload?.areas || []);
+      const renderClock = () => {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        setLiveDataStatus(container, `Live Data: Synced ${hh}:${mm}:${ss}`, 'success');
+      };
+      renderClock();
+      if (liveClockTimer) {
+        clearInterval(liveClockTimer);
+        liveClockTimer = null;
+      }
+      liveClockTimer = setInterval(renderClock, 1000);
+    } catch (_) {
+      if (liveClockTimer) {
+        clearInterval(liveClockTimer);
+        liveClockTimer = null;
+      }
+      setLiveDataStatus(container, 'Live Data: Sync Failed', 'error');
+    }
+  }
+
+  function setLiveAutoRefresh(enabled, triggerRefresh = true) {
+    liveAutoRefreshEnabled = !!enabled;
+    persistLiveRefreshPreference(liveAutoRefreshEnabled);
+    paintLiveRefreshToggleButton(container);
+
+    if (liveDataPollTimer) {
+      clearInterval(liveDataPollTimer);
+      liveDataPollTimer = null;
+    }
+    if (liveClockTimer) {
+      clearInterval(liveClockTimer);
+      liveClockTimer = null;
+    }
+
+    if (!liveAutoRefreshEnabled) {
+      const renderOffClock = () => {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        setLiveDataStatus(container, `Live Data: Auto Refresh Off ${hh}:${mm}:${ss}`, 'neutral');
+      };
+      renderOffClock();
+      liveClockTimer = setInterval(renderOffClock, 1000);
+      return;
+    }
+
+    if (triggerRefresh) refreshLiveData();
+    liveDataPollTimer = setInterval(refreshLiveData, LIVE_DATA_POLL_MS);
+  }
+
+  function animateFocus() {
+    if (!focusTarget) return;
+    const currentTarget = orbitControls.target.clone();
+    const desiredTarget = focusTarget.clone();
+    const direction = new THREE.Vector3(0.62, 0.82, 0.78).normalize();
+    const distance = focusDistance || 300;
+    const desiredCam = desiredTarget.clone().add(direction.multiplyScalar(distance));
+    currentTarget.lerp(desiredTarget, 0.08);
+    camera.position.lerp(desiredCam, 0.08);
+    orbitControls.target.copy(currentTarget);
+    if (camera.position.distanceTo(desiredCam) < 0.6 && currentTarget.distanceTo(desiredTarget) < 0.6) {
+      focusTarget = null;
+      focusDistance = null;
+    }
+  }
+
+  window.addEventListener('resize', () => {
+    const w = container.offsetWidth;
+    const h = container.offsetHeight;
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+    renderer.setSize(w, h);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
+  });
+
+  function animate() {
+    requestAnimationFrame(animate);
+    if (document.hidden) return;
+    animateFocus();
+    orbitControls.update();
+    renderer.render(scene, camera);
+  }
+  requestAutoFrame();
+  ensureLiveDataStatusBar(container);
+  ensureLiveRefreshToggleButton(container);
+  ensureManualRefreshButton(container);
+  liveAutoRefreshEnabled = loadLiveRefreshPreference();
+  paintLiveRefreshToggleButton(container);
+  const toggleBtn = document.getElementById('liveRefreshToggleBtn');
+  const refreshNowBtn = document.getElementById('liveRefreshNowBtn');
+  if (toggleBtn && !toggleBtn.dataset.bound) {
+    toggleBtn.dataset.bound = '1';
+    toggleBtn.addEventListener('click', () => {
+      setLiveAutoRefresh(!liveAutoRefreshEnabled, true);
+    });
+  }
+  if (refreshNowBtn && !refreshNowBtn.dataset.bound) {
+    refreshNowBtn.dataset.bound = '1';
+    refreshNowBtn.addEventListener('click', () => {
+      refreshLiveData();
+    });
+  }
+  setLiveAutoRefresh(liveAutoRefreshEnabled, true);
+  if (pendingAreaFocusId !== null) {
+    const pending = pendingAreaFocusId;
+    pendingAreaFocusId = null;
+    focusArea(pending);
+  }
+  animate();
+}
+
+function focusArea(areaId) {
+  if (!window.THREE || !camera || !orbitControls) {
+    pendingAreaFocusId = areaId;
+    return;
+  }
+  const DEFAULT_CAMERA_POS = makeDefaultCameraPos();
+  const DEFAULT_CAMERA_TARGET = makeDefaultCameraTarget();
+  const areaKey = areaId === null || areaId === undefined || areaId === '' ? null : String(areaId);
+
+  if (areaKey) {
+    const areaObjects = loadedBuildings.filter((b) => String(b?.userData?.areaId) === areaKey);
+    let computedFocusDistance = null;
+    const directCenter = areaCenters[areaKey];
+    if (directCenter) {
+      focusTarget = directCenter.clone();
+      if (areaObjects.length) {
+        const box = new THREE.Box3();
+        const size = new THREE.Vector3();
+        box.makeEmpty();
+        areaObjects.forEach((obj) => box.expandByObject(obj));
+        box.getSize(size);
+        const maxDim = Math.max(size.x, size.y, size.z, 20);
+        computedFocusDistance = THREE.MathUtils.clamp(maxDim * 2.25, 95, 260);
+      }
+    } else {
+      // Fallback: derive center from loaded objects in the selected area.
+      if (areaObjects.length) {
+        const box = new THREE.Box3();
+        const size = new THREE.Vector3();
+        box.makeEmpty();
+        areaObjects.forEach((obj) => box.expandByObject(obj));
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        box.getSize(size);
+        focusTarget = center;
+        const maxDim = Math.max(size.x, size.y, size.z, 20);
+        computedFocusDistance = THREE.MathUtils.clamp(maxDim * 2.25, 95, 260);
+      } else {
+        focusTarget = DEFAULT_CAMERA_TARGET.clone();
+      }
+    }
+    focusDistance = computedFocusDistance || 160;
+    loadedBuildings.forEach((b) => {
+      const same = String(b?.userData?.areaId) === areaKey;
+      b.visible = true;
+      b.traverse((c) => {
+        if (c.isMesh && c.material && c.material.transparent !== undefined) {
+          c.material.transparent = true;
+          c.material.opacity = same ? 1.0 : 0.3;
+        }
+      });
+    });
+  } else {
+    focusDistance = null;
+    if (resetCameraPos && resetCameraTarget) {
+      focusTarget = resetCameraTarget.clone();
+      camera.position.copy(resetCameraPos);
+      orbitControls.target.copy(resetCameraTarget);
+    } else {
+      focusTarget = DEFAULT_CAMERA_TARGET.clone();
+      camera.position.copy(DEFAULT_CAMERA_POS);
+      orbitControls.target.copy(DEFAULT_CAMERA_TARGET);
+    }
+    loadedBuildings.forEach((b) => {
+      b.visible = true;
+      b.traverse((c) => {
+        if (c.isMesh && c.material && c.material.transparent !== undefined) {
+          c.material.transparent = false;
+          c.material.opacity = 1.0;
+        }
+      });
+    });
+  }
+}
+
+function focusBuildingByIds(areaId, buildingId, employee) {
+  if (!window.THREE || !camera || !orbitControls) return false;
+  const areaKey = String(areaId ?? '');
+  const buildingKey = String(buildingId ?? '');
+  if (!areaKey || !buildingKey) return false;
+  const obj = loadedBuildings.find((b) =>
+    String(b?.userData?.areaId ?? '') === areaKey &&
+    String(b?.userData?.buildingId ?? '') === buildingKey
+  );
+  if (!obj) return false;
+
+  const controls = window.Admin3DBlockControls || {};
+  if (searchHighlightedBuilding && searchHighlightedBuilding !== obj && typeof controls.highlightBuilding === 'function') {
+    controls.highlightBuilding(searchHighlightedBuilding, false);
+  }
+  searchHighlightedBuilding = obj;
+  if (typeof controls.highlightBuilding === 'function') {
+    controls.highlightBuilding(obj, true, { mode: 'employee' });
+  }
+
+  const areaFilter = document.getElementById('areaFilter');
+  if (areaFilter) {
+    areaFilter.value = areaKey;
+  }
+  focusArea(areaKey);
+  focusTarget = new THREE.Vector3(obj.position.x, 0, obj.position.z);
+  focusDistance = 115;
+
+  const payload = {
+    ...(obj.userData || {}),
+    employee: employee || null,
+  };
+  if (typeof controls.showBuildingInfo === 'function') {
+    try {
+      controls.showBuildingInfo(obj, payload);
+    } catch (_) {}
+  }
+  return true;
+}
+
+window.Admin3DScene = {
+  focusArea,
+  focusBuildingByIds,
+};
+
+async function start3DPage() {
+  Promise.resolve(ensureThreeDependencies())
+    .then(() => boot3DScene())
+    .catch((err) => {
+    const container = document.getElementById('block-visualization');
+    if (container) {
+      container.innerHTML = '<div style="padding:16px;color:#b91c1c;font-weight:700;">3D scene failed to initialize. Check browser console.</div>';
+    }
+    console.error('3D scene init error:', err);
+    });
+
+  const areaFilter = document.getElementById('areaFilter');
+  if (areaFilter) {
+    areaFilter.addEventListener('change', function () {
+      const val = areaFilter.value;
+      focusArea(val || null);
+    });
+  }
+}
+
+if (document.readyState === 'loading') {
+  window.addEventListener('DOMContentLoaded', start3DPage, { once: true });
+} else {
+  start3DPage();
+}
+</script>
+<script src="/static/admin_3d_block.js"></script>
+{% endblock %}
+

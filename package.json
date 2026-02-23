@@ -1,0 +1,11 @@
+{
+  "name": "dashboard-8",
+  "private": true,
+  "scripts": {
+    "tailwind:build": "tailwindcss -c ./static/tailwind.config.js -i ./static/tailwind.input.css -o ./static/tailwind.css --minify",
+    "tailwind:watch": "tailwindcss -c ./static/tailwind.config.js -i ./static/tailwind.input.css -o ./static/tailwind.css --watch"
+  },
+  "devDependencies": {
+    "tailwindcss": "^3.4.17"
+  }
+}

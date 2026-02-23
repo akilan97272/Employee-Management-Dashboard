@@ -1,0 +1,7 @@
+bind = ["0.0.0.0:8000"]
+workers = 1
+worker_class = "asyncio"
+keep_alive_timeout = 30
+graceful_timeout = 30
+accesslog = "-"
+errorlog = "-"

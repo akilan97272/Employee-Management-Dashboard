@@ -1,0 +1,5 @@
+# Node dependencies used by the 3D model pipeline
+# Install globally (PowerShell):
+# Get-Content .\requirements-node.txt | ForEach-Object { npm install -g $_ }
+
+@gltf-transform/cli
