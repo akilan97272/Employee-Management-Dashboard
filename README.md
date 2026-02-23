@@ -1,11 +1,11 @@
-﻿# ðŸ§¾ Attendance Management System
+﻿﻿# Attendance Management System
 
 A comprehensive **RFID-based attendance tracking system** built with **FastAPI**, **MariaDB**, and **Tailwind CSS**. This application allows organizations to monitor employee attendance in real-time, manage user roles, and generate reports.
 
 ---
 
 
-## ðŸ“‘ Table of Contents
+##  Table of Contents
 
 * [Features](#features)
 * [Tech Stack](#tech-stack)
@@ -29,7 +29,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 
 ---
 
-## âœ¨ Features
+## Features
 
 * **User Authentication**: Role-based access control (Super Admin, Admin, Employee).
 * **RFID Integration**: Real-time attendance recording using RFID tags sent from an ESP32 or similar microcontroller.
@@ -43,7 +43,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 * **Reporting**: Filter attendance by department, employee, or date.
 * **Unknown RFID Detection**: Log and alert on unrecognized RFID tags.
 
-## ðŸ§± Tech Stack
+##  Tech Stack
 
 * **Backend**: FastAPI (Python)
 * **Database**: MariaDB
@@ -53,7 +53,7 @@ A comprehensive **RFID-based attendance tracking system** built with **FastAPI**
 
 ---
 
-## ðŸ§° Prerequisites
+##  Prerequisites
 
 * Python 3.8+
 * `pip` (Python package manager)
@@ -138,7 +138,7 @@ Python backend:
 
 ---
 
-## âš™ï¸ Installation
+##  Installation
 
 1. **Create a virtual environment**
 
@@ -176,7 +176,7 @@ DATABASE_URL=" <-- your database url --> "
 ```
 ---
 
-## âš¡ Running the Application
+## Running the Application
 
 Development (hot reload, slower):
 
@@ -238,7 +238,7 @@ Replace `path/to/ssl/key.pem` and `path/to/ssl/cert.pem` with real file paths.
 
 ---
 
-## ðŸ“˜ Usage
+##  Usage
 
 ### Login and Navigation
 
@@ -278,7 +278,7 @@ Configure your ESP device to send POST requests to the attendance API endpoint w
 
 ---
 
-## ðŸ“¡ API Endpoints
+## API Endpoints
 
 **Authentication**
 
@@ -304,14 +304,14 @@ Configure your ESP device to send POST requests to the attendance API endpoint w
 
 ---
 
-## ðŸ“¦ Database Schema
+##  Database Schema
 
 This project uses **SQLAlchemy ORM** with a relational database.
 Below is an overview of the core tables and their relationships.
 
 
 
-## ðŸ‘¤ users
+##  users
 
 Stores employee and system user information.
 
@@ -335,7 +335,7 @@ Stores employee and system user information.
 
 
 
-## ðŸ•’ attendance
+##  attendance
 
 Tracks daily attendance using RFID.
 
@@ -351,13 +351,13 @@ Tracks daily attendance using RFID.
 | location_name | String                          | Location           |
 | room_no       | String                          | Room number        |
 
-ðŸ”— **Relationship**:
+ **Relationship**:
 
 * One user â†’ many attendance records
 
 
 
-## âŒ removed_employees
+##  removed_employees
 
 Keeps history of removed employees.
 
@@ -374,7 +374,7 @@ Keeps history of removed employees.
 
 
 
-## ðŸš« unknown_rfids
+##  unknown_rfids
 
 Logs unauthorized or unknown RFID scans.
 
@@ -387,7 +387,7 @@ Logs unauthorized or unknown RFID scans.
 
 
 
-## ðŸ¢ rooms
+## rooms
 
 Stores physical room details.
 
@@ -401,7 +401,7 @@ Stores physical room details.
 
 
 
-## ðŸ¬ departments
+## departments
 
 Organization departments.
 
@@ -413,7 +413,7 @@ Organization departments.
 
 
 
-## ðŸ“ tasks
+## tasks
 
 Task management for employees.
 
@@ -430,7 +430,7 @@ Task management for employees.
 
 
 
-## ðŸ– leave_requests
+## leave_requests
 
 Employee leave management.
 
@@ -445,7 +445,7 @@ Employee leave management.
 
 
 
-## ðŸ‘¥ teams
+## teams
 
 Team and leadership structure.
 
@@ -457,14 +457,14 @@ Team and leadership structure.
 | leader_id  | Integer (FK â†’ users.id) | Team leader       |
 | created_at | DateTime                | Created timestamp |
 
-ðŸ”— **Relationships**:
+**Relationships**:
 
 * One team â†’ many users
 * One team â†’ one leader
 
 
 
-## ðŸ”— Entity Relationship Overview
+## Entity Relationship Overview
 
 ```
 User â”€â”€â”€< Attendance
@@ -476,7 +476,7 @@ Team â”€â”€â”€ Leader (User)
 
 
 
-## ðŸ›¡ Security Notes
+##  Security Notes
 
 * Passwords are stored using **bcrypt hashing**
 * Authentication is **session-based**
@@ -485,7 +485,7 @@ Team â”€â”€â”€ Leader (User)
 
 ---
 
-## ðŸŒ Hosting on Your IP / Network Access
+## Hosting on Your IP / Network Access
 
 1. Run the app bound to `0.0.0.0`:
 
@@ -509,24 +509,24 @@ ipconfig
 
 ---
 
-## âš™ï¸ Configuration & Environment Variables
+##  Configuration & Environment Variables
 
 Recommended environment variables (examples):
 
-* `DATABASE_URL` â€” SQLite path or other DB URL (default: `sqlite:///./attendance.db`)
-* `SECRET_KEY` â€” Session/signing secret
-* `ADMIN_PASSWORD` â€” Override default admin password
-* `APP_PROFILE` â€” `development` or `production` (production disables expensive safety checks by default)
-* `AUTO_SCHEMA_SYNC_ON_STARTUP` â€” set `false` for faster startup after schema is stable
-* `RUNTIME_SCHEMA_GUARD_ENABLED` â€” set `false` for lower per-request overhead in production
-* `AUTO_TABLE_HEALTH_REPAIR` â€” set `false` to skip startup table check/repair
+* `DATABASE_URL` SQLite path or other DB URL (default: `sqlite:///./attendance.db`)
+* `SECRET_KEY` Session/signing secret
+* `ADMIN_PASSWORD` Override default admin password
+* `APP_PROFILE`  `development` or `production` (production disables expensive safety checks by default)
+* `AUTO_SCHEMA_SYNC_ON_STARTUP` set `false` for faster startup after schema is stable
+* `RUNTIME_SCHEMA_GUARD_ENABLED`  set `false` for lower per-request overhead in production
+* `AUTO_TABLE_HEALTH_REPAIR`  set `false` to skip startup table check/repair
 * `DB_POOL_SIZE` / `DB_MAX_OVERFLOW` / `DB_POOL_TIMEOUT_SEC` â€” database concurrency tuning
-* `ENABLE_GZIP` / `GZIP_MIN_SIZE` â€” response compression tuning for dashboard/API payloads
-* `STATIC_ASSET_CACHE_SECONDS` â€” browser cache TTL for static assets (including 3D files under `/static`)
+* `ENABLE_GZIP` / `GZIP_MIN_SIZE`  response compression tuning for dashboard/API payloads
+* `STATIC_ASSET_CACHE_SECONDS`  browser cache TTL for static assets (including 3D files under `/static`)
 
 ---
 
-## ðŸ›¡ Security Notes
+##  Security Notes
 
 * **Change default Super Admin password** before deploying to production.
 * Use **HTTPS** in production.
@@ -535,7 +535,7 @@ Recommended environment variables (examples):
 
 ---
 
-## ðŸ›  Troubleshooting
+##   Troubleshooting
 
 * **405 Method Not Allowed**: Ensure your login form `action` is `/login` and the method is `POST`.
 * **Styles Not Loading**: If using Tailwind CDN, check internet connectivity. For offline use, build Tailwind locally.
@@ -545,7 +545,7 @@ Recommended environment variables (examples):
 
 ---
 
-## ðŸ¤ Contributing
+##  Contributing
 
 1. Fork the repository.
 2. Create a feature branch: `git checkout -b feature/my-feature`
@@ -558,7 +558,7 @@ Please follow repository code style and ensure all new code is tested.
 ---
 
 
-## ðŸ«‚ Support
+##  Support
 
 If you run into issues:
 
@@ -568,6 +568,6 @@ If you run into issues:
 
 ---
 
-**Made with â¤ï¸ â€” TeamSync**
+**Made with TeamSync**
 
 

@@ -31,6 +31,12 @@ def _ensure_admin(user: User) -> None:
         raise HTTPException(status_code=403, detail="Admin access required")
 
 
+def _invalidate_area_cache() -> None:
+    _AREA_DATA_CACHE["payload"] = None
+    _AREA_DATA_CACHE["generated_at"] = ""
+    _AREA_DATA_CACHE["expires_at"] = None
+
+
 def _sanitize_max_limit_people(value, fallback: int = 20) -> int:
     try:
         parsed = int(value)
@@ -196,6 +202,13 @@ def _build_area_data(db: Session):
                 per_key[day] = max(per_key.get(day, 0), daily_count)
 
     areas = db.query(Area).all()
+    models = db.query(Model3D).order_by(Model3D.created_at.desc()).all()
+    model_url_by_name: dict[str, str] = {}
+    for model in models:
+        key = str(model.name or "").strip().lower()
+        url = str(model.url or "").strip()
+        if key and url and key not in model_url_by_name:
+            model_url_by_name[key] = url
     area_data = []
     for area in areas:
         buildings = []
@@ -215,10 +228,13 @@ def _build_area_data(db: Session):
                 d = trend_start_day + timedelta(days=i)
                 trend_values.append(int(per_day.get(d, 0)))
                 trend_labels.append(d.strftime("%a"))
+            resolved_glb = str(getattr(b, "glb_path", "") or "").strip()
+            if not resolved_glb:
+                resolved_glb = model_url_by_name.get(str(b.name or "").strip().lower(), "")
             buildings.append({
                 "id": b.id,
                 "name": b.name,
-                "glb_path": b.glb_path,
+                "glb_path": resolved_glb,
                 "floor_label": floor_label,
                 "floors_occupied": occupied_floors,
                 "current_people": current_people,
@@ -227,6 +243,26 @@ def _build_area_data(db: Session):
                 "occupancy_trend": trend_values,
                 "occupancy_trend_labels": trend_labels,
             })
+        # Rendering fallback: if area exists but has no mapped buildings, load from models_3d.
+        if not buildings:
+            for model in models:
+                m_url = str(model.url or "").strip()
+                m_name = str(model.name or "").strip() or "Model"
+                if not m_url:
+                    continue
+                buildings.append({
+                    "id": 1_000_000 + int(model.id or 0),
+                    "name": m_name,
+                    "glb_path": m_url,
+                    "floor_label": "Unknown",
+                    "floors_occupied": [],
+                    "current_people": 0,
+                    "max_limit_people": 20,
+                    "utilization_percent": 0,
+                    "occupancy_trend": [0 for _ in range(recent_window_days)],
+                    "occupancy_trend_labels": [(trend_start_day + timedelta(days=i)).strftime("%a") for i in range(recent_window_days)],
+                })
+
         area_data.append({
             "id": area.id,
             "name": area.name,
@@ -853,6 +889,16 @@ async def import_bucket_models(
 
     selected_indices = [str(i).strip() for i in form.getlist("selected_index") if str(i).strip()]
     if not selected_indices:
+        # Fallback for stale JS / unchecked UI: import every posted model row.
+        inferred_indices: set[str] = set()
+        for key in form.keys():
+            key_text = str(key or "")
+            if key_text.startswith("model_url_"):
+                inferred = key_text.replace("model_url_", "").strip()
+                if inferred:
+                    inferred_indices.add(inferred)
+        selected_indices = sorted(inferred_indices, key=lambda x: int(x) if x.isdigit() else x)
+    if not selected_indices:
         return RedirectResponse("/admin/3d-block/settings?import_status=empty", status_code=303)
 
     created = 0
@@ -897,13 +943,22 @@ async def import_bucket_models(
                 max_limit_people=max_limit,
             )
         )
-        db.add(
-            Model3D(
-                name=building_name,
-                url=model_url,
-                size=model_size,
+        existing_model = (
+            db.query(Model3D.id)
+            .filter(
+                func.lower(Model3D.name) == building_name.lower(),
+                Model3D.url == model_url,
             )
+            .first()
         )
+        if not existing_model:
+            db.add(
+                Model3D(
+                    name=building_name,
+                    url=model_url,
+                    size=model_size,
+                )
+            )
         created += 1
 
     if created == 0:
@@ -911,6 +966,7 @@ async def import_bucket_models(
         return RedirectResponse("/admin/3d-block/settings?import_status=none_created", status_code=303)
 
     db.commit()
+    _invalidate_area_cache()
     message = quote_plus(f"Created {created} building mappings in {area.name}. Skipped {skipped}.")
     return RedirectResponse(f"/admin/3d-block/settings?import_status=ok&import_message={message}", status_code=303)
 
@@ -1006,6 +1062,7 @@ def add_area(
     area = Area(name=area_name)
     db.add(area)
     db.commit()
+    _invalidate_area_cache()
     return RedirectResponse("/admin/3d-block/settings", status_code=303)
 
 @router.post("/admin/3d-block/settings/add-building")
@@ -1039,6 +1096,7 @@ def add_building(
         db.add(building)
         db.add(model_entry)
         db.commit()
+        _invalidate_area_cache()
     except ValueError as exc:
         return RedirectResponse("/admin/3d-block/settings?upload_status=invalid_file", status_code=303)
     except RuntimeError as exc:
@@ -1084,6 +1142,7 @@ def update_area(
         return RedirectResponse("/admin/3d-block/settings?config_status=error", status_code=303)
     area.name = area_name.strip()
     db.commit()
+    _invalidate_area_cache()
     return RedirectResponse("/admin/3d-block/settings", status_code=303)
 
 
@@ -1105,6 +1164,7 @@ def delete_area(
         db.delete(b)
     db.delete(area)
     db.commit()
+    _invalidate_area_cache()
     return RedirectResponse("/admin/3d-block/settings", status_code=303)
 
 
@@ -1130,6 +1190,7 @@ def update_building(
     if linked_model:
         linked_model.name = building.name
     db.commit()
+    _invalidate_area_cache()
     return RedirectResponse("/admin/3d-block/settings", status_code=303)
 
 
@@ -1147,4 +1208,5 @@ def delete_building(
     db.query(Model3D).filter(Model3D.url == building.glb_path).delete()
     db.delete(building)
     db.commit()
+    _invalidate_area_cache()
     return RedirectResponse("/admin/3d-block/settings", status_code=303)

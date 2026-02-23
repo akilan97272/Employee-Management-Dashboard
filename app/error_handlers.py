@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.exception_handlers import http_exception_handler, request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .app_context import templates
@@ -101,6 +101,8 @@ def register_error_handlers(app: FastAPI) -> None:
     async def fastapi_http_exception_handler(request: Request, exc: HTTPException):
         if _is_html_page_request(request):
             status_code = exc.status_code
+            if status_code == 401 and request.url.path != "/401":
+                return RedirectResponse("/401", status_code=303)
             reason = _error_reason(status_code)
             detail = _detail_from_exc(exc, reason)
             return _render_error_page(request, status_code, detail, reason)
@@ -110,6 +112,8 @@ def register_error_handlers(app: FastAPI) -> None:
     async def starlette_http_exception_handler(request: Request, exc: StarletteHTTPException):
         if _is_html_page_request(request):
             status_code = exc.status_code
+            if status_code == 401 and request.url.path != "/401":
+                return RedirectResponse("/401", status_code=303)
             reason = _error_reason(status_code)
             detail = _detail_from_exc(exc, reason)
             return _render_error_page(request, status_code, detail, reason)

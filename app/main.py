@@ -694,9 +694,13 @@ async def prevent_back_after_logout(request: Request, call_next):
     session = request.session
     user_id = session.get("user_id")
     is_protected = request.url.path.startswith(PROTECTED_PREFIXES)
-    # If not authenticated and accessing protected routes via navigation/back/forward.
+    logout_marker = str(request.cookies.get("ts_logged_out") or "").strip()
+    # If not authenticated and accessing protected routes directly, send to login.
+    # Back/forward cache restores are handled client-side (session touch -> /401).
     if not user_id and is_protected and request.method == "GET":
-        return RedirectResponse("/401", status_code=303)
+        if logout_marker == "1":
+            return RedirectResponse("/401", status_code=303)
+        return RedirectResponse("/login", status_code=303)
     if user_id:
         now_ts = int(time.time())
         session_max_age = _runtime_int("SESSION_MAX_AGE", int(SECURITY_SETTINGS.get("SESSION_MAX_AGE", 600)))
@@ -704,7 +708,7 @@ async def prevent_back_after_logout(request: Request, call_next):
         session_id = str(session.get("session_id") or "").strip()
         if not session_id:
             session.clear()
-            return RedirectResponse("/401", status_code=303)
+            return RedirectResponse("/login", status_code=303)
 
         created = int(session.get("_created", now_ts))
         last_seen = int(session.get("_last_seen", created))
@@ -712,7 +716,7 @@ async def prevent_back_after_logout(request: Request, call_next):
         idle_expired = bool(session_idle_timeout) and (now_ts - last_seen) > session_idle_timeout
         if absolute_expired or idle_expired:
             session.clear()
-            return RedirectResponse("/401", status_code=303)
+            return RedirectResponse("/login", status_code=303)
         session.setdefault("_created", created)
         if is_protected:
             session["_last_seen"] = now_ts

@@ -24,7 +24,8 @@ def _redirect_for_role(role: str) -> str:
 def register_web_auth_routes(app):
     @app.get("/login", response_class=HTMLResponse)
     async def login_page(request: Request):
-        return templates.TemplateResponse("auth/login.html", {"request": request})
+        logged_out = str(request.query_params.get("logged_out") or "").strip().lower() in {"1", "true", "yes"}
+        return templates.TemplateResponse("auth/login.html", {"request": request, "logged_out": logged_out})
 
     @app.get("/401", response_class=HTMLResponse)
     async def unauthorized_page(request: Request):
@@ -66,13 +67,25 @@ def register_web_auth_routes(app):
         request.session["_created"] = int(time.time())
         request.session["_last_seen"] = int(time.time())
         audit("auth_login_success", user_id=user.id, details=f"employee_id={user.employee_id};role={user.role}")
-        return RedirectResponse(_redirect_for_role(user.role), status_code=303)
+        response = RedirectResponse(_redirect_for_role(user.role), status_code=303)
+        response.delete_cookie("ts_logged_out", path="/")
+        return response
 
     @app.get("/logout")
     async def logout(request: Request):
         existing_user_id = request.session.get("user_id")
-        if existing_user_id:
-            audit("auth_logout", user_id=existing_user_id, details="logout")
+        if not existing_user_id:
+            return RedirectResponse("/401", status_code=303)
+        audit("auth_logout", user_id=existing_user_id, details="logout")
         request.session.clear()
-        return RedirectResponse("/401", status_code=303)
+        response = RedirectResponse("/login?logged_out=1", status_code=303)
+        response.set_cookie(
+            "ts_logged_out",
+            "1",
+            max_age=300,
+            path="/",
+            httponly=False,
+            samesite="lax",
+        )
+        return response
 

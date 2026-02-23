@@ -224,6 +224,17 @@ body {
       });
     })();
   </script>
+  <script>
+    (function () {
+      const loggedOut = {{ (logged_out or false)|tojson }};
+      if (!loggedOut) return;
+      // After explicit logout, back-button to previous protected page must show 401.
+      history.pushState({ logout_guard: true }, '', window.location.href);
+      window.addEventListener('popstate', function () {
+        window.location.replace('/401');
+      });
+    })();
+  </script>
 </body>
 </html>
 
